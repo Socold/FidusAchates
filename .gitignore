@@ -1,0 +1,10 @@
+*.sqlite
+*.db
+/data/
+/traces/
+.env
+*.key
+
+.DS_Store
+.idea/
+.vscode/
