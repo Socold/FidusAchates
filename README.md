@@ -23,3 +23,4 @@ Projet personnel, à but d'étude. Rien de publiable pour l'instant.
 ## Notes
 
 - [Idée et périmètre](docs/notes/idee.md)
+- [Dynamique de frappe](docs/notes/frappe.md)
