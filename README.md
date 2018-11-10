@@ -25,3 +25,4 @@ Projet personnel, à but d'étude. Rien de publiable pour l'instant.
 - [Idée et périmètre](docs/notes/idee.md)
 - [Dynamique de frappe](docs/notes/frappe.md)
 - [Dynamique du pointeur](docs/notes/souris.md)
+- [Modèle de menace](docs/notes/menaces.md)
