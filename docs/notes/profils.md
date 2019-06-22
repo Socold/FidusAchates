@@ -1,0 +1,49 @@
+# Combien de personnes utilisent la machine ?
+
+Question distincte de la vérification d'identité, et beaucoup moins traitée
+dans la littérature : les travaux sur l'authentification supposent l'identité
+connue et se contentent de la vérifier.
+
+Ici, ni étiquettes, ni nombre de classes connu. C'est du partitionnement pur.
+
+## Approche envisagée
+
+Chaque fenêtre d'activité donne un vecteur de signaux. On regroupe ces vecteurs
+sans fixer le nombre de groupes à l'avance : mélange à processus de Dirichlet,
+ou mélange gaussien bayésien avec troncature large, recalculé périodiquement.
+
+## Ce qui compte plus que l'algorithme : la révision
+
+Le système doit pouvoir se corriger. Typiquement : croire à trois personnes au
+bout de trois jours, puis comprendre au bout de dix qu'il n'y en avait que
+deux. À intervalle régulier, tester chaque paire de groupes et fusionner quand
+ils deviennent indistinguables.
+
+Chaque révision doit être conservée avec sa justification chiffrée. Un système
+qui change d'avis sans dire pourquoi est inexploitable.
+
+## Le piège
+
+Une même personne produit plusieurs régimes de comportement : clavier du
+portable contre clavier externe, souris contre pavé tactile, matin contre fin
+de soirée, reposée contre fatiguée. Si on ne distingue pas le **régime** de la
+**personne**, on comptera systématiquement trop d'utilisateurs.
+
+Il faut donc un modèle à deux étages : identité, puis modes de cette identité.
+
+## Le critère qui devrait trancher
+
+Deux régimes qui **alternent au sein d'une même session** sont deux modes d'une
+même personne : on ne se relaie pas toutes les trois minutes.
+
+Deux régimes qui occupent des plages **disjointes** et ne coexistent jamais
+sont candidats à être deux personnes.
+
+L'entrelacement temporel est donc le discriminant principal, plus fiable que la
+distance entre gabarits.
+
+## Restitution
+
+Le nombre de personnes ne doit jamais être affiché comme un entier certain. Un
+mélange bayésien donne naturellement une distribution a posteriori : autant
+afficher « 2 profils, intervalle crédible 2 à 3 ».

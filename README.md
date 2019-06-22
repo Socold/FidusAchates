@@ -27,3 +27,4 @@ Projet personnel, à but d'étude. Rien de publiable pour l'instant.
 - [Dynamique du pointeur](docs/notes/souris.md)
 - [Modèle de menace](docs/notes/menaces.md)
 - [Catalogue de signaux](docs/notes/signaux.md)
+- [Combien de personnes utilisent la machine](docs/notes/profils.md)
