@@ -1,37 +1,61 @@
-# Combiner les signaux : première approche
+# Combiner les signaux : rapports de vraisemblance
 
-Chaque signal pris isolément est faible. L'état de l'art donne des taux
-d'erreur de l'ordre de 10 % pour une décision ponctuelle. Il faut donc croiser,
-et accumuler.
+Le score composite pondéré est abandonné. Trois défauts rédhibitoires :
+échelle dénuée de sens, poids arbitraires, seuil fixe sans rapport avec un
+taux d'erreur. Remplacé par ce qui suit.
 
-## Approche naïve
+## Principe
 
-Normaliser chaque signal en écarts à la référence, sommer avec des poids,
-comparer à un seuil :
+Pour chaque signal `i` observé à la valeur `x_i`, on mesure la **preuve**
+apportée :
 
-    score = somme( poids_i * |x_i - mediane_i| / MAD_i )
+    e_i = 10 * log10 [ P(x_i | legitime) / P(x_i | imposteur) ]
 
-Utiliser la médiane et l'écart absolu médian plutôt que moyenne et écart-type :
-les valeurs aberrantes sont la règle, pas l'exception.
+Positif : l'observation soutient l'utilisateur légitime. Négatif : elle le
+contredit. Nul : le signal n'apprend rien.
 
-## Ce qui ne va pas
+L'unité est le **déciban**. Elle est additive et elle se dit en français :
+« cette rafale a apporté 12 dB de preuve contre l'utilisateur légitime ».
 
-Trois problèmes, et je ne vois pas comment les résoudre dans ce cadre.
+## Ce que ça règle
 
-1. **L'échelle n'a pas de sens.** Un score de 4,7 ne veut rien dire. Impossible
-   d'en tirer une probabilité, donc impossible d'annoncer un niveau de
-   confiance honnête à l'utilisateur.
-2. **Les poids sont arbitraires.** Rien ne dit comment les fixer, sinon à la
-   main et au jugé.
-3. **Le seuil est fixe.** Donc soit on décide vite et on se trompe, soit on
-   attend et on ne détecte rien. Aucun moyen de régler explicitement le
-   compromis entre fausse alarme et non-détection.
+1. **L'échelle a un sens.** On peut afficher une probabilité honnête :
 
-## Piste
+       P(imposteur) = 1 / (1 + 10^(E/10))
 
-Passer à des rapports de vraisemblance. Pour chaque signal, comparer la
-probabilité de l'observation sous l'hypothèse « c'est bien lui » à celle sous
-l'hypothèse « c'est quelqu'un d'autre ». Le logarithme de ce rapport s'additionne
-naturellement, et il a une interprétation.
+2. **Les poids ne sont plus arbitraires.** La fiabilité d'un signal se déduit
+   de son taux d'erreur mesuré. Reste une pondération par la qualité de
+   l'observation courante : un signal calculé sur trois observations ne doit
+   pas peser autant que sur trois cents.
 
-À creuser sérieusement, y compris la question de l'accumulation dans le temps.
+3. **Le recoupement est une addition.** Des signaux de natures très
+   différentes deviennent comparables parce qu'ils sont tous exprimés en
+   preuve.
+
+## Le bénéfice auquel je ne m'attendais pas
+
+Comme la fusion est une **somme**, la contribution de chaque signal à la
+décision est exacte. Pas approchée, pas estimée par un modèle de substitution :
+exacte. L'explication qu'on affichera, c'est la formule elle-même lue terme à
+terme.
+
+Autrement dit, l'explicabilité n'est pas une couche à rajouter plus tard, elle
+est une propriété du choix de moteur. Cela suffit à trancher en sa faveur,
+même si un modèle monolithique devait être un peu plus performant.
+
+## Ce que ça coûte
+
+- **Il faut calibrer.** Les scores bruts des experts ne sont pas des
+  probabilités. Sans calibration, l'addition est fausse et l'explication ment.
+  C'est le prix à payer, et il n'est pas négociable.
+- **L'indépendance conditionnelle est fausse.** Vitesse de frappe et latence
+  des digraphes sont corrélées. Deux correctifs : regrouper les signaux
+  corrélés dans un même expert multivarié, et appliquer un facteur
+  d'amortissement sur la somme, mesuré empiriquement et non deviné.
+
+## Densité imposteur
+
+Il faut deux densités par signal. Celle du légitime s'estime à l'enrôlement.
+Celle de l'imposteur, par ordre de préférence : les autres profils de la
+machine, une population de référence issue des corpus publics, ou à défaut un
+modèle large non informatif.
