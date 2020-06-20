@@ -29,3 +29,4 @@ Projet personnel, à but d'étude. Rien de publiable pour l'instant.
 - [Catalogue de signaux](docs/notes/signaux.md)
 - [Combien de personnes utilisent la machine](docs/notes/profils.md)
 - [Fusion des signaux](docs/notes/decision.md)
+- [Décision séquentielle](docs/notes/decision-sequentielle.md)
