@@ -30,3 +30,4 @@ Projet personnel, à but d'étude. Rien de publiable pour l'instant.
 - [Combien de personnes utilisent la machine](docs/notes/profils.md)
 - [Fusion des signaux](docs/notes/decision.md)
 - [Décision séquentielle](docs/notes/decision-sequentielle.md)
+- [Vie privée et cadre juridique](docs/notes/privacy.md)
