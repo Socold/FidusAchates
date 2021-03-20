@@ -31,3 +31,4 @@ Projet personnel, à but d'étude. Rien de publiable pour l'instant.
 - [Fusion des signaux](docs/notes/decision.md)
 - [Décision séquentielle](docs/notes/decision-sequentielle.md)
 - [Vie privée et cadre juridique](docs/notes/privacy.md)
+- [Contraintes Wayland](docs/notes/wayland.md)
