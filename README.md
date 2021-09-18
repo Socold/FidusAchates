@@ -1,26 +1,33 @@
 # FidusAchates
 
-Notes de travail sur une question simple : **l'appareil peut-il savoir que la
-personne qui l'utilise n'est plus celle qui s'est connectée ?**
+**Authentification continue implicite par biométrie comportementale, locale et
+explicable.**
 
-L'authentification actuelle est ponctuelle. On prouve son identité une fois, à
-l'ouverture de session, puis plus jamais. Tout ce qui se passe ensuite est
-attribué à cette identité, qu'elle soit encore présente ou non.
+*Fidus Achates* : le compagnon fidèle d'Énée. Celui qui marche à côté, qui
+reconnaît, et qui prévient.
 
-L'idée est d'apprendre la manière dont une personne se sert de la machine
-(rythme de frappe, gestuelle du pointeur, habitudes), puis de vérifier en
-permanence que c'est toujours elle.
+L'authentification est un événement, pas un état. On prouve son identité une
+fois, à l'ouverture de session, et plus jamais ensuite. FidusAchates apprend la
+manière dont j'utilise la machine, puis vérifie en permanence deux choses
+distinctes :
 
-Contraintes que je me donne dès le départ :
+1. est-ce toujours la même personne ?
+2. est-ce encore un humain ?
 
-- ne jamais enregistrer ce qui est tapé ;
-- tout traiter localement, aucune donnée ne sort de la machine ;
-- rester assez léger pour tourner en permanence sans qu'on le remarque ;
-- pouvoir expliquer pourquoi le système conclut ce qu'il conclut.
+Le tout sans jamais enregistrer ce qui est tapé, sans aucun accès réseau, et en
+expliquant chaque conclusion.
 
-Projet personnel, à but d'étude. Rien de publiable pour l'instant.
+## Ce que l'outil ne fait pas
 
-## Notes
+Aucun contenu saisi, aucun titre de fenêtre, aucune URL, aucun presse-papiers.
+Aucune connexion sortante. Aucune mesure de productivité ou de présence. Aucune
+action sur la machine : il observe et signale, il ne verrouille rien.
+
+Un gabarit comportemental est une donnée biométrique au sens du RGPD. Ces
+données ne sont donc pas anonymes, elles sont minimisées et confinées à la
+machine. Ne jamais observer quelqu'un d'autre sans son accord explicite.
+
+## Notes de travail
 
 - [Idée et périmètre](docs/notes/idee.md)
 - [Dynamique de frappe](docs/notes/frappe.md)
@@ -32,3 +39,4 @@ Projet personnel, à but d'étude. Rien de publiable pour l'instant.
 - [Décision séquentielle](docs/notes/decision-sequentielle.md)
 - [Vie privée et cadre juridique](docs/notes/privacy.md)
 - [Contraintes Wayland](docs/notes/wayland.md)
+- [Architecture](docs/notes/architecture.md)
