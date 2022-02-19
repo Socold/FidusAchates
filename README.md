@@ -40,3 +40,4 @@ machine. Ne jamais observer quelqu'un d'autre sans son accord explicite.
 - [Vie privée et cadre juridique](docs/notes/privacy.md)
 - [Contraintes Wayland](docs/notes/wayland.md)
 - [Architecture](docs/notes/architecture.md)
+- [Détecter ce qui n'est pas humain](docs/notes/automation.md)

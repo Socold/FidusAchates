@@ -44,6 +44,12 @@ Premier inventaire. Colonnes : coût de calcul, pouvoir discriminant attendu
 | B13 | Molette : amplitude, cadence, inversions | F | Élevé | 3 |
 | B16 | Dérive du curseur au repos (tremblement) | M | Très élevé | 4 |
 
+## Détection d'entrée non humaine
+
+Famille E, traitée à part dans [une note dédiée](automation.md). Ces signaux
+ne demandent aucun enrôlement : ils valent dès la première seconde, sur une
+machine vierge, et ne stockent aucun gabarit personnel.
+
 ## Règles
 
 1. Aucun signal ne doit dépendre du contenu.
