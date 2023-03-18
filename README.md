@@ -42,7 +42,4 @@ machine. Ne jamais observer quelqu'un d'autre sans son accord explicite.
 - [Architecture](docs/notes/architecture.md)
 - [Détecter ce qui n'est pas humain](docs/notes/automation.md)
 - [Digraphes hachés](docs/notes/digraphes.md)
-
-## Évaluation
-
-- [Protocole d'évaluation](research/PROTOCOLE-EVALUATION.md)
+- [Étalonnage](docs/notes/etalonnage.md)
