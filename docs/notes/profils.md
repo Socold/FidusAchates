@@ -47,3 +47,34 @@ distance entre gabarits.
 Le nombre de personnes ne doit jamais être affiché comme un entier certain. Un
 mélange bayésien donne naturellement une distribution a posteriori : autant
 afficher « 2 profils, intervalle crédible 2 à 3 ».
+
+## Modèle hiérarchique
+
+Après deux ans à tourner autour, je formalise. Deux étages :
+
+    Identité (la personne)
+      └── Mode (régime contextuel : clavier externe, pavé tactile, session tardive)
+            └── Gabarit du mode
+
+Un régime nouveau mais **entrelacé** avec un régime connu, c'est-à-dire
+alternant avec lui au sein d'une même session, est un mode de la même
+identité. Un régime qui occupe des plages disjointes et ne coexiste jamais
+avec l'autre est candidat à être une identité distincte.
+
+L'entrelacement temporel est donc le discriminant principal, et il est plus
+fiable que la seule distance entre gabarits : deux modes d'une même personne
+peuvent être très éloignés l'un de l'autre.
+
+## Révision, en pratique
+
+À intervalle régulier, tester chaque paire de profils.
+
+Fusionner si la distance entre gabarits passe sous un seuil, **et** que le
+rapport de vraisemblance favorise le modèle à une seule composante, **et** que
+les occurrences sont entrelacées. Les trois conditions, pas une seule.
+
+Scinder si un profil devient nettement bimodal sur plusieurs signaux
+indépendants **et** que les deux sous-ensembles sont temporellement disjoints.
+
+Chaque révision laisse une trace permanente avec sa raison chiffrée. Un
+système qui change d'avis sans dire pourquoi est inexploitable.
