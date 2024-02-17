@@ -17,29 +17,30 @@ distinctes :
 Le tout sans jamais enregistrer ce qui est tapé, sans aucun accès réseau, et en
 expliquant chaque conclusion.
 
-## Ce que l'outil ne fait pas
+## À lire avant toute installation
 
-Aucun contenu saisi, aucun titre de fenêtre, aucune URL, aucun presse-papiers.
-Aucune connexion sortante. Aucune mesure de productivité ou de présence. Aucune
-action sur la machine : il observe et signale, il ne verrouille rien.
+Cet outil lit `/dev/input`. Il a donc techniquement les capacités d'un
+enregistreur de frappe. Il est conçu pour ne jamais s'en servir ainsi, mais le
+pouvoir existe.
+
+Sous Wayland, il n'existe aucun moyen fiable de détecter qu'un champ de saisie
+est un champ de mot de passe. La protection repose sur une liste noire
+d'applications, une suspension manuelle immédiate, et le fait qu'aucun code de
+touche n'est conservé en clair.
 
 Un gabarit comportemental est une donnée biométrique au sens du RGPD. Ces
-données ne sont donc pas anonymes, elles sont minimisées et confinées à la
-machine. Ne jamais observer quelqu'un d'autre sans son accord explicite.
+données ne sont pas anonymes, elles sont minimisées et confinées à la machine.
+Ne jamais observer quelqu'un d'autre sans son accord explicite préalable.
 
-## Notes de travail
+## Documentation
 
-- [Idée et périmètre](docs/notes/idee.md)
-- [Dynamique de frappe](docs/notes/frappe.md)
-- [Dynamique du pointeur](docs/notes/souris.md)
-- [Modèle de menace](docs/notes/menaces.md)
-- [Catalogue de signaux](docs/notes/signaux.md)
-- [Combien de personnes utilisent la machine](docs/notes/profils.md)
-- [Fusion des signaux](docs/notes/decision.md)
-- [Décision séquentielle](docs/notes/decision-sequentielle.md)
-- [Vie privée et cadre juridique](docs/notes/privacy.md)
-- [Contraintes Wayland](docs/notes/wayland.md)
-- [Architecture](docs/notes/architecture.md)
-- [Détecter ce qui n'est pas humain](docs/notes/automation.md)
-- [Digraphes hachés](docs/notes/digraphes.md)
-- [Étalonnage](docs/notes/etalonnage.md)
+| Document | Contenu |
+|---|---|
+| [00 - Analyse](docs/00-ANALYSE.md) | Points de tension, état de l'art, modèle de menace |
+| [02 - Architecture](docs/02-ARCHITECTURE.md) | Composants, flux, stockage, portabilité |
+| [03 - Moteur de décision](docs/03-MODELE-DECISION.md) | Fusion, décision séquentielle, étalonnage, comptage |
+| [04 - Catalogue des signaux](docs/04-CATALOGUE-SIGNAUX.md) | Signaux par famille |
+| [05 - Vie privée](docs/05-PRIVACY.md) | Registre de traitement, cadre juridique, éthique |
+| [Protocole d'évaluation](research/PROTOCOLE-EVALUATION.md) | Métriques et règles de mesure |
+
+Reste à écrire : le cahier des charges et la feuille de route.
