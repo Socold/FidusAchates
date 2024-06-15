@@ -37,10 +37,11 @@ Ne jamais observer quelqu'un d'autre sans son accord explicite préalable.
 | Document | Contenu |
 |---|---|
 | [00 - Analyse](docs/00-ANALYSE.md) | Points de tension, état de l'art, modèle de menace |
+| [01 - Cahier des charges](docs/01-CAHIER-DES-CHARGES.md) | Exigences numérotées et vérifiables, critères d'acceptation |
 | [02 - Architecture](docs/02-ARCHITECTURE.md) | Composants, flux, stockage, portabilité |
 | [03 - Moteur de décision](docs/03-MODELE-DECISION.md) | Fusion, décision séquentielle, étalonnage, comptage |
 | [04 - Catalogue des signaux](docs/04-CATALOGUE-SIGNAUX.md) | Signaux par famille |
 | [05 - Vie privée](docs/05-PRIVACY.md) | Registre de traitement, cadre juridique, éthique |
 | [Protocole d'évaluation](research/PROTOCOLE-EVALUATION.md) | Métriques et règles de mesure |
 
-Reste à écrire : le cahier des charges et la feuille de route.
+Reste à écrire : la feuille de route par lots.

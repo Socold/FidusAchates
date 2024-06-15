@@ -1,6 +1,6 @@
 # 02 - Architecture technique
 
-> Découle de [00-ANALYSE.md](00-ANALYSE.md) et de le cahier des charges (a ecrire).
+> Découle de [00-ANALYSE.md](00-ANALYSE.md) et de [01-CAHIER-DES-CHARGES.md](01-CAHIER-DES-CHARGES.md).
 
 ---
 

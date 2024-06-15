@@ -1,6 +1,6 @@
 # 03 - Moteur de décision, confiance et étalonnage
 
-> Répond aux exigences FR-20 à FR-44 du cahier des charges (a ecrire).
+> Répond aux exigences FR-20 à FR-44 du [cahier des charges](01-CAHIER-DES-CHARGES.md).
 
 ---
 
