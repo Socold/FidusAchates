@@ -159,3 +159,14 @@ Sur Windows, la détection de provenance synthétique est facilitée par l'indic
 - `PrivateNetwork=yes` sur le processus de capture rend NFR-9 structurel : **il ne peut pas exfiltrer, même compromis**.
 - Données dans `~/.local/share/fidusachates/`, configuration dans `~/.config/fidusachates/`.
 - Installation de l'extension GNOME Shell par script, activation explicite par l'utilisateur.
+
+
+## 7. Décisions d'architecture
+
+| ADR | Sujet |
+|---|---|
+| [0001](adr/0001-langage-agent-rust.md) | Rust pour l'agent, Python pour le laboratoire hors ligne |
+| [0002](adr/0002-licence-non-commerciale.md) | PolyForm Noncommercial plutôt qu'une licence OSI |
+| [0003](adr/0003-evdev-et-extension-gnome.md) | evdev plus extension GNOME Shell sous Wayland |
+| [0004](adr/0004-fusion-llr-sprt.md) | Fusion par LLR et décision séquentielle de Wald |
+| [0005](adr/0005-digraphes-haches.md) | Digraphes hachés et salés comme compromis par défaut |

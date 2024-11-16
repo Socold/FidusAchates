@@ -43,5 +43,6 @@ Ne jamais observer quelqu'un d'autre sans son accord explicite préalable.
 | [04 - Catalogue des signaux](docs/04-CATALOGUE-SIGNAUX.md) | Signaux par famille |
 | [05 - Vie privée](docs/05-PRIVACY.md) | Registre de traitement, cadre juridique, éthique |
 | [Protocole d'évaluation](research/PROTOCOLE-EVALUATION.md) | Métriques et règles de mesure |
+| [ADR](docs/adr/) | Décisions d'architecture et alternatives écartées |
 
 Reste à écrire : la feuille de route par lots.
