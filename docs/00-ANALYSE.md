@@ -1,6 +1,6 @@
 # 00 - Analyse préalable et état de l'art
 
-> Notes d'analyse. Elles précèdent et justifient [01-CAHIER-DES-CHARGES.md](01-CAHIER-DES-CHARGES.md).
+> Notes d'analyse. Elles précèdent et justifient le [cahier des charges](01-CAHIER-DES-CHARGES.md).
 
 ---
 
@@ -101,7 +101,7 @@ Sur iOS et sur Android non rooté, la capture globale des interactions est inter
 
 ### 3.1 Dynamique de frappe (keystroke dynamics)
 
-Modalité la plus ancienne et la mieux documentée. La synthèse de référence récente est *Keystroke Dynamics: Concepts, Techniques, and Applications* (prépublication arXiv, 2023).
+Modalité la plus ancienne et la mieux documentée. La synthèse de référence récente est *Keystroke Dynamics: Concepts, Techniques, and Applications* (ACM Computing Surveys, 2025).
 
 - **Texte imposé** : le banc d'essai de référence est le jeu de données CMU de Killourhy et Maxion (51 sujets, 8 sessions espacées d'au moins un jour, mot de passe `.tie5Roanl`, 400 vecteurs par sujet). Le meilleur détecteur simple y est la **distance de Manhattan mise à l'échelle**, avec un EER d'environ **0,096**. Des métriques plus récentes descendent à 0,087. Cet ordre de grandeur (10 %) est le repère à garder en tête pour une décision *ponctuelle*.
 - **Texte libre** (le cas qui nous concerne) : les travaux de Gunetti et Picardi (mesures R et A sur les n-graphes partagés) restent la base conceptuelle. Les jeux de données pertinents sont Clarkson II, Buffalo et le corpus Aalto (136 millions de frappes).
@@ -111,7 +111,7 @@ Modalité la plus ancienne et la mieux documentée. La synthèse de référence 
 
 - Travaux fondateurs : Ahmed et Traore (2007), sur les courbes de vitesse par direction.
 - Jeux de données : **Balabit Mouse Dynamics Challenge** (2016, 10 utilisateurs en tâches d'administration, premier corpus public), **SapiMouse**, **DFL**.
-- Résultats publiés : de l'ordre de **13 % à 7,5 % d'EER** sur Balabit selon les approches. Les réseaux convolutifs appliqués aux trajectoires descendent vers 8 %.
+- Résultats récents : EER d'environ **6 %** sur Balabit, contre 13 % à 7,5 % pour les travaux antérieurs. Des approches plus simples (CNN 2D sur trajectoires) obtiennent environ 7,9 % d'EER.
 - **Enseignement clé** : la souris est au moins aussi discriminante que le clavier, et elle est disponible dans des contextes où l'on ne tape pas. Elle est indispensable à la couverture continue.
 - **Signal sous-exploité et peu coûteux** : la **loi de Fitts**. Le temps de pointage d'un utilisateur suit `T = a + b·log2(D/W + 1)`. Le couple `(a, b)`, estimé par régression sur les mouvements de pointage, est un invariant individuel remarquablement stable et très bon marché à calculer. Il est retenu comme signal de premier plan.
 
@@ -211,9 +211,10 @@ Elles sont explicites parce qu'elles conditionnent tout le reste. Si l'une est f
 
 ## 6. Sources
 
-- [Keystroke Dynamics: Concepts, Techniques, and Applications (arXiv 2303.04605)](https://arxiv.org/html/2303.04605v2)
+- [Keystroke Dynamics: Concepts, Techniques, and Applications (ACM Computing Surveys)](https://dl.acm.org/doi/full/10.1145/3733103) et sa [version arXiv](https://arxiv.org/html/2303.04605v2)
 - [Robust Keystroke Biometric Anomaly Detection (arXiv)](https://arxiv.org/pdf/1606.09075)
 - [Distinguishability of keystroke dynamic template (PLOS One)](https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0261291)
+- [Optimizing Mouse Dynamics for User Authentication by Machine Learning (arXiv 2504.21415)](https://arxiv.org/html/2504.21415v1)
 - [From Clicks to Security: Investigating Continuous Authentication via Mouse Dynamics (arXiv 2403.03828)](https://arxiv.org/pdf/2403.03828)
 - [Machine and Deep Learning Applications to Mouse Dynamics (arXiv 2205.13646)](https://arxiv.org/pdf/2205.13646)
 - [Forensic Log Based Detection For Keystroke Injection BadUSB Attacks (arXiv 2302.04541)](https://arxiv.org/pdf/2302.04541)
