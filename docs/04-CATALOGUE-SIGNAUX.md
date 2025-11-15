@@ -121,7 +121,10 @@ Rappel : catégories et identifiants opaques uniquement, jamais de titre ni de n
 | E12 | Rejeu de presse-papiers | Séquence longue et parfaitement cadencée, typique d'un collage émis en frappes par un KVM sur IP | F | Très élevé | 3 | 5 |
 | E13 | Ordre impossible | Relâchement sans appui, modificateur incohérent, ordre d'événements physiquement irréalisable | F | Très élevé | 4 | 5 |
 | E14 | Incohérence inter-modale | Frappe humaine plausible mais souris synthétique, ou inversement | M | Très élevé | 4 | 5 |
+| E15 | Cadence d'enchaînement applicatif | Bascules entre applications plus rapides que le temps de réaction humain | F | Élevé | 3 | 5 |
+| E16 | Absence de temps de lecture | Action sur un contenu nouvellement affiché sans délai de lecture plausible | M | Élevé | 4 | 5 |
 | E17 | Régularité du pas de défilement | Défilement par incréments rigoureusement constants | F | Élevé | 3 | 5 |
+| E18 | Signature de cadence d'émission | Cadence, gigue, resserrement, percentiles robustes, largeur de queue sur les intervalles entre appuis, d'après la littérature sur la détection d'injection HID | M | Très élevé | 3 | 5 |
 
 ## Famille F - Méta-signaux
 

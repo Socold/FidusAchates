@@ -182,17 +182,18 @@ Ce que l'outil cherche à détecter, par ordre de difficulté croissante :
 | M1 | Poste laissé déverrouillé, quelqu'un s'en sert | Toutes modalités divergent simultanément | Faible |
 | M2 | Injection HID (BadUSB, Rubber Ducky, KVM sur IP) | Régularité anormale, débit, provenance du périphérique | Faible |
 | M3 | Automatisation locale (`ydotool`, `xdotool`, robot de test) | Provenance `uinput`, quantification des horodatages, trajectoires idéales | Faible |
-| M4 | Prise de contrôle à distance (RDP, VNC, RAT) | Rafales alignées sur la latence réseau, gigue réseau, absence d'événements intermédiaires de la souris | Moyenne |
-| M5 | Imposteur humain non informé | Divergence multimodale progressive | Moyenne |
-| M6 | Imposteur humain ayant observé la victime | Divergence sur les signaux involontaires (Fitts, micro-corrections, digraphes rares) | Élevée |
-| M7 | Contrefaçon synthétique entraînée sur les statistiques du gabarit | Cohérence inter-modale, signaux de second ordre | Très élevée |
+| M4 | Agent IA pilotant le poste | Comme M3, plus absence de micro-corrections et séquences applicatives atypiques | Faible à moyenne |
+| M5 | Prise de contrôle à distance (RDP, VNC, RAT) | Rafales alignées sur la latence réseau, gigue réseau, absence d'événements intermédiaires de la souris | Moyenne |
+| M6 | Imposteur humain non informé | Divergence multimodale progressive | Moyenne |
+| M7 | Imposteur humain ayant observé la victime | Divergence sur les signaux involontaires (Fitts, micro-corrections, digraphes rares) | Élevée |
+| M8 | Contrefaçon synthétique entraînée sur les statistiques du gabarit | Cohérence inter-modale, signaux de second ordre | Très élevée |
 
-Menaces **contre l'outil lui-même** :
+Menaces **contre l'outil lui-même**, à traiter dans [01-CAHIER-DES-CHARGES.md](01-CAHIER-DES-CHARGES.md) section SR :
 
-- M8 : vol de la base de gabarits (à chiffrer au repos, clé dans le trousseau système).
-- M9 : empoisonnement du gabarit par adaptation lente d'un imposteur (le *drift hijacking*).
-- M10 : arrêt silencieux de l'agent par l'attaquant (détecter et journaliser le trou de service).
-- M11 : accès à la console d'administration locale par l'imposteur lui-même.
+- M9 : vol de la base de gabarits (à chiffrer au repos, clé dans le trousseau système).
+- M10 : empoisonnement du gabarit par adaptation lente d'un imposteur (le *drift hijacking*).
+- M11 : arrêt silencieux de l'agent par l'attaquant (détecter et journaliser le trou de service).
+- M12 : accès à la console d'administration locale par l'imposteur lui-même.
 
 ---
 
