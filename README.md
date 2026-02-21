@@ -45,3 +45,17 @@ Ne jamais observer quelqu'un d'autre sans son accord explicite préalable.
 | [Protocole d'évaluation](research/PROTOCOLE-EVALUATION.md) | Métriques et règles de mesure |
 | [06 - Feuille de route](docs/06-ROADMAP.md) | Lots et critères d'acceptation |
 | [ADR](docs/adr/) | Décisions d'architecture et alternatives écartées |
+
+## Licence
+
+**PolyForm Noncommercial 1.0.0.** Lecture, modification, redistribution et usage
+autorisés à des fins de **recherche, d'étude et d'enseignement**. **Usage
+commercial interdit.** Je réserve tous les droits commerciaux et la possibilité
+de relicencier plus tard.
+
+Le terme « open source » au sens de l'Open Source Initiative ne s'applique pas :
+une restriction de champ d'usage est incompatible avec le critère 6 de la
+définition. Le projet se décrit donc comme **source-available**, et comme projet
+de recherche ouvert. Voir [ADR-0002](docs/adr/0002-licence-non-commerciale.md).
+
+Contributions : voir [CONTRIBUTING.md](CONTRIBUTING.md).

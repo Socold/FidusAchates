@@ -219,3 +219,9 @@ Explicitement exclu, et à refuser en revue :
 |---|---|---|
 | 0 | Dépôt, licence, analyse, cahier des charges, protocole d'évaluation | ce document |
 | 1 à 9 | Feuille de route par lot, à écrire | |
+
+## 11. Licence et statut juridique
+
+Le projet est publié en **source-available** sous **PolyForm Noncommercial 1.0.0** : lecture, modification, redistribution et usage à des fins de recherche et d'enseignement autorisés ; **usage commercial interdit**. Les droits commerciaux sont intégralement réservés à l'auteur, qui pourra ultérieurement publier une version sous une autre licence.
+
+Le terme « open source » au sens de l'Open Source Initiative ne s'applique pas, puisqu'une restriction de champ d'usage est incompatible avec le critère 6 de la définition OSI. Le dépôt emploie donc « source-available » ou « recherche ouverte ». Voir [ADR-0002](adr/0002-licence-non-commerciale.md).
