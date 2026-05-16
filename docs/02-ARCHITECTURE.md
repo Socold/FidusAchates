@@ -161,7 +161,33 @@ Sur Windows, la détection de provenance synthétique est facilitée par l'indic
 - Installation de l'extension GNOME Shell par script, activation explicite par l'utilisateur.
 
 
-## 7. Décisions d'architecture
+## 7. Modèle d'exécution et empreinte
+
+L'outil est destiné à tourner en permanence en arrière-plan. Son coût réel ne se mesure donc pas en charge, mais **au repos**, état dans lequel il passe la quasi-totalité de son temps.
+
+| Composant | Au repos | En activité |
+|---|---|---|
+| `fidus-agent` | Bloqué sur `epoll`, 0 % de processeur, aucun réveil | Moins de 1 % en moyenne (NFR-1) |
+| `fidus-shell-ext` | Réagit à un signal de changement de focus déjà émis par le Shell | Négligeable |
+| `fidus-console` | **N'existe pas** : démarrée par activation de socket à la première consultation | Moins de 2 % (NFR-5) |
+| `fidus-lab` | N'existe pas : exécuté à la demande, hors ligne | |
+
+Conséquences de conception, à ne pas perdre de vue au fil des lots :
+
+- **Aucune boucle de sondage, nulle part.** Un minuteur, même à faible fréquence, empêche le processeur de descendre dans ses états de veille profonds et se paie en autonomie sur un portable (INS-1, INS-4).
+- **La maintenance est déclenchée par seuil d'événements**, jamais par horloge, avec un plafond d'une exécution toutes les 5 minutes (INS-3).
+- **L'agent lit en parallèle du serveur d'affichage, il ne s'interpose pas.** Il ne peut donc ni bloquer ni ralentir la saisie, même en cas de plantage. Cette propriété est structurelle et doit être préservée par toute évolution.
+- **L'extension GNOME Shell est facultative au démarrage** : sans elle, l'agent tourne en mode dégradé (perte de la famille de signaux C et de l'overlay, remplacé par une notification de bureau). L'installation ne doit jamais échouer faute d'extension (INS-25).
+
+Autorisations, en totalité :
+
+| Autorisation | Quand | Révocation |
+|---|---|---|
+| Appartenance au groupe `input` | Une fois, à l'installation | `sudo gpasswd -d $USER input` |
+
+Aucune autre, à aucun moment : pas de root à l'exécution, pas de setuid, pas de capability, pas de module noyau, pas de service système, pas d'accès réseau, pas d'autorisation d'accessibilité. Voir [ADR-0006](adr/0006-moindre-privilege-installation.md).
+
+## 8. Décisions d'architecture
 
 | ADR | Sujet |
 |---|---|
@@ -170,3 +196,4 @@ Sur Windows, la détection de provenance synthétique est facilitée par l'indic
 | [0003](adr/0003-evdev-et-extension-gnome.md) | evdev plus extension GNOME Shell sous Wayland |
 | [0004](adr/0004-fusion-llr-sprt.md) | Fusion par LLR et décision séquentielle de Wald |
 | [0005](adr/0005-digraphes-haches.md) | Digraphes hachés et salés comme compromis par défaut |
+| [0006](adr/0006-moindre-privilege-installation.md) | Moindre privilège, installation sans root, exécution événementielle |

@@ -153,7 +153,64 @@ FidusAchates est un agent local d'**authentification continue implicite** par bi
 | **NFR-9** | Aucune dépendance réseau dans l'agent | Zéro socket sortant | Test d'intégration bloquant en CI, et audit des dépendances |
 | **NFR-10** | Le projet se construit et s'exécute hors ligne | Construction réussie sans accès réseau après récupération des dépendances | Test en conteneur isolé |
 
-## 6. Exigences de vie privée et de conformité (PR)
+## 6. Installation, exécution et autorisations (INS)
+
+Trois exigences du besoin sont regroupées ici parce qu'elles se contraignent mutuellement : l'outil doit être **léger**, tourner **en arrière-plan** sans qu'on ait à y penser, et **ne pas réclamer de privilèges**.
+
+### 6.1 Modèle d'exécution
+
+L'agent est **piloté par les événements**, jamais par sondage : il reste bloqué sur `epoll` en attente des descripteurs `evdev`. En l'absence de frappe et de mouvement, il ne s'exécute pas du tout. C'est la propriété qui rend crédible un fonctionnement permanent en arrière-plan.
+
+| ID | Exigence | Seuil | Vérification |
+|---|---|---|---|
+| **INS-1** | Aucune boucle de sondage : le processus est bloqué en attente d'événements | 0 réveil du processeur par seconde au repos | `powertop`, ou `/proc/<pid>/schedstat` sur 5 min sans entrée |
+| **INS-2** | Consommation processeur au repos, après 60 s sans aucune entrée | 0,0 % mesurable | Mesure continue |
+| **INS-3** | Les tâches de maintenance (agrégation, purge, recalcul des profils) sont déclenchées par seuil d'événements et non par horloge, avec un plafond d'une exécution toutes les 5 minutes | | Instrumentation |
+| **INS-4** | Aucune tâche de maintenance quand la machine est sur batterie faible, en veille ou en économie d'énergie | | Test sur portable |
+| **INS-5** | La console ne consomme rien tant qu'elle n'est pas consultée : démarrage par activation de socket | 0 processus résident | `systemctl --user status` |
+| **INS-6** | L'agent ne retarde ni n'empêche jamais la fermeture de session ou l'extinction | Arrêt propre en moins de 2 s | Test |
+| **INS-7** | En cas de saturation du système, l'agent réduit sa fréquence d'échantillonnage. Il ne retarde jamais un événement d'entrée vers son application destinataire | Aucune latence perceptible à la frappe | Test de charge |
+
+**Propriété d'architecture à préserver absolument** : l'agent **lit** `/dev/input` en parallèle du serveur d'affichage, il ne s'interpose pas dans la chaîne d'entrée. Il ne peut donc, par construction, ni bloquer ni ralentir la saisie, **même en cas de plantage**. Toute évolution qui romprait cette propriété est à refuser.
+
+### 6.2 Autorisations demandées
+
+Principe retenu : **une seule opération privilégiée, une seule fois, à l'installation, réversible en une commande.**
+
+| Autorisation | Quand | Pourquoi | Révocation |
+|---|---|---|---|
+| Appartenance au groupe `input` | Installation, une fois | Lire `/dev/input/event*` sans root | `sudo gpasswd -d $USER input` |
+
+Rien d'autre n'est demandé, à aucun moment.
+
+| ID | Exigence | Vérification |
+|---|---|---|
+| **INS-10** | Aucun privilège root au démarrage ni pendant l'exécution | `ps` confirme l'exécution sous le compte utilisateur |
+| **INS-11** | Aucun binaire setuid, aucune capability `CAP_*`, aucun module noyau, aucun correctif du système | Audit du paquet |
+| **INS-12** | Aucun service système : uniquement `systemd --user` | Aucune unité déposée dans `/etc/systemd/system` |
+| **INS-13** | Aucun accès en écriture hors `~/.local/share/fidusachates` et `~/.config/fidusachates` | `ProtectSystem=strict` plus test |
+| **INS-14** | Aucun accès réseau, structurellement impossible | `PrivateNetwork=yes` sur le processus de capture |
+| **INS-15** | Aucune autorisation d'accessibilité, aucune extension de navigateur, aucun accès caméra, microphone, localisation ou notification système intrusive | Audit |
+| **INS-16** | L'installateur énumère les autorisations demandées **avant** de les demander, et n'en prend aucune sans accord explicite | Test du parcours d'installation |
+| **INS-17** | Toute future autorisation supplémentaire est une modification du cahier des charges, pas une décision d'implémentation | Revue |
+
+**Tension nommée et assumée.** Le groupe `input` est un privilège fort : il donne accès à toutes les entrées de la session, donc la capacité de construire un enregistreur de frappe. Il est **incompressible** pour une capture globale sous Wayland, et il n'existe aucune alternative moins privilégiée qui conserve le périmètre du projet. Le projet ne minimise pas ce fait : il réduit le privilège au strict nécessaire (une seule fois, sans root à l'exécution, réversible), et compense par l'auditabilité des sources et l'isolement réseau structurel. Voir [ADR-0006](adr/0006-moindre-privilege-installation.md).
+
+### 6.3 Installation et empreinte
+
+| ID | Exigence | Seuil | Vérification |
+|---|---|---|---|
+| **INS-20** | Installation en une commande, sans chaîne de compilation chez l'utilisateur | Binaire précompilé fourni | Test sur machine vierge |
+| **INS-21** | Aucune dépendance d'exécution hors bibliothèque C du système | `ldd` ne liste que la libc et ses dépendances directes | Contrôle en intégration continue |
+| **INS-22** | Taille du binaire de l'agent | < 8 Mo | Intégration continue |
+| **INS-23** | Empreinte disque totale installée, hors données | < 15 Mo | Intégration continue |
+| **INS-24** | Durée entre la commande d'installation et le premier événement traité | < 60 s | Test chronométré |
+| **INS-25** | **Mode dégradé** : l'agent fonctionne sans l'extension GNOME Shell. On perd la famille de signaux C et l'overlay, remplacé par une notification de bureau standard. L'installation ne doit jamais échouer faute d'extension | Test sans extension installée |
+| **INS-26** | Désinstallation complète en une commande, purge des données comprise, retrait du groupe `input` proposé | Aucun résidu sur le système de fichiers |
+| **INS-27** | L'outil ne modifie aucun fichier de configuration du système, aucun profil de shell, aucun `PATH` global | Comparaison du système de fichiers avant et après |
+| **INS-28** | Démarrage automatique à l'ouverture de session par `systemd --user`, désactivable en une commande | Test |
+
+## 7. Exigences de vie privée et de conformité (PR)
 
 | ID | Exigence | Vérification |
 |---|---|---|
@@ -168,7 +225,7 @@ FidusAchates est un agent local d'**authentification continue implicite** par bi
 | **PR-9** | L'outil refuse par conception de produire des métriques de productivité, de présence ou de contenu. | Revue de code : toute demande en ce sens est refusée et tracée. |
 | **PR-10** | Irréversibilité et non-chaînabilité des gabarits, conformément à l'esprit d'ISO/IEC 24745. | Documentation du schéma de protection, et test d'inversion. |
 
-## 7. Exigences de sécurité du produit (SR)
+## 8. Exigences de sécurité du produit (SR)
 
 Un outil qui lit `/dev/input` est une cible de grande valeur. Ces exigences le protègent.
 
@@ -185,7 +242,7 @@ Un outil qui lit `/dev/input` est une cible de grande valeur. Ces exigences le p
 
 ---
 
-## 8. Critères d'acceptation globaux
+## 9. Critères d'acceptation globaux
 
 Le projet est considéré comme atteignant son objectif de recherche quand les six conditions suivantes sont simultanément vérifiées et publiées dans `research/` :
 
@@ -200,7 +257,7 @@ Le projet est considéré comme atteignant son objectif de recherche quand les s
 
 Ces cibles sont des hypothèses de travail issues de l'état de l'art (EER de 6 % à 10 % selon la modalité pour une décision isolée, amélioré par l'accumulation séquentielle). Elles seront révisées après le lot 3 avec les mesures réelles du poste, et toute révision sera justifiée et datée.
 
-## 9. Hors périmètre
+## 10. Hors périmètre
 
 Explicitement exclu, et à refuser en revue :
 
@@ -213,14 +270,14 @@ Explicitement exclu, et à refuser en revue :
 - Contournement du bac à sable d'iOS ou d'Android.
 - Déploiement sur un parc, gestion multi-postes, console centralisée.
 
-## 10. Livrables
+## 11. Livrables
 
 | Lot | Livrable | Référence |
 |---|---|---|
 | 0 | Dépôt, licence, analyse, cahier des charges, protocole d'évaluation | ce document |
-| 1 à 9 | Feuille de route par lot, à écrire | |
+| 1 à 9 | Voir la feuille de route et ses critères d'acceptation par lot | [06-ROADMAP.md](06-ROADMAP.md) |
 
-## 11. Licence et statut juridique
+## 12. Licence et statut juridique
 
 Le projet est publié en **source-available** sous **PolyForm Noncommercial 1.0.0** : lecture, modification, redistribution et usage à des fins de recherche et d'enseignement autorisés ; **usage commercial interdit**. Les droits commerciaux sont intégralement réservés à l'auteur, qui pourra ultérieurement publier une version sous une autre licence.
 

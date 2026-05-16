@@ -29,7 +29,7 @@ Chemin critique : 0 → 1 → 2 → 3 → 4. Les lots 5 et 6 sont parallélisabl
 
 **Critère d'acceptation** : les documents 00 à 06 existent, sont cohérents entre eux, et chaque exigence du cahier des charges porte un moyen de vérification explicite.
 
-**État** : en cours.
+**État** : fait.
 
 ---
 
@@ -39,6 +39,8 @@ Chemin critique : 0 → 1 → 2 → 3 → 4. Les lots 5 et 6 sont parallélisabl
 - `fidus-agent` : lecture `evdev` sans root, normalisation, marquage de provenance (E01).
 - Tampon chaud borné à 10 s, jamais persisté.
 - Signaux A01 à A05, A07, A08, A10, A23.
+- Boucle événementielle sur `epoll`, sans sondage. Maintenance déclenchée par seuil d'événements.
+- Installateur en une commande, désinstallateur, `fidus-cli doctor` vérifiant les prérequis.
 - Signaux E01, E03, E05 (canal Humanité, sans enrôlement).
 - Schéma SQLite chiffré, agrégats de Welford, quantiles approchés.
 - Hachage salé des digraphes, niveaux P0 et P1.
@@ -56,6 +58,10 @@ Chemin critique : 0 → 1 → 2 → 3 → 4. Les lots 5 et 6 sont parallélisabl
 | 1.4 | Une injection `ydotool` est marquée comme virtuelle | Test automatisé |
 | 1.5 | Une rafale `ydotool` déclenche L3 sur le canal Humanité en moins de 10 s, sans aucun enrôlement | Test de bout en bout |
 | 1.6 | `purge` ne laisse aucun résidu | Vérification du système de fichiers |
+| 1.7 | INS-1 et INS-2 : 0 % de processeur et aucun réveil après 60 s sans entrée | `powertop` sur 5 min |
+| 1.8 | INS-10 à INS-14 : aucun privilège à l'exécution, aucun service système, aucun accès réseau possible | Audit de l'unité et du processus |
+| 1.9 | INS-20 à INS-24 : installation en une commande sur machine vierge, moins de 60 s, binaire sous 8 Mo | Test sur conteneur vierge |
+| 1.10 | INS-26 et INS-27 : désinstallation sans résidu, aucun fichier système modifié | Comparaison avant et après |
 
 ---
 
@@ -169,6 +175,7 @@ Chemin critique : 0 → 1 → 2 → 3 → 4. Les lots 5 et 6 sont parallélisabl
 | 6.3 | Pas plus d'une transition d'affichage par période de garde | Mesure sur 24 h |
 | 6.4 | L'extension n'expose jamais de titre de fenêtre ni de nom d'exécutable sur D-Bus | Inspection D-Bus |
 | 6.5 | Le mode `silent` n'affiche rien | Vérification |
+| 6.6 | INS-25 : sans l'extension installée, l'agent démarre et fonctionne en mode dégradé, et l'installation n'échoue pas | Test sans extension |
 
 ---
 
@@ -209,6 +216,6 @@ SDK intégrable dans une application, modalités G01 à G10. Périmètre limité
 
 ## Ce qui n'est pas planifié
 
-Conformément à la section 9 du [cahier des charges](01-CAHIER-DES-CHARGES.md) : console centralisée, déploiement en parc, action coercitive sur le poste, reconnaissance faciale, capture audio ou vidéo, clavier IME de substitution, service d'accessibilité Android.
+Conformément à la section 10 du [cahier des charges](01-CAHIER-DES-CHARGES.md) : console centralisée, déploiement en parc, action coercitive sur le poste, reconnaissance faciale, capture audio ou vidéo, clavier IME de substitution, service d'accessibilité Android.
 
 Ces éléments ne sont pas « plus tard » : ils sont hors projet. Les inscrire dans une feuille de route même lointaine serait une invitation à les développer.

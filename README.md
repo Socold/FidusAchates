@@ -46,6 +46,40 @@ Ne jamais observer quelqu'un d'autre sans son accord explicite préalable.
 | [06 - Feuille de route](docs/06-ROADMAP.md) | Lots et critères d'acceptation |
 | [ADR](docs/adr/) | Décisions d'architecture et alternatives écartées |
 
+## Empreinte, installation et autorisations
+
+L'outil est fait pour être installé une fois et oublié. Son coût se mesure **au repos**, état dans lequel il passe la quasi-totalité de son temps.
+
+**Exécution.** L'agent est piloté par les événements : il reste bloqué sur `epoll` en attente des descripteurs d'entrée. Sans frappe ni mouvement, il ne s'exécute pas du tout, et ne réveille pas le processeur. Aucune boucle de sondage, nulle part. La console n'existe pas tant qu'on ne l'ouvre pas : elle est démarrée par activation de socket.
+
+| | Au repos | En activité |
+|---|---|---|
+| Processeur | 0 % | moins de 1 % en moyenne |
+| Mémoire résidente | moins de 40 Mo | moins de 40 Mo |
+| Stockage | moins de 2 Mo par jour d'usage intensif | |
+| Binaire | moins de 8 Mo, empreinte installée moins de 15 Mo | |
+
+**Autorisations demandées, en totalité :**
+
+| Autorisation | Quand | Révocation |
+|---|---|---|
+| Appartenance au groupe `input` | Une seule fois, à l'installation | `sudo gpasswd -d $USER input` |
+
+Rien d'autre, à aucun moment : **pas de root à l'exécution**, pas de setuid, pas de capability, pas de module noyau, pas de service système (uniquement `systemd --user`), pas d'accès réseau, pas d'autorisation d'accessibilité, pas d'extension de navigateur, aucun fichier de configuration du système modifié.
+
+Cette unique autorisation est néanmoins un privilège fort : elle donne accès à toutes les entrées de la session. Elle est incompressible pour une capture globale sous Wayland. Le projet ne la présente pas comme anodine, il la réduit au strict nécessaire et la compense par l'auditabilité des sources et un isolement réseau structurel (`PrivateNetwork=yes` : le processus de capture n'a pas d'accès réseau à donner, même compromis). Voir [ADR-0006](docs/adr/0006-moindre-privilege-installation.md).
+
+**Installation.** Une commande, binaire précompilé, aucune chaîne de compilation requise, moins de 60 secondes jusqu'au premier événement traité. Désinstallation complète en une commande, purge des données comprise.
+
+L'extension GNOME Shell est **facultative** : sans elle, l'agent fonctionne en mode dégradé (perte du contexte applicatif et de l'overlay, remplacé par une notification de bureau). L'installation n'échoue jamais faute d'extension.
+
+**Prérequis (à partir du lot 1)**
+
+- Linux, session Wayland ou X11 (développé sur Fedora / GNOME / Wayland)
+- Appartenance au groupe `input`
+- Facultatif : GNOME Shell, pour le contexte applicatif et l'overlay
+- Pour contribuer au code : Rust stable ; pour `fidus-lab`, Python 3.12 ou supérieur, hors ligne uniquement
+
 ## Licence
 
 **PolyForm Noncommercial 1.0.0.** Lecture, modification, redistribution et usage
