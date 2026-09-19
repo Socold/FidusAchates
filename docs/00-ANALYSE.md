@@ -111,7 +111,7 @@ Modalité la plus ancienne et la mieux documentée. La synthèse de référence 
 
 - Travaux fondateurs : Ahmed et Traore (2007), sur les courbes de vitesse par direction.
 - Jeux de données : **Balabit Mouse Dynamics Challenge** (2016, 10 utilisateurs en tâches d'administration, premier corpus public), **SapiMouse**, **DFL**.
-- Résultats récents : EER d'environ **6 %** sur Balabit, contre 13 % à 7,5 % pour les travaux antérieurs. Des approches plus simples (CNN 2D sur trajectoires) obtiennent environ 7,9 % d'EER.
+- État de l'art 2025-2026 : AUC/EER d'environ **99,45 % / 2,87 %** sur Balabit et **99,10 % / 3,14 %** sur SapiMouse, contre 13 % à 7,5 % pour les travaux antérieurs. Des approches plus simples (CNN 2D sur trajectoires) obtiennent environ 7,9 % d'EER.
 - **Enseignement clé** : la souris est au moins aussi discriminante que le clavier, et elle est disponible dans des contextes où l'on ne tape pas. Elle est indispensable à la couverture continue.
 - **Signal sous-exploité et peu coûteux** : la **loi de Fitts**. Le temps de pointage d'un utilisateur suit `T = a + b·log2(D/W + 1)`. Le couple `(a, b)`, estimé par régression sur les mouvements de pointage, est un invariant individuel remarquablement stable et très bon marché à calculer. Il est retenu comme signal de premier plan.
 
@@ -126,7 +126,9 @@ Modalité la plus ancienne et la mieux documentée. La synthèse de référence 
 
 C'est le volet le plus directement « sécurité », et le plus rentable.
 
-- **Attaques BadUSB / Rubber Ducky** : détectables par analyse des journaux et par la régularité temporelle. La littérature forensique montre qu'une signature purement temporelle suffit souvent, sans enrôlement de l'utilisateur et sans accès au contenu. C'est exactement la propriété recherchée pour Q3.
+- **QUACK!** (arXiv 2604.15845) : étude systématique de la dynamique de frappe pour la détection d'injection HID, avec cette conclusion structurante pour nous : *la détection robuste est possible avec des modèles temporels légers, sans enrôlement de l'utilisateur et sans accès au contenu*. C'est exactement la propriété recherchée pour Q3.
+- **Détection d'injection par KVM sur IP** : des signatures temporelles (cadence, gigue, resserrement, percentiles robustes, largeur de queue de distribution, débit) calculées sur les intervalles entre appuis ont permis de marquer 365 sessions de rejeu de presse-papiers sur 365, sans aucun faux positif sur 20 sessions humaines.
+- **Attaques BadUSB / Rubber Ducky** : détectables par analyse des journaux et par la régularité temporelle.
 - **Avertissement de la littérature, à intégrer au conception** : les heuristiques fondées sur la seule vitesse ou la seule régularité **sont contournables** en ralentissant et en randomisant les délais. Il faut donc des signaux structurellement plus difficiles à falsifier : provenance du périphérique (matériel réel contre `uinput`), quantification des horodatages sur une grille, absence de micro-corrections, cohérence entre modalités, et impossibilités physiques (chevauchement de touches incohérent, téléportation du curseur).
 - **Robustesse contre contrefaçons synthétiques** : la dynamique de frappe reste attaquable par des générateurs entraînés sur des statistiques agrégées (Stefan et al., 2010 ; Serwadda et Phoha). À traiter comme modèle de menace, pas à ignorer.
 
@@ -151,7 +153,7 @@ Le comportement que je veux, croire d'abord à plusieurs utilisateurs puis compr
 | Catégorie | Exemples | Ce qu'on en retient |
 |---|---|---|
 | Biométrie comportementale commerciale | BioCatch, BehavioSec (LexisNexis), TypingDNA, Plurilock | Cible principalement la fraude bancaire et l'accès à distance ; modèles fermés, non explicables, traitement serveur |
-| UEBA d'entreprise | Exabeam, Securonix, Microsoft Defender for Identity | Raisonnent sur des journaux applicatifs et réseau, pas sur l'interaction physique ; granularité trop grossière pour Q1 |
+| UEBA d'entreprise | Exabeam (couvre le comportement des agents IA depuis janvier 2026), Securonix, Microsoft Defender for Identity | Raisonnent sur des journaux applicatifs et réseau, pas sur l'interaction physique ; granularité trop grossière pour Q1 |
 | UEBA libre | OpenUBA, CyberSentinel-UEBA, Wazuh | Bonne inspiration pour la partie corrélation et tableau de bord ; aucun ne traite la biométrie comportementale locale |
 | Recherche académique | Corpus CMU, Balabit, SapiMouse, HMOG, Clarkson II | Fournissent la base d'évaluation comparable, indispensable pour publier des résultats crédibles |
 
@@ -218,6 +220,9 @@ Elles sont explicites parce qu'elles conditionnent tout le reste. Si l'une est f
 - [Optimizing Mouse Dynamics for User Authentication by Machine Learning (arXiv 2504.21415)](https://arxiv.org/html/2504.21415v1)
 - [From Clicks to Security: Investigating Continuous Authentication via Mouse Dynamics (arXiv 2403.03828)](https://arxiv.org/pdf/2403.03828)
 - [Machine and Deep Learning Applications to Mouse Dynamics (arXiv 2205.13646)](https://arxiv.org/pdf/2205.13646)
+- [User identity authentication via spatiotemporal mouse dynamics modeling (ScienceDirect)](https://www.sciencedirect.com/science/article/abs/pii/S1389128626005141)
+- [QUACK! A Systematic Study of Keystroke Dynamics for HID Injection Detection (arXiv 2604.15845)](https://arxiv.org/abs/2604.15845)
+- [Detecting HID Keystroke Injection in IP KVM Clipboard Workflows Using Timing Signatures (SSRN)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6443044)
 - [Forensic Log Based Detection For Keystroke Injection BadUSB Attacks (arXiv 2302.04541)](https://arxiv.org/pdf/2302.04541)
 - [Keystroke-Dynamics Authentication Against Synthetic Forgeries (UCSD)](https://cseweb.ucsd.edu/~dstefan/pubs/stefan:2010:keystroke.pdf)
 - [Robustness of keystroke-dynamics based biometrics against synthetic forgeries (ScienceDirect)](https://www.sciencedirect.com/science/article/abs/pii/S0167404811001179)

@@ -5,7 +5,7 @@
 
 ## Contexte
 
-Trois exigences doivent être satisfaites simultanément : décider vite (FR-32), recouper des signaux hétérogènes (FR-31), et expliquer la décision (FR-53, FR-56). L'état de l'art donne un EER de 6 % à 10 % pour une décision isolée : une décision ponctuelle ne suffit donc pas.
+Trois exigences doivent être satisfaites simultanément : décider vite (FR-32), recouper des signaux hétérogènes (FR-31), et expliquer la décision (FR-53, FR-56). L'état de l'art donne un EER de 3 % à 10 % pour une décision isolée : une décision ponctuelle ne suffit donc pas.
 
 ## Options
 

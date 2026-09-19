@@ -255,7 +255,7 @@ Le projet est considéré comme atteignant son objectif de recherche quand les s
 | **AC-5** | Estimation du nombre d'utilisateurs, sur une trace contrôlée à 2 ou 3 personnes | Exact après 5 jours, et révisions journalisées |
 | **AC-6** | Budgets NFR-1 à NFR-4 respectés en continu | 100 % du temps sur 7 jours |
 
-Ces cibles sont des hypothèses de travail issues de l'état de l'art (EER de 6 % à 10 % selon la modalité pour une décision isolée, amélioré par l'accumulation séquentielle). Elles seront révisées après le lot 3 avec les mesures réelles du poste, et toute révision sera justifiée et datée.
+Ces cibles sont des hypothèses de travail issues de l'état de l'art (EER de 2,9 % à 10 % selon la modalité pour une décision isolée, amélioré par l'accumulation séquentielle). Elles seront révisées après le lot 3 avec les mesures réelles du poste, et toute révision sera justifiée et datée.
 
 ## 10. Hors périmètre
 

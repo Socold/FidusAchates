@@ -6,7 +6,7 @@
 
 ## 1. Principe directeur
 
-Une décision isolée est faible. L'état de l'art donne un EER de l'ordre de 6 % à 10 % pour une décision ponctuelle selon la modalité. Le système ne cherche donc **jamais** à trancher sur une observation : il **accumule de la preuve** et tranche dès que l'évidence cumulée franchit un seuil correspondant aux taux d'erreur visés.
+Une décision isolée est faible. L'état de l'art donne un EER de l'ordre de 3 % à 10 % pour une décision ponctuelle selon la modalité. Le système ne cherche donc **jamais** à trancher sur une observation : il **accumule de la preuve** et tranche dès que l'évidence cumulée franchit un seuil correspondant aux taux d'erreur visés.
 
 Trois propriétés sont recherchées simultanément, et une seule formulation les donne toutes les trois :
 
