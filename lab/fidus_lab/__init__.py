@@ -1,5 +1,8 @@
 """The offline half of FidusAchates: trace reading, replay, attribution."""
 
+from .divergence import gaussian_js, template_stability
+from .enrolment import Convergence, CriteriaParams, Phase, assess, rolling_stability
+from .poisoning import AnchorWatch, admits, bounded_update
 from .explain import Contribution, Explanation, explain, waterfall
 from .corpus import CmuSample, ScaledManhattan, load_cmu
 from .engine import Decision, IdentityEngine
@@ -40,4 +43,7 @@ __all__ = [
     "LogNormal", "Welford", "median_mad",
     "Typist",
     "Contribution", "Explanation", "explain", "waterfall",
+    "gaussian_js", "template_stability",
+    "Convergence", "CriteriaParams", "Phase", "assess", "rolling_stability",
+    "AnchorWatch", "admits", "bounded_update",
 ]

@@ -167,6 +167,8 @@ First end-to-end result: no enrolment needed, so the whole chain can be demonstr
 
 ## WP 6 - Enrolment
 
+**Status**: convergence criteria (C1, C2 via Jensen-Shannon stability, C4), phase transitions, and the anti-poisoning guards (admission filter, bounded update, anchor drift) are built and tested in Python. The C3 performance criterion reuses the bench; modes and system-authentication re-assurance remain.
+
 **Content**
 - Four life-cycle phases, criteria C1 to C4, held-out false alarm curve.
 - Modes, and re-assurance through system authentication (FR-45).
