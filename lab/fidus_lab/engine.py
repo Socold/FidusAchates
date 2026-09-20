@@ -18,7 +18,11 @@ from .segment import Segment
 @dataclass
 class IdentityEngine:
     genuine: KeystrokeTemplate
-    reference: KeystrokeTemplate
+    # The impostor reference. None means no impostor population is enrolled;
+    # the expert then falls back to a wide reference around the genuine model,
+    # which is weaker but honest. Never pass the genuine template here: the
+    # LLR would be identically zero and the channel inert.
+    reference: KeystrokeTemplate | None = None
     cusum_h: float = 25.0
     prior_db: float = -10.0
     expert: KeystrokeExpert = field(default_factory=KeystrokeExpert)
@@ -27,9 +31,18 @@ class IdentityEngine:
 
     def __post_init__(self) -> None:
         self._cusum = Cusum(h=self.cusum_h)
+        if self.reference is not None and self.reference is self.genuine:
+            raise ValueError(
+                "reference must not be the genuine template: evidence would be "
+                "identically zero. Pass None to use the wide fallback."
+            )
+
+    @property
+    def reference_kind(self) -> str:
+        return "population" if self.reference is not None else "wide-fallback"
 
     def step(self, seg: Segment) -> "Decision":
-        e, n = self.expert.evidence(seg, self.genuine, self.reference)
+        e, n = self.expert.evidence(seg, self.genuine, self.reference or KeystrokeTemplate())
         # Quality gate: a segment with too few observations does not vote.
         if n < self.min_quality:
             return Decision(seg, evidence_db=0.0, cumulative=self._cusum.s,

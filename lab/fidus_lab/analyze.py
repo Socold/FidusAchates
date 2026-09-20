@@ -24,6 +24,7 @@ from .trace import read_trace
 class SegmentReport:
     index: int
     n_events: int
+    segment: Segment
     attribution: Attribution
     identity_p_impostor: float
     identity_alarmed: bool
@@ -73,7 +74,7 @@ def analyze_segments(
         outcome = decide(a.label, identity_diverged=d.alarmed,
                          sensitivity=stub_sensitivity(seg))
         reports.append(SegmentReport(
-            index=i, n_events=seg.n_events, attribution=a,
+            index=i, n_events=seg.n_events, segment=seg, attribution=a,
             identity_p_impostor=d.p_impostor, identity_alarmed=d.alarmed,
             outcome=outcome, explanation=exp,
         ))
@@ -83,7 +84,7 @@ def analyze_segments(
 def analyze_trace(
     path: str,
     genuine: KeystrokeTemplate,
-    reference: KeystrokeTemplate,
+    reference: KeystrokeTemplate | None = None,
     registry: SanctionRegistry | None = None,
 ) -> AnalysisReport:
     segments = list(segment_trace(read_trace(path)))

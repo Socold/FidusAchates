@@ -49,6 +49,21 @@ class Segment:
         """Device indices that produced at least one virtual event here."""
         return {r.device for r in self.records if r.virtual}
 
+    def virtual_key_downs(self) -> int:
+        """Key-down events from virtual devices. Provenance is judged per
+        modality: a burst of injected keystrokes stays visible even when a
+        hardware mouse floods the same segment with motion events."""
+        return sum(
+            1 for r in self.records
+            if r.virtual and r.event.kind == EventKind.KEY_DOWN
+        )
+
+    def virtual_key_devices(self) -> set[int]:
+        return {
+            r.device for r in self.records
+            if r.virtual and r.event.kind == EventKind.KEY_DOWN
+        }
+
     def key_down_intervals_us(self) -> list[int]:
         """Inter-key-down intervals, the basis of timing-regularity cues."""
         times = [r.time_us for r in self.records if r.event.kind == EventKind.KEY_DOWN]

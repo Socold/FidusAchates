@@ -98,3 +98,24 @@ def test_identity_divergence_always_alerts():
     # Even a human, if it is a different person.
     assert decide(ActorLabel.HUMAN, identity_diverged=True, sensitivity=Sensitivity.LOW) == Outcome.ALERT
     assert decide(ActorLabel.AUTOMATION_SANCTIONED, identity_diverged=True, sensitivity=Sensitivity.LOW) == Outcome.ALERT
+
+
+def test_injected_keystrokes_are_not_hidden_by_hardware_mouse_noise():
+    """Found on a real trace: 14 virtual keystrokes inside 400+ hardware mouse
+    events were labelled human because the virtual fraction was diluted.
+    Provenance must be judged per modality."""
+    from fidus_lab.trace import Event, EventKind
+    recs = []
+    t = 0
+    # 400 hardware motion events, 1 ms apart.
+    for _ in range(400):
+        recs.append(Record(t, 2, False, Event(kind=EventKind.MOTION, dx=1, dy=0)))
+        t += 1000
+    # 10 injected keystrokes from a virtual keyboard, interleaved in time.
+    for i in range(10):
+        recs.append(Record(5000 + i * 30_000, 9, True, Event(kind=EventKind.KEY_DOWN)))
+    recs.sort(key=lambda r: r.time_us)
+    seg = one_segment(recs)
+    assert seg.virtual_fraction < 0.1, "test premise: fraction is diluted"
+    a = attribute(seg, SanctionRegistry())
+    assert a.label == ActorLabel.AUTOMATION_UNSANCTIONED

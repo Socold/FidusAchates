@@ -25,7 +25,7 @@ def drive(
     segments: list[Segment],
     console: Console,
     genuine: KeystrokeTemplate,
-    reference: KeystrokeTemplate,
+    reference: KeystrokeTemplate | None = None,
     registry: SanctionRegistry | None = None,
     overlay: OverlayClient | None = None,
     delay_s: float = 0.0,
@@ -42,15 +42,28 @@ def drive(
             overlay.set_confidence(pct, "Identity")
         else:
             overlay.clear()
-        # Grow the profile estimate as sessions accumulate (a coarse live view).
-        profiles.add_regime(genuine, session_id=i)
-        profiles.revise()
+        # Profile count from what was actually observed: one regime per
+        # segment, revised as they accumulate. Coarse (a segment is a short
+        # window) but real, unlike a count that would only ever see the
+        # enrolled template.
+        seg_tpl = KeystrokeTemplate.fit([seg_report.segment])
+        if seg_tpl.hold or seg_tpl.digraph:
+            profiles.add_regime(seg_tpl, session_id=i)
+            profiles.revise()
         console.state.set_profiles(profiles.count)
         if delay_s:
             time.sleep(delay_s)
 
 
 def drive_trace(path: str, console: Console, delay_s: float = 0.0) -> None:
+    """Temporal split: enrol on the first half, replay the second half."""
     segments = list(segment_trace(read_trace(path)))
-    tpl = KeystrokeTemplate.fit(segments) if segments else KeystrokeTemplate()
-    drive(segments, console, genuine=tpl, reference=tpl, delay_s=delay_s)
+    half = len(segments) // 2
+    if half >= 2 and len(segments) - half >= 2:
+        enrol, test = segments[:half], segments[half:]
+    else:
+        # Too short to split: self-enrol and replay everything. Identity
+        # cannot diverge here; only Attribution is meaningful.
+        enrol, test = segments, segments
+    tpl = KeystrokeTemplate.fit(enrol) if enrol else KeystrokeTemplate()
+    drive(test, console, genuine=tpl, reference=None, delay_s=delay_s)

@@ -24,7 +24,7 @@ def a_report():
     recs = Typist(seed=1, **GEN).type_segment(40)
     segs = list(segment_trace(recs))
     tpl = KeystrokeTemplate.fit(segs)
-    eng = IdentityEngine(genuine=tpl, reference=tpl)
+    eng = IdentityEngine(genuine=tpl, reference=None)
     return analyze_segments(segs, eng, SanctionRegistry()).segments[0]
 
 

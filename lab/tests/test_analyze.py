@@ -21,7 +21,7 @@ def sessions(params, n, keys=40, seed0=0):
 def test_pipeline_runs_and_reports():
     segs = sessions(GEN, 5, seed0=0)
     tpl = KeystrokeTemplate.fit(sessions(GEN, 8, seed0=1000))
-    engine = IdentityEngine(genuine=tpl, reference=tpl)
+    engine = IdentityEngine(genuine=tpl, reference=None)
     report = analyze_segments(segs, engine, SanctionRegistry())
     assert report.n_segments == 5
     text = report.as_text()

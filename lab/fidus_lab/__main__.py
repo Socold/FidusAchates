@@ -1,7 +1,11 @@
 """`python -m fidus_lab <trace>`: analyse a reduced trace and print the report.
 
-Enrolment on the same trace's first segments is a placeholder for a real
-enrolment; this is a demonstration runner, not the operational path.
+Enrolment uses a temporal split: the first half of the segments enrols the
+genuine template, the second half is evaluated against it, as the evaluation
+protocol requires (never random). No impostor population is enrolled here, so
+the Identity expert uses its wide fallback reference and says so. With too few
+segments to split, only the Attribution channel is meaningful, and the report
+says that too.
 """
 
 from __future__ import annotations
@@ -24,12 +28,29 @@ def main(argv: list[str]) -> int:
     if not segments:
         print("no segments in trace")
         return 0
-    # Placeholder enrolment: fit on all segments (a real run enrols separately).
-    tpl = KeystrokeTemplate.fit(segments)
-    engine = IdentityEngine(genuine=tpl, reference=tpl)
-    report = analyze_segments(segments, engine, SanctionRegistry())
+    enrol, test = temporal_split(segments)
+    if not enrol:
+        print("note: too few segments for a temporal split; Identity is not "
+              "enrolled, only the Attribution channel is meaningful here")
+        tpl = KeystrokeTemplate.fit(segments)
+        test = segments
+    else:
+        tpl = KeystrokeTemplate.fit(enrol)
+        print(f"enrolled on the first {len(enrol)} segment(s), evaluating the "
+              f"next {len(test)}; impostor reference: wide fallback "
+              f"(no impostor population enrolled)")
+    engine = IdentityEngine(genuine=tpl, reference=None)
+    report = analyze_segments(test, engine, SanctionRegistry())
     print(report.as_text())
     return 0
+
+
+def temporal_split(segments: list, min_each: int = 2) -> tuple[list, list]:
+    """First half to enrol, second half to evaluate. Empty enrol if too few."""
+    half = len(segments) // 2
+    if half < min_each or len(segments) - half < min_each:
+        return [], segments
+    return segments[:half], segments[half:]
 
 
 if __name__ == "__main__":

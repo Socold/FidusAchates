@@ -78,3 +78,23 @@ def test_alarm_resets_the_statistic_so_it_does_not_stick():
     d = eng.step(genuine_seg)
     assert not d.alarmed
     assert d.cumulative < eng.cusum_h
+
+
+def test_genuine_as_reference_is_refused():
+    """Bug fixed: passing the genuine template as the impostor reference made
+    every LLR exactly zero, an inert channel that looked like a working one."""
+    import pytest
+    tpl = KeystrokeTemplate.fit(segments_from(GENUINE, 4, seed_start=1))
+    with pytest.raises(ValueError):
+        IdentityEngine(genuine=tpl, reference=tpl)
+
+
+def test_wide_fallback_still_separates_without_a_population():
+    """With no impostor population, the wide fallback must still push an
+    impostor's evidence above a genuine user's."""
+    tpl = KeystrokeTemplate.fit(segments_from(GENUINE, 8, seed_start=100))
+    g = segments_from(GENUINE, 1, seed_start=900)[0]
+    i = segments_from(IMPOSTOR, 1, seed_start=901)[0]
+    eg = IdentityEngine(genuine=tpl, reference=None).step(g).evidence_db
+    ei = IdentityEngine(genuine=tpl, reference=None).step(i).evidence_db
+    assert ei > eg

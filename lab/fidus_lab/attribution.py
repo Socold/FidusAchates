@@ -31,8 +31,12 @@ class ActorLabel(str, Enum):
 class AttributionParams:
     # Below this many events a segment is UNCERTAIN: too little to judge.
     min_events: int = 8
-    # A segment is automation if this fraction or more of its events are virtual.
+    # A segment is automation if this fraction or more of its events are virtual
+    # (the whole-segment cue), OR if at least `min_virtual_key_downs`
+    # keystrokes came from a virtual device (the per-modality cue, which a
+    # hardware mouse cannot dilute).
     virtual_fraction: float = 0.5
+    min_virtual_key_downs: int = 5
     # Or if key-down intervals are this regular (coefficient of variation below
     # the threshold): a human's typing is never that even.
     max_cv_for_machine: float = 0.05
@@ -66,7 +70,10 @@ def attribute(
     if segment.n_events < params.min_events:
         return Attribution(ActorLabel.UNCERTAIN, "too few events to judge")
 
-    by_provenance = segment.virtual_fraction >= params.virtual_fraction
+    by_provenance = (
+        segment.virtual_fraction >= params.virtual_fraction
+        or segment.virtual_key_downs() >= params.min_virtual_key_downs
+    )
     by_timing = _looks_metronomic(segment, params)
 
     if not (by_provenance or by_timing):
@@ -75,7 +82,9 @@ def attribute(
     # It is automation. Sanctioned if any contributing virtual device, or the
     # segment's time, matches the registry. For a metronomic hardware segment
     # (no virtual device), fall back to the segment start time.
-    devices = segment.virtual_devices() or segment.devices
+    devices = (
+        segment.virtual_key_devices() or segment.virtual_devices() or segment.devices
+    )
     sanctioned = any(registry.is_sanctioned(d, segment.start_us) for d in devices)
 
     cue = "virtual device" if by_provenance else "metronomic timing"
