@@ -1,5 +1,6 @@
 """The offline half of FidusAchates: trace reading, replay, attribution."""
 
+from .explain import Contribution, Explanation, explain, waterfall
 from .corpus import CmuSample, ScaledManhattan, load_cmu
 from .engine import Decision, IdentityEngine
 from .evidence import Cusum, LogisticFusion, deciban, probability_from_evidence
@@ -38,4 +39,5 @@ __all__ = [
     "eer", "far_frr", "run_lengths",
     "LogNormal", "Welford", "median_mad",
     "Typist",
+    "Contribution", "Explanation", "explain", "waterfall",
 ]
