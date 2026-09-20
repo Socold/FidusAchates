@@ -90,6 +90,8 @@ The only component that ever reads `/dev/input`. It must stay small enough to be
 
 ## WP 3 - Attribution channel and overlay
 
+**Status**: the attribution logic (WP3 brain) is in the lab; the GNOME Shell extension (`shell-extension/`) is written and installed, drawing the red square over D-Bus and exposing the focused application category and an activity tick. It needs a session relogin to activate (GNOME does not rescan live on Wayland). The deterministic indicators, the full E-signal set and the attack bench remain.
+
 First end-to-end result: no enrolment needed, so the whole chain can be demonstrated within days of the recorder running.
 
 **Content**
@@ -145,7 +147,7 @@ First end-to-end result: no enrolment needed, so the whole chain can be demonstr
 
 ## WP 5 - Fusion, CUSUM, explainability and console
 
-**Status**: the engine core (decibans, CUSUM, logistic fusion, a first keystroke expert, the Identity decision) is built in Python and validated end to end; explainability output and the console remain.
+**Status**: the web console (`fidus_lab.console`) is built and tested: a loopback HTTP server with a per-run token, Host/Origin validation (anti-rebinding), an SSE stream, and it drives the red overlay; a live runner replays a trace through it. The engine core (decibans, CUSUM, logistic fusion, a first keystroke expert, the Identity decision) is built in Python and validated end to end; explainability output and the console remain.
 
 **Content**
 - Expert calibration, reliability diagrams.

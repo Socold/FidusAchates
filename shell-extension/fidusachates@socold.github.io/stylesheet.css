@@ -1,0 +1,6 @@
+/* The overlay styling is set inline in extension.js so the square renders even
+   if the stylesheet fails to load; this file is kept for future theming. */
+.fidus-overlay-label {
+    color: white;
+    font-weight: bold;
+}
