@@ -92,3 +92,63 @@ def assess(
 def rolling_stability(templates: list[KeystrokeTemplate]) -> list[float]:
     """JS between each consecutive pair of template snapshots."""
     return [template_stability(a, b) for a, b in zip(templates, templates[1:])]
+
+
+# ---------------------------------------------------------------------------
+# A tracker that derives the criteria from the data it is fed, instead of
+# trusting caller-supplied counts (review finding: `assess` alone was a
+# calculator, not an enrolment).
+
+from .trace import EventKind  # noqa: E402  (kept after the pure functions)
+
+SESSION_GAP_US = 8 * 3600 * 1_000_000  # a break this long starts a new session
+
+
+@dataclass
+class EnrolmentTracker:
+    """Feed segments in time order; it counts what the criteria need and keeps
+    template snapshots for the stability criterion.
+
+    The trace carries no wall-clock time, so "days" cannot be known from it.
+    Sessions separated by at least `session_gap_us` stand in for distinct days;
+    a caller with real calendar knowledge may override `n_days`.
+    """
+
+    params: CriteriaParams = CriteriaParams()
+    session_gap_us: int = SESSION_GAP_US
+    snapshot_every: int = 4  # segments between template snapshots
+
+    segments: list[Segment] = None  # type: ignore[assignment]
+    snapshots: list[KeystrokeTemplate] = None  # type: ignore[assignment]
+    n_keystrokes: int = 0
+    n_sessions: int = 0
+    devices: set[int] = None  # type: ignore[assignment]
+    _last_end_us: int | None = None
+
+    def __post_init__(self) -> None:
+        self.segments = []
+        self.snapshots = []
+        self.devices = set()
+
+    def feed(self, seg: Segment) -> None:
+        if self._last_end_us is None or seg.start_us - self._last_end_us >= self.session_gap_us:
+            self.n_sessions += 1
+        self._last_end_us = seg.end_us
+        self.segments.append(seg)
+        self.n_keystrokes += sum(
+            1 for r in seg.records if r.event.kind == EventKind.KEY_DOWN
+        )
+        self.devices |= seg.devices
+        if len(self.segments) % self.snapshot_every == 0:
+            self.snapshots.append(KeystrokeTemplate.fit(self.segments))
+
+    def convergence(self, performance_ok: bool, n_days: int | None = None) -> Convergence:
+        return assess(
+            enrol_sessions=[[]] * self.n_sessions,
+            stability_history=rolling_stability(self.snapshots),
+            performance_ok=performance_ok,
+            n_keystrokes=self.n_keystrokes,
+            n_days=self.n_sessions if n_days is None else n_days,
+            n_devices=len(self.devices),
+            params=self.params,
+        )

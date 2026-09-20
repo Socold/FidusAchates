@@ -68,4 +68,23 @@ def test_revision_history_is_recorded_with_reasons():
         ps.add_regime(template(ALICE, seed=3000 + s * 30), session_id=s)
     ps.revise()
     assert ps.count == 1
-    assert ps.history and "JS distance" in ps.history[0].detail
+    assert ps.history and "distance" in ps.history[0].detail
+    assert "linkage" in ps.history[0].detail or "interleaved" in ps.history[0].detail
+
+
+def test_no_chaining_through_a_bridge_regime():
+    """Review finding: with min-over-modes distance, one regime sitting halfway
+    between two distinct people bridged them into a single profile. Average
+    linkage must keep the two people apart when there is no temporal
+    interleaving to justify a merge."""
+    ps = ProfileSet()
+    MID = dict(hold_mu=11.72, hold_sigma=0.30, gap_mu=11.87, gap_sigma=0.35)
+    for s in range(4):
+        ps.add_regime(template(ALICE, seed=100 + s * 10), session_id=s)
+    for s in range(4, 8):
+        ps.add_regime(template(BOB, seed=500 + s * 10), session_id=s)
+    for s in range(8, 12):
+        ps.add_regime(template(MID, seed=900 + s * 10), session_id=s)
+    ps.revise()
+    # The bridge may join one side, but Alice and Bob must not become one.
+    assert ps.count >= 2, f"distinct people chained into {ps.count} profile(s)"

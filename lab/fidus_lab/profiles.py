@@ -72,49 +72,64 @@ class ProfileSet:
         self._next_id += 1
         self.profiles.append(Profile(pid, [Mode(template, {session_id})]))
 
-    def _closest_pair(self) -> tuple[int, int, float, float] | None:
-        best = None
+    def _candidates(self) -> list[tuple[int, int, float, float, str]]:
+        """Every pair that qualifies for a merge, best first.
+
+        Two ways to qualify, deliberately different in strictness:
+        - by distance alone, using AVERAGE linkage over all mode pairs, which
+          resists chaining (one close mode somewhere no longer pulls two
+          distinct people together);
+        - by distance AND temporal interleaving, using the closest mode pair,
+          because alternation within sessions is the real evidence that two
+          regimes are one person's modes (a person on two keyboards).
+        """
+        out = []
         for i in range(len(self.profiles)):
             for j in range(i + 1, len(self.profiles)):
-                d = self._profile_distance(self.profiles[i], self.profiles[j])
-                inter = temporal_interleaving(
-                    self.profiles[i].session_ids, self.profiles[j].session_ids
-                )
-                if best is None or d < best[2]:
-                    best = (i, j, d, inter)
-        return best
+                a, b = self.profiles[i], self.profiles[j]
+                d_avg = self._avg_distance(a, b)
+                d_min = self._min_distance(a, b)
+                inter = temporal_interleaving(a.session_ids, b.session_ids)
+                if d_avg < self.merge_distance:
+                    out.append((i, j, d_avg, inter, "average linkage"))
+                elif d_min < self.merge_distance * 2.5 and inter > 0.2:
+                    out.append((i, j, d_min, inter, "interleaved modes"))
+        # Best (smallest distance) first; interleaved merges are not favoured
+        # over plain ones, the distance decides.
+        return sorted(out, key=lambda t: t[2])
 
     @staticmethod
-    def _profile_distance(a: Profile, b: Profile) -> float:
-        # Closest pair of modes across the two profiles.
+    def _min_distance(a: Profile, b: Profile) -> float:
         return min(
             template_stability(ma.template, mb.template)
             for ma in a.modes for mb in b.modes
         )
 
-    def revise(self) -> None:
-        """Merge indistinguishable profiles. Two profiles merge when their
-        templates are close (below merge_distance) OR they are close-ish and
-        temporally interleaved (same person, two modes)."""
-        changed = True
-        while changed and len(self.profiles) > 1:
-            changed = False
-            pair = self._closest_pair()
-            if pair is None:
-                break
-            i, j, d, inter = pair
-            interleaved_merge = d < self.merge_distance * 2.5 and inter > 0.2
-            if d < self.merge_distance or interleaved_merge:
-                self._merge(i, j, d, inter)
-                changed = True
+    @staticmethod
+    def _avg_distance(a: Profile, b: Profile) -> float:
+        ds = [
+            template_stability(ma.template, mb.template)
+            for ma in a.modes for mb in b.modes
+        ]
+        return sum(ds) / len(ds)
 
-    def _merge(self, i: int, j: int, d: float, inter: float) -> None:
+    def revise(self) -> None:
+        """Merge qualifying profiles until none qualifies. Each round takes the
+        best pair, merges it, and recomputes, so a merge can enable or disable
+        later ones."""
+        while len(self.profiles) > 1:
+            cands = self._candidates()
+            if not cands:
+                break
+            i, j, d, inter, how = cands[0]
+            self._merge(i, j, d, inter, how)
+
+    def _merge(self, i: int, j: int, d: float, inter: float, how: str) -> None:
         a, b = self.profiles[i], self.profiles[j]
         reason = (
-            f"{b.profile_id} into {a.profile_id}: JS distance {d:.3f}"
+            f"{b.profile_id} into {a.profile_id} ({how}): distance {d:.3f}"
             f", temporal interleaving {inter:.2f}"
         )
-        # If interleaved, they are two modes of one person; otherwise fold modes.
         a.modes.extend(b.modes)
         self.history.append(RevisionEvent("merge", reason))
         self.profiles.pop(j)

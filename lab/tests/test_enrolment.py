@@ -58,3 +58,24 @@ def test_bootstrap_phase_on_low_volume():
     conv = assess([], stability_history=[], performance_ok=False,
                   n_keystrokes=100, n_days=1, n_devices=1)
     assert conv.phase() == Phase.BOOTSTRAP
+
+
+def test_tracker_derives_counts_from_the_data():
+    """Review finding: assess() trusted caller-supplied counts. The tracker
+    computes keystrokes, sessions and devices from the segments it is fed."""
+    from fidus_lab.enrolment import EnrolmentTracker
+    tr = EnrolmentTracker()
+    t = 0
+    for s in range(10):
+        recs = Typist(seed=s, **GEN).type_segment(40, start_us=t)
+        for seg in segment_trace(recs):
+            tr.feed(seg)
+        # Separate every other batch by more than the session gap.
+        t = recs[-1].time_us + (tr.session_gap_us + 1 if s % 2 else 5_000_000)
+    assert tr.n_keystrokes == 400
+    assert tr.n_sessions >= 5
+    assert tr.devices == {0}
+    assert len(tr.snapshots) >= 2
+    conv = tr.convergence(performance_ok=False)
+    # Volume is data-derived and partial with defaults (needs 2000 keystrokes).
+    assert 0 < conv.volume < 1.0

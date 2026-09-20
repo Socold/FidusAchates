@@ -6,7 +6,7 @@ from .live import drive, drive_trace
 from .analyze import AnalysisReport, SegmentReport, analyze_segments, analyze_trace
 from .profiles import Mode, Profile, ProfileSet, RevisionEvent, temporal_interleaving
 from .divergence import gaussian_js, template_stability
-from .enrolment import Convergence, CriteriaParams, Phase, assess, rolling_stability
+from .enrolment import Convergence, CriteriaParams, EnrolmentTracker, Phase, assess, rolling_stability
 from .poisoning import AnchorWatch, admits, bounded_update
 from .explain import Contribution, Explanation, explain, waterfall
 from .corpus import CmuSample, ScaledManhattan, load_cmu
@@ -49,7 +49,7 @@ __all__ = [
     "Typist", "Mouser",
     "Contribution", "Explanation", "explain", "waterfall",
     "gaussian_js", "template_stability",
-    "Convergence", "CriteriaParams", "Phase", "assess", "rolling_stability",
+    "Convergence", "CriteriaParams", "EnrolmentTracker", "Phase", "assess", "rolling_stability",
     "AnchorWatch", "admits", "bounded_update",
     "Mode", "Profile", "ProfileSet", "RevisionEvent", "temporal_interleaving",
     "AnalysisReport", "SegmentReport", "analyze_segments", "analyze_trace",
