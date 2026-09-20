@@ -1,161 +1,161 @@
 # FidusAchates
 
-**Authentification continue implicite par biométrie comportementale, locale et explicable.**
+**Implicit continuous authentication through behavioural biometrics, local and explainable.**
 
-> *Fidus Achates* : le compagnon fidèle d'Énée. Celui qui marche à côté, qui reconnaît, et qui prévient.
+> *Fidus Achates*: the faithful companion of Aeneas. The one who walks alongside, who recognises, and who warns.
 
-FidusAchates apprend la manière dont une personne utilise un appareil (rythme de frappe, gestuelle du pointeur, enchaînement des applications, rythme temporel), puis évalue en continu deux questions distinctes :
+FidusAchates learns the way a person uses a device (typing rhythm, pointer gestures, sequence of applications, temporal rhythm), then continuously assesses two distinct questions:
 
-1. **Est-ce toujours la même personne ?**
-2. **Est-ce encore un humain ?** (automate, agent IA, injection HID, prise de contrôle à distance)
+1. **Is it still the same person?**
+2. **Is it still a human?** (automaton, AI agent, HID injection, remote takeover)
 
-Le tout **sans jamais enregistrer ce qui est tapé**, **sans aucun accès réseau**, et en **expliquant chaque décision**.
-
----
-
-## À lire avant toute installation
-
-**Cet outil lit `/dev/input`. Il a donc techniquement les capacités d'un enregistreur de frappe.** Le projet est conçu pour ne jamais s'en servir ainsi, et cette contrainte est vérifiée par des tests bloquants en intégration continue, mais le pouvoir existe. Ne l'installez que si vous êtes prêt à lire le code, ou à faire confiance à quelqu'un qui l'a lu.
-
-**Limite connue, non contournable sous Wayland :** il n'existe aucun moyen fiable de détecter qu'un champ de saisie est un champ de mot de passe. La protection repose sur une liste noire d'applications, une suspension manuelle immédiate, et le fait qu'en configuration par défaut aucun code de touche n'est conservé en clair. Voir [docs/05-PRIVACY.md](docs/05-PRIVACY.md).
-
-**N'observez jamais une autre personne sans son consentement explicite préalable.** Un gabarit comportemental est une donnée biométrique au sens du RGPD (art. 4-14), relevant de l'article 9. Les conditions à réunir avant tout usage impliquant un tiers sont listées dans [docs/05-PRIVACY.md](docs/05-PRIVACY.md) section 4.3.
+All of it **without ever recording what is typed**, **with no network access at all**, and **explaining every decision**.
 
 ---
 
-## État
+## Read this before installing
 
-**Conception.** La documentation de référence est stabilisée. L'implémentation démarre au lot 1.
+**This tool reads `/dev/input`. It therefore technically has the capabilities of a keylogger.** The project is designed never to use them that way, and that constraint is verified by blocking tests in continuous integration, but the power exists. Install it only if you are prepared to read the code, or to trust someone who has.
 
-| Lot | Objet | État |
+**Known limit, which cannot be worked around under Wayland:** there is no reliable way to detect that an input field is a password field. Protection rests on an application blocklist, immediate manual suspension, and the fact that in the default configuration no key code is kept in clear. See [docs/05-PRIVACY.md](docs/05-PRIVACY.md).
+
+**Never observe another person without their explicit prior consent.** A behavioural template is biometric data in the sense of the GDPR (art. 4-14), falling under article 9. The conditions to meet before any use involving a third party are listed in [docs/05-PRIVACY.md](docs/05-PRIVACY.md) section 4.3.
+
+---
+
+## Status
+
+**Design.** The reference documentation is stable. Implementation starts with work package 1.
+
+| WP | Purpose | Status |
 |---|---|---|
-| 0 | Analyse, spécifications, architecture, licence | fait |
-| 1 | Agent evdev, dynamique de frappe, console minimale | à faire |
-| 2 | Dynamique du pointeur, fusion LLR, explicabilité | à faire |
-| 3 | Étalonnage et calibration | à faire |
-| 4 | Profils multiples et révision | à faire |
-| 5 | Détection d'entrée non humaine (complet) | à faire |
-| 6 | Extension GNOME Shell et overlay | à faire |
-| 7 | Banc de recherche et corpus publics | à faire |
-| 8 | Portage Windows, macOS, X11 | à faire |
-| 9 | SDK mobile | à faire |
+| 0 | Analysis, specifications, architecture, licence | done |
+| 1 | evdev agent, keystroke dynamics, minimal console | to do |
+| 2 | Pointer dynamics, LLR fusion, explainability | to do |
+| 3 | Calibration | to do |
+| 4 | Multiple profiles and revision | to do |
+| 5 | Detection of non-human input (complete) | to do |
+| 6 | GNOME Shell extension and overlay | to do |
+| 7 | Research bench and public corpora | to do |
+| 8 | Porting to Windows, macOS, X11 | to do |
+| 9 | Mobile SDK | to do |
 
-Feuille de route détaillée avec critères d'acceptation : [docs/06-ROADMAP.md](docs/06-ROADMAP.md).
+Detailed roadmap with acceptance criteria: [docs/06-ROADMAP.md](docs/06-ROADMAP.md).
 
 ## Documentation
 
-| Document | Contenu |
+| Document | Content |
 |---|---|
-| [00 - Analyse](docs/00-ANALYSE.md) | Reformulation du besoin, points de tension, état de l'art sourcé, modèle de menace |
-| [01 - Cahier des charges](docs/01-CAHIER-DES-CHARGES.md) | Exigences numérotées et vérifiables (FR, NFR, PR, SR), critères d'acceptation |
-| [02 - Architecture](docs/02-ARCHITECTURE.md) | Composants, flux, stockage, portabilité |
-| [03 - Moteur de décision](docs/03-MODELE-DECISION.md) | Fusion LLR, SPRT, niveaux, étalonnage, comptage des utilisateurs |
-| [04 - Catalogue des signaux](docs/04-CATALOGUE-SIGNAUX.md) | 90 signaux répartis en 7 familles, avec coût, pouvoir discriminant et difficulté de falsification |
-| [05 - Vie privée](docs/05-PRIVACY.md) | Registre de traitement, qualification juridique, éthique, risque de détournement |
-| [06 - Feuille de route](docs/06-ROADMAP.md) | Lots et critères d'acceptation |
-| [ADR](docs/adr/) | Décisions d'architecture et leurs alternatives écartées |
+| [00 - Analysis](docs/00-ANALYSIS.md) | Problem restated, tensions, sourced state of the art, threat model |
+| [01 - Requirements](docs/01-REQUIREMENTS.md) | Numbered, verifiable requirements (FR, NFR, INS, PR, SR), acceptance criteria |
+| [02 - Architecture](docs/02-ARCHITECTURE.md) | Components, flows, storage, portability |
+| [03 - Decision engine](docs/03-DECISION-ENGINE.md) | LLR fusion, SPRT, levels, calibration, counting users |
+| [04 - Signal catalogue](docs/04-SIGNAL-CATALOGUE.md) | 90 signals in 7 families, with cost, discriminating power and forgery difficulty |
+| [05 - Privacy](docs/05-PRIVACY.md) | Processing register, legal qualification, ethics, risk of misuse |
+| [06 - Roadmap](docs/06-ROADMAP.md) | Work packages and acceptance criteria |
+| [ADR](docs/adr/) | Architecture decisions and the alternatives ruled out |
 
-## Principes de conception
+## Design principles
 
-**Content-free.** Aucun contenu saisi, titre de fenêtre, URL, nom de fichier ou presse-papiers n'est capturé. Un test bloquant en intégration continue saisit des mots témoins et vérifie qu'aucun ne se retrouve en base.
+**Content-free.** No typed content, window title, URL, file name or clipboard is captured. A blocking test in continuous integration types canary words and checks that none ends up in the database.
 
-**Identity-free.** Aucun identifiant civil, compte ou numéro de série. Les profils sont des étiquettes opaques du type `profil-a1b2`.
+**Identity-free.** No civil identifier, account or serial number. Profiles are opaque labels such as `profile-a1b2`.
 
-**Local-first, structurellement.** Le processus de capture s'exécute sous `PrivateNetwork=yes` : il n'a pas d'accès réseau à donner, même compromis. Aucune télémétrie, aucun CDN, aucune police distante.
+**Local-first, structurally.** The capture process runs under `PrivateNetwork=yes`: it has no network access to give, even if compromised. No telemetry, no CDN, no remote font.
 
-**Explicable par construction.** Le moteur additionne des rapports de log-vraisemblance exprimés en décibans. La contribution de chaque signal à la décision est donc **exacte**, pas estimée. L'explication affichée est la formule elle-même, lue terme à terme.
+**Explainable by construction.** The engine adds log-likelihood ratios expressed in decibans. The contribution of each signal to the decision is therefore **exact**, not estimated. The displayed explanation is the formula itself, read term by term.
 
-**Observe, n'agit pas.** L'outil ne verrouille rien, ne bloque rien, ne déconnecte personne. Il signale.
+**Observes, does not act.** The tool locks nothing, blocks nothing, logs nobody out. It flags.
 
-## Fonctionnement en bref
+## How it works, in short
 
 ```
-Chaque signal apporte une preuve, mesurée en décibans :
+Each signal contributes evidence, measured in decibans:
 
-   e = 10 · log10 [ P(observation | légitime) / P(observation | imposteur) ]
+   e = 10 · log10 [ P(observation | genuine) / P(observation | impostor) ]
 
-Les preuves s'additionnent, pondérées par leur fiabilité et leur qualité,
-avec oubli progressif des preuves anciennes.
+Evidence adds up, weighted by reliability and quality,
+with old evidence gradually forgotten.
 
-Le test séquentiel de Wald tranche dès que la preuve cumulée franchit
-un seuil dérivé des taux d'erreur visés, donc le plus tôt possible.
+Wald's sequential test settles as soon as the cumulative evidence crosses
+a threshold derived from the target error rates, hence as early as possible.
 ```
 
-Deux évidences cumulées sont maintenues séparément, jamais confondues :
+Two cumulative evidences are maintained separately, never blended:
 
-| Canal | Question | Enrôlement | Détecte |
+| Channel | Question | Enrolment | Detects |
 |---|---|---|---|
-| **Identité** | Même personne ? | Requis | Usurpation humaine |
-| **Humanité** | Humain ? | **Aucun** | `ydotool`, BadUSB, KVM sur IP, RDP, agent IA |
+| **Identity** | Same person? | Required | Human takeover |
+| **Humanity** | Human? | **None** | `ydotool`, BadUSB, IP KVM, RDP, AI agent |
 
-Le canal Humanité est le meilleur rapport valeur sur risque du projet : il détecte les menaces les plus concrètes, il fonctionne dès la première seconde, et **il ne stocke aucun gabarit personnel**.
+The Humanity channel is the best value-to-risk ratio in the project: it detects the most concrete threats, it works from the first second, and **it stores no personal template**.
 
-## Étalonnage
+## Calibration
 
-À la question « combien de temps faut-il pour que l'outil me reconnaisse ? », le projet ne répond pas par une durée arbitraire. La fin de l'enrôlement est déclenchée par quatre critères de convergence mesurés (volume, stabilité du gabarit, performance auto-estimée par validation croisée temporelle avec intervalle de confiance, couverture contextuelle), et le système produit la courbe de performance en fonction du volume, qui donne la valeur réelle pour ce poste et cet utilisateur. Détail en [docs/03-MODELE-DECISION.md](docs/03-MODELE-DECISION.md) section 5.
+To the question "how long does it take for the tool to recognise me?", the project does not answer with an arbitrary duration. The end of enrolment is triggered by four measured convergence criteria (volume, template stability, performance self-estimated by temporal cross-validation with a confidence interval, contextual coverage), and the system produces the performance versus volume curve, which gives the real value for this machine and this user. Details in [docs/03-DECISION-ENGINE.md](docs/03-DECISION-ENGINE.md) section 5.
 
-## Comptage des utilisateurs
+## Counting users
 
-Le regroupement se fait sans connaître à l'avance le nombre de personnes, et il se **révise** : deux profils jugés indistinguables sont fusionnés, avec la justification statistique conservée et affichée.
+Clustering is done without knowing the number of people in advance, and it **revises itself**: two profiles judged indistinguishable are merged, with the statistical justification kept and displayed.
 
 ```
-J+3   3 profils
-J+9   fusion c3d4 ← e5f6
-      distance de Hellinger 0,08 < seuil 0,15
-      rapport de vraisemblance 1 composante / 2 composantes = 4,2
-      entrelacement temporel 0,71 (les deux régimes alternent dans 14 sessions)
-      conclusion : même personne, deux modes (clavier interne / clavier externe)
-J+9   2 profils (intervalle crédible 2 à 3)
+D+3   3 profiles
+D+9   merge c3d4 ← e5f6
+      Hellinger distance 0.08 < threshold 0.15
+      likelihood ratio 1 component / 2 components = 4.2
+      temporal interleaving 0.71 (the two regimes alternate in 14 sessions)
+      conclusion: same person, two modes (internal keyboard / external keyboard)
+D+9   2 profiles (credible interval 2 to 3)
 ```
 
-La distinction entre **mode** (un même individu a plusieurs régimes) et **identité** est centrale : sans elle, le système compte systématiquement trop d'utilisateurs.
+The distinction between **mode** (one individual has several regimes) and **identity** is central: without it, the system systematically counts too many users.
 
-## Empreinte, installation et autorisations
+## Footprint, installation and permissions
 
-L'outil est fait pour être installé une fois et oublié. Son coût se mesure **au repos**, état dans lequel il passe la quasi-totalité de son temps.
+The tool is made to be installed once and forgotten. Its cost is measured **at rest**, the state in which it spends almost all of its time.
 
-**Exécution.** L'agent est piloté par les événements : il reste bloqué sur `epoll` en attente des descripteurs d'entrée. Sans frappe ni mouvement, il ne s'exécute pas du tout, et ne réveille pas le processeur. Aucune boucle de sondage, nulle part. La console n'existe pas tant qu'on ne l'ouvre pas : elle est démarrée par activation de socket.
+**Execution.** The agent is event-driven: it stays blocked on `epoll` waiting on the input descriptors. With no typing and no movement it does not run at all, and does not wake the processor. No polling loop, anywhere. The console does not exist until it is opened: it is started by socket activation.
 
-| | Au repos | En activité |
+| | At rest | Active |
 |---|---|---|
-| Processeur | 0 % | moins de 1 % en moyenne |
-| Mémoire résidente | moins de 40 Mo | moins de 40 Mo |
-| Stockage | moins de 2 Mo par jour d'usage intensif | |
-| Binaire | moins de 8 Mo, empreinte installée moins de 15 Mo | |
+| CPU | 0 % | under 1 % on average |
+| Resident memory | under 40 MB | under 40 MB |
+| Storage | under 2 MB per day of heavy use | |
+| Binary | under 8 MB, installed footprint under 15 MB | |
 
-**Autorisations demandées, en totalité :**
+**Permissions requested, in full:**
 
-| Autorisation | Quand | Révocation |
+| Permission | When | Revocation |
 |---|---|---|
-| Appartenance au groupe `input` | Une seule fois, à l'installation | `sudo gpasswd -d $USER input` |
+| Membership of the `input` group | Once only, at installation | `sudo gpasswd -d $USER input` |
 
-Rien d'autre, à aucun moment : **pas de root à l'exécution**, pas de setuid, pas de capability, pas de module noyau, pas de service système (uniquement `systemd --user`), pas d'accès réseau, pas d'autorisation d'accessibilité, pas d'extension de navigateur, aucun fichier de configuration du système modifié.
+Nothing else, at any time: **no root at run time**, no setuid, no capability, no kernel module, no system service (`systemd --user` only), no network access, no accessibility permission, no browser extension, no system configuration file modified.
 
-Cette unique autorisation est néanmoins un privilège fort : elle donne accès à toutes les entrées de la session. Elle est incompressible pour une capture globale sous Wayland. Le projet ne la présente pas comme anodine, il la réduit au strict nécessaire et la compense par l'auditabilité des sources et un isolement réseau structurel (`PrivateNetwork=yes` : le processus de capture n'a pas d'accès réseau à donner, même compromis). Voir [ADR-0006](docs/adr/0006-moindre-privilege-installation.md).
+That single permission is nonetheless a strong privilege: it gives access to every input of the session. It is incompressible for global capture under Wayland. The project does not present it as harmless, it reduces it to the strict minimum and compensates with auditable sources and structural network isolation (`PrivateNetwork=yes`: the capture process has no network access to give, even if compromised). See [ADR-0006](docs/adr/0006-least-privilege-installation.md).
 
-**Installation.** Une commande, binaire précompilé, aucune chaîne de compilation requise, moins de 60 secondes jusqu'au premier événement traité. Désinstallation complète en une commande, purge des données comprise.
+**Installation.** One command, prebuilt binary, no toolchain required, under 60 seconds to the first processed event. Complete uninstallation in one command, data purge included.
 
-L'extension GNOME Shell est **facultative** : sans elle, l'agent fonctionne en mode dégradé (perte du contexte applicatif et de l'overlay, remplacé par une notification de bureau). L'installation n'échoue jamais faute d'extension.
+The GNOME Shell extension is **optional**: without it the agent works in degraded mode (application context and overlay are lost, the latter replaced by a desktop notification). Installation never fails for lack of the extension.
 
-**Prérequis (à partir du lot 1)**
+**Prerequisites (from work package 1)**
 
-- Linux, session Wayland ou X11 (développé sur Fedora / GNOME / Wayland)
-- Appartenance au groupe `input`
-- Facultatif : GNOME Shell, pour le contexte applicatif et l'overlay
-- Pour contribuer au code : Rust stable ; pour `fidus-lab`, Python 3.12 ou supérieur, hors ligne uniquement
+- Linux, Wayland or X11 session (developed on Fedora / GNOME / Wayland)
+- Membership of the `input` group
+- Optional: GNOME Shell, for application context and the overlay
+- To contribute code: stable Rust; for `fidus-lab`, Python 3.12 or later, offline only
 
-## Hors périmètre
+## Out of scope
 
-Explicitement exclu, et refusé en revue : enregistrement de contenu, télémétrie, mesure de productivité ou de présence, action coercitive sur le poste, reconnaissance faciale, capture audio ou vidéo, géolocalisation, clavier IME de substitution, service d'accessibilité Android, console centralisée, déploiement en parc.
+Explicitly excluded, and refused in review: content recording, telemetry, productivity or presence measurement, coercive action on the machine, face recognition, audio or video capture, geolocation, substitute IME keyboard, Android accessibility service, centralised console, fleet deployment.
 
-Ces éléments ne sont pas « prévus plus tard » : ils sont hors projet.
+These items are not "planned for later": they are outside the project.
 
 ## Licence
 
-**PolyForm Noncommercial 1.0.0.** Lecture, modification, redistribution et usage autorisés à des fins de **recherche, d'étude et d'enseignement**. **Usage commercial interdit.** Tous les droits commerciaux sont réservés à l'auteur, qui se réserve la possibilité de relicencier ultérieurement.
+**PolyForm Noncommercial 1.0.0.** Reading, modifying, redistributing and using the project are permitted for **research, study and teaching**. **Commercial use is prohibited.** All commercial rights are reserved to the author, who keeps the option of relicensing later.
 
-Le terme « open source » au sens de l'Open Source Initiative ne s'applique pas, une restriction de champ d'usage étant incompatible avec le critère 6 de la définition OSI. Le projet se décrit donc comme **source-available** et comme **projet de recherche ouvert**. Voir [ADR-0002](docs/adr/0002-licence-non-commerciale.md).
+The term "open source" in the sense of the Open Source Initiative does not apply, a field-of-use restriction being incompatible with criterion 6 of the OSI definition. The project therefore describes itself as **source-available** and as an **open research project**. See [ADR-0002](docs/adr/0002-noncommercial-licence.md).
 
-## Sources et travaux antérieurs
+## Sources and prior work
 
-Le projet s'appuie sur un état de l'art documenté et sourcé en [docs/00-ANALYSE.md](docs/00-ANALYSE.md) section 3 : corpus de référence (CMU, Balabit, SapiMouse, HMOG, Clarkson II), travaux sur la détection d'injection HID, littérature sur la fusion biométrique et la décision séquentielle, panorama des outils UEBA libres et commerciaux, et normes ISO/IEC 19795, 24745, 30107 ainsi que NIST SP 800-63B.
+The project builds on a documented, sourced state of the art in [docs/00-ANALYSIS.md](docs/00-ANALYSIS.md) section 3: reference corpora (CMU, Balabit, SapiMouse, HMOG, Clarkson II), work on HID injection detection, literature on biometric fusion and sequential decision, overview of open and commercial UEBA tools, and standards ISO/IEC 19795, 24745, 30107 as well as NIST SP 800-63B.

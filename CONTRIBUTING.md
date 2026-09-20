@@ -1,42 +1,42 @@
-# Contribuer à FidusAchates
+# Contributing to FidusAchates
 
-Projet de recherche, **source-available, usage commercial interdit** (voir [LICENSE](LICENSE) et [ADR-0002](docs/adr/0002-licence-non-commerciale.md)).
+Research project, **source-available, commercial use prohibited** (see [LICENSE](LICENSE) and [ADR-0002](docs/adr/0002-noncommercial-licence.md)).
 
-## Avant de proposer quoi que ce soit
+## Before proposing anything
 
-Lire [docs/05-PRIVACY.md](docs/05-PRIVACY.md). Toute contribution doit répondre oui aux quatre questions de sa section 9 :
+Read [docs/05-PRIVACY.md](docs/05-PRIVACY.md). Every contribution must answer yes to the four questions of its section 9:
 
-1. La donnée collectée figure-t-elle dans le registre de traitement ?
-2. Le signal ajouté est-il calculable sans connaître le contenu ?
-3. La finalité reste-t-elle « est-ce la même personne, est-ce un humain » ?
-4. Un utilisateur qui lirait le code se sentirait-il trahi ?
+1. Does the collected data appear in the processing register?
+2. Can the added signal be computed without knowing the content?
+3. Does the purpose remain "is it the same person, is it a human"?
+4. Would a user reading the code feel betrayed?
 
-## Refusé par principe
+## Refused on principle
 
-Ces contributions sont refusées quelle que soit leur qualité technique :
+These contributions are refused whatever their technical quality:
 
-- Capture de contenu, de titres de fenêtre, d'URL, de noms de fichiers, du presse-papiers.
-- Toute sortie réseau depuis l'agent, sous quelque forme que ce soit.
-- Fonction permettant de dissimuler l'exécution de l'agent.
-- Action coercitive sur le poste (verrouillage, blocage, déconnexion).
-- Métrique de productivité, de présence ou d'assiduité.
-- Passage du niveau de granularité P2 en configuration par défaut.
+- Capture of content, window titles, URLs, file names, the clipboard.
+- Any outbound network from the agent, in any form.
+- Any function allowing the agent's execution to be concealed.
+- Coercive action on the machine (locking, blocking, logout).
+- Productivity, presence or attendance metrics.
+- Making granularity level P2 the default configuration.
 
-## Ajouter un signal
+## Adding a signal
 
-1. L'inscrire dans [docs/04-CATALOGUE-SIGNAUX.md](docs/04-CATALOGUE-SIGNAUX.md) avec son coût, son pouvoir discriminant attendu et sa difficulté de falsification.
-2. Vérifier qu'il n'exige aucune donnée absente du registre de [docs/05-PRIVACY.md](docs/05-PRIVACY.md) section 3. Si une donnée manque, elle doit être ajoutée au registre **dans le même commit**.
-3. Implémenter le trait `Expert` ou `Extractor` : le moteur de fusion n'est pas modifié.
-4. Fournir une mesure de qualité (FR-11).
-5. Fournir un test unitaire avec vecteur de référence.
-6. Mesurer son pouvoir discriminant réel selon [research/PROTOCOLE-EVALUATION.md](research/PROTOCOLE-EVALUATION.md). **Un signal dont le pouvoir discriminant mesuré est nul est retiré, pas conservé par confort.**
+1. Register it in [docs/04-SIGNAL-CATALOGUE.md](docs/04-SIGNAL-CATALOGUE.md) with its cost, its expected discriminating power and its forgery difficulty.
+2. Check that it requires no data missing from the register in [docs/05-PRIVACY.md](docs/05-PRIVACY.md) section 3. If a piece of data is missing, it must be added to the register **in the same commit**.
+3. Implement the `Expert` or `Extractor` trait: the fusion engine is not modified.
+4. Provide a quality measure (FR-11).
+5. Provide a unit test with a reference vector.
+6. Measure its real discriminating power according to [research/EVALUATION-PROTOCOL.md](research/EVALUATION-PROTOCOL.md). **A signal whose measured discriminating power is zero is removed, not kept out of comfort.**
 
 ## Commits
 
-- Messages en français, impératif, préfixés par le lot : `lot1: ajoute la lecture evdev sans privilège`.
-- Aucun secret, clé ou jeton dans le dépôt.
-- Les tests de vie privée sont bloquants : ne jamais les contourner ni les marquer comme ignorés.
+- Messages in English, imperative mood, prefixed with the work package: `wp1: add rootless evdev reading`.
+- No secret, key or token in the repository.
+- Privacy tests are blocking: never bypass them nor mark them as skipped.
 
-## Licence des contributions
+## Licensing of contributions
 
-Le projet réservant les droits commerciaux à son auteur, toute contribution extérieure nécessitera une licence entrante explicite. Ouvrir une discussion **avant** de soumettre un travail conséquent.
+Since the project reserves commercial rights to its author, any outside contribution will need an explicit inbound licence. Open a discussion **before** submitting substantial work.

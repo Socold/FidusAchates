@@ -1,221 +1,221 @@
-# 06 - Feuille de route et critères d'acceptation
+# 06 - Roadmap and acceptance criteria
 
-> Chaque lot se termine par un critère **vérifiable**, pas par une impression. Un lot n'est pas clos tant que son critère n'est pas mesuré et consigné dans `research/`.
+> Each work package ends on a **verifiable** criterion, not an impression. A package is not closed until its criterion has been measured and recorded in `research/`.
 
 ---
 
-## Vue d'ensemble
+## Overview
 
-| Lot | Titre | Objet | Dépend de |
+| WP | Title | Purpose | Depends on |
 |---|---|---|---|
-| **0** | Socle | Dépôt, licence, spécifications, protocole d'évaluation | |
-| **1** | Capture et frappe | Agent evdev, signaux clavier, stockage, console minimale, détection d'automate de base | 0 |
-| **2** | Pointeur et fusion | Signaux souris, LLR, SPRT, explicabilité | 1 |
-| **3** | Étalonnage | Critères de convergence, courbe de performance, calibration des paramètres | 2 |
-| **4** | Profils multiples | Regroupement, révision, modes | 3 |
-| **5** | Canal Humanité | Détection complète d'entrée non humaine | 2 |
-| **6** | Retour visuel | Extension GNOME Shell, overlay | 2 |
-| **7** | Banc de recherche | Rejeu, corpus publics, résultats publiables | 3 |
-| **8** | Portage | Windows, macOS, Linux X11 | 5 |
-| **9** | Mobile | SDK in-app | 7 |
+| **0** | Foundation | Repository, licence, specifications, evaluation protocol | |
+| **1** | Capture and typing | evdev agent, keyboard signals, storage, minimal console, basic automaton detection | 0 |
+| **2** | Pointer and fusion | Mouse signals, LLR, SPRT, explainability | 1 |
+| **3** | Calibration | Convergence criteria, performance curve, parameter calibration | 2 |
+| **4** | Multiple profiles | Clustering, revision, modes | 3 |
+| **5** | Humanity channel | Complete detection of non-human input | 2 |
+| **6** | On-screen feedback | GNOME Shell extension, overlay | 2 |
+| **7** | Research bench | Replay, public corpora, publishable results | 3 |
+| **8** | Porting | Windows, macOS, Linux X11 | 5 |
+| **9** | Mobile | In-app SDK | 7 |
 
-Chemin critique : 0 → 1 → 2 → 3 → 4. Les lots 5 et 6 sont parallélisables après le lot 2.
-
----
-
-## Lot 0 - Socle
-
-**Contenu** : dépôt, licence PolyForm Noncommercial 1.0.0, documents 00 à 06, décisions d'architecture, protocole d'évaluation, intégration continue de base, gabarits de contribution et de revue.
-
-**Critère d'acceptation** : les documents 00 à 06 existent, sont cohérents entre eux, et chaque exigence du cahier des charges porte un moyen de vérification explicite.
-
-**État** : fait.
+Critical path: 0 → 1 → 2 → 3 → 4. Packages 5 and 6 can run in parallel after package 2.
 
 ---
 
-## Lot 1 - Capture et dynamique de frappe
+## WP 0 - Foundation
 
-**Contenu**
-- `fidus-agent` : lecture `evdev` sans root, normalisation, marquage de provenance (E01).
-- Tampon chaud borné à 10 s, jamais persisté.
-- Signaux A01 à A05, A07, A08, A10, A23.
-- Boucle événementielle sur `epoll`, sans sondage. Maintenance déclenchée par seuil d'événements.
-- Installateur en une commande, désinstallateur, `fidus-cli doctor` vérifiant les prérequis.
-- Signaux E01, E03, E05 (canal Humanité, sans enrôlement).
-- Schéma SQLite chiffré, agrégats de Welford, quantiles approchés.
-- Hachage salé des digraphes, niveaux P0 et P1.
-- `fidus-cli` : `status`, `pause`, `resume`, `purge`, `doctor`.
-- Console : vue Temps réel minimale (jauge, flux d'événements, santé).
-- Unité `systemd --user` durcie.
+**Content**: repository, PolyForm Noncommercial 1.0.0 licence, documents 00 to 06, architecture decisions, evaluation protocol, basic continuous integration, contribution and review templates.
 
-**Critères d'acceptation**
+**Acceptance criterion**: documents 00 to 06 exist, are consistent with one another, and every requirement carries an explicit means of verification.
 
-| # | Critère | Mesure |
+**Status**: done.
+
+---
+
+## WP 1 - Capture and keystroke dynamics
+
+**Content**
+- `fidus-agent`: rootless `evdev` reading, normalisation, provenance tagging (E01).
+- Hot buffer bounded to 10 s, never persisted.
+- Signals A01 to A05, A07, A08, A10, A23.
+- Event loop on `epoll`, no polling. Maintenance triggered by event thresholds.
+- One-command installer, uninstaller, `fidus-cli doctor` checking prerequisites.
+- Signals E01, E03, E05 (Humanity channel, no enrolment).
+- Encrypted SQLite schema, Welford aggregates, approximate quantiles.
+- Salted digraph hashing, levels P0 and P1.
+- `fidus-cli`: `status`, `pause`, `resume`, `purge`, `doctor`.
+- Console: minimal Live view (gauge, event stream, health).
+- Hardened `systemd --user` unit.
+
+**Acceptance criteria**
+
+| # | Criterion | Measure |
 |---|---|---|
-| 1.1 | L'agent tourne 24 h sans fuite mémoire ni perte d'événement | RSS stable sous 40 Mo, zéro événement perdu |
-| 1.2 | NFR-1 à NFR-4 respectés sur 24 h d'usage réel | Journal de santé |
-| 1.3 | Test « content-free » bloquant en CI | 200 mots témoins saisis, zéro occurrence en base |
-| 1.4 | Une injection `ydotool` est marquée comme virtuelle | Test automatisé |
-| 1.5 | Une rafale `ydotool` déclenche L3 sur le canal Humanité en moins de 10 s, sans aucun enrôlement | Test de bout en bout |
-| 1.6 | `purge` ne laisse aucun résidu | Vérification du système de fichiers |
-| 1.7 | INS-1 et INS-2 : 0 % de processeur et aucun réveil après 60 s sans entrée | `powertop` sur 5 min |
-| 1.8 | INS-10 à INS-14 : aucun privilège à l'exécution, aucun service système, aucun accès réseau possible | Audit de l'unité et du processus |
-| 1.9 | INS-20 à INS-24 : installation en une commande sur machine vierge, moins de 60 s, binaire sous 8 Mo | Test sur conteneur vierge |
-| 1.10 | INS-26 et INS-27 : désinstallation sans résidu, aucun fichier système modifié | Comparaison avant et après |
+| 1.1 | The agent runs 24 h with no memory leak and no lost event | RSS stable under 40 MB, zero lost events |
+| 1.2 | NFR-1 to NFR-4 met over 24 h of real use | Health log |
+| 1.3 | "Content-free" test blocking in CI | 200 canary words typed, zero hits in the database |
+| 1.4 | A `ydotool` injection is flagged as virtual | Automated test |
+| 1.5 | A `ydotool` burst triggers L3 on the Humanity channel in under 10 s, with no enrolment at all | End-to-end test |
+| 1.6 | `purge` leaves no residue | File system check |
+| 1.7 | INS-1 and INS-2: 0 % CPU and no wake-up after 60 s with no input | `powertop` over 5 min |
+| 1.8 | INS-10 to INS-14: no privilege at run time, no system service, no network access possible | Audit of the unit and the process |
+| 1.9 | INS-20 to INS-24: one-command installation on a blank machine, under 60 s, binary under 8 MB | Test in a blank container |
+| 1.10 | INS-26 and INS-27: uninstallation with no residue, no system file modified | Before and after comparison |
 
 ---
 
-## Lot 2 - Pointeur, fusion et explicabilité
+## WP 2 - Pointer, fusion and explainability
 
-**Contenu**
-- Signaux B01 à B11, B13, B21, et E08.
-- Calibration des experts (Platt), diagrammes de fiabilité.
-- Fusion LLR pondérée, mesure du facteur d'amortissement.
-- SPRT à deux seuils, décroissance exponentielle, hystérésis, niveaux L0 à L4.
-- Deux canaux séparés (Identité, Humanité).
-- Console : vue Explication (cascade en décibans, cinq preuves dominantes, trajectoire).
+**Content**
+- Signals B01 to B11, B13, B21, and E08.
+- Expert calibration (Platt), reliability diagrams.
+- Weighted LLR fusion, measurement of the damping factor.
+- Two-threshold SPRT, exponential decay, hysteresis, levels L0 to L4.
+- Two separate channels (Identity, Humanity).
+- Console: Explanation view (waterfall in decibans, five dominant pieces of evidence, trajectory).
 
-**Critères d'acceptation**
+**Acceptance criteria**
 
-| # | Critère | Mesure |
+| # | Criterion | Measure |
 |---|---|---|
-| 2.1 | La somme des contributions affichées égale l'évidence totale | Écart inférieur à 0,01 dB |
-| 2.2 | Les experts sont calibrés | Erreur de calibration attendue sous 0,05 |
-| 2.3 | Les taux d'erreur simulés correspondent aux cibles | Écart inférieur à 20 % relatif sur `α` et `β` |
-| 2.4 | Le couple `(a,b)` de la loi de Fitts (B06) est estimé de façon stable | Coefficient de variation inter-session sous 15 % |
-| 2.5 | Chaque alerte produit une explication en langue naturelle lisible | Revue sur 20 alertes réelles |
+| 2.1 | The sum of displayed contributions equals the total evidence | Gap under 0.01 dB |
+| 2.2 | The experts are calibrated | Expected calibration error under 0.05 |
+| 2.3 | Simulated error rates match the targets | Gap under 20 % relative on `α` and `β` |
+| 2.4 | The `(a,b)` pair of Fitts's law (B06) is estimated stably | Inter-session coefficient of variation under 15 % |
+| 2.5 | Every alert produces a readable natural-language explanation | Review of 20 real alerts |
 
 ---
 
-## Lot 3 - Étalonnage et calibration
+## WP 3 - Calibration
 
-**Contenu**
-- Quatre phases du cycle de vie, transitions automatiques.
-- Critères C1 à C4, affichage de l'avancement.
-- Courbe performance / volume, estimation du `X` propre au poste.
-- Validation croisée temporelle, bootstrap, intervalles de confiance.
-- Calibration des paramètres de [03-MODELE-DECISION.md](03-MODELE-DECISION.md) section 8, par mesure.
-- Mesure du pouvoir discriminant réel de chaque signal, et retrait des signaux nuls.
-- Protection anti-empoisonnement (filtre d'admission, taux borné, ancre gelée, signal F06).
+**Content**
+- Four life-cycle phases, automatic transitions.
+- Criteria C1 to C4, progress display.
+- Performance versus volume curve, estimate of the `X` specific to the machine.
+- Temporal cross-validation, bootstrap, confidence intervals.
+- Calibration of the parameters of [03-DECISION-ENGINE.md](03-DECISION-ENGINE.md) section 8, by measurement.
+- Measurement of the real discriminating power of each signal, and removal of the null ones.
+- Anti-poisoning protection (admission filter, bounded rate, frozen anchor, signal F06).
 
-**Critères d'acceptation**
+**Acceptance criteria**
 
-| # | Critère | Mesure |
+| # | Criterion | Measure |
 |---|---|---|
-| 3.1 | La courbe performance / volume est produite et reproductible par rejeu | Deux exécutions identiques |
-| 3.2 | Le `X` empirique du poste est publié avec son intervalle de confiance | Consigné dans `research/` |
-| 3.3 | AC-1 atteint : EER sous 5 % sur fenêtre de 60 s contre imposteur humain | Protocole d'évaluation |
-| 3.4 | AC-4 atteint : moins d'une fausse alarme par 8 h d'usage légitime | Mesure sur 7 jours |
-| 3.5 | Le tableau de pouvoir discriminant réel remplace les hypothèses du catalogue | [04-CATALOGUE-SIGNAUX.md](04-CATALOGUE-SIGNAUX.md) mis à jour |
-| 3.6 | Scénario M10 : un imposteur actif 2 h par jour pendant 7 jours ne fait pas dériver le gabarit au-delà du seuil | Test d'attaque |
+| 3.1 | The performance versus volume curve is produced and reproducible by replay | Two identical runs |
+| 3.2 | The empirical `X` of the machine is published with its confidence interval | Recorded in `research/` |
+| 3.3 | AC-1 met: EER under 5 % over a 60 s window against a human impostor | Evaluation protocol |
+| 3.4 | AC-4 met: fewer than one false alarm per 8 h of legitimate use | Measured over 7 days |
+| 3.5 | The table of real discriminating power replaces the hypotheses of the catalogue | [04-SIGNAL-CATALOGUE.md](04-SIGNAL-CATALOGUE.md) updated |
+| 3.6 | Scenario M10: an impostor active 2 h a day for 7 days does not drift the template beyond the threshold | Attack test |
 
 ---
 
-## Lot 4 - Profils multiples
+## WP 4 - Multiple profiles
 
-**Contenu**
-- Vecteur de session, regroupement à nombre de composantes non borné.
-- Hiérarchie identité / mode, critère d'entrelacement temporel (F04).
-- Révision par fusion et scission, avec justification statistique.
-- Historique permanent des révisions.
-- Nombre de profils avec incertitude.
-- Signaux C01 à C08, D01 à D05, F01 à F03.
-- Console : vue Profils.
+**Content**
+- Session vector, clustering with an unbounded number of components.
+- Identity / mode hierarchy, temporal interleaving criterion (F04).
+- Revision by merge and split, with statistical justification.
+- Permanent revision history.
+- Number of profiles with uncertainty.
+- Signals C01 to C08, D01 to D05, F01 to F03.
+- Console: Profiles view.
 
-**Critères d'acceptation**
+**Acceptance criteria**
 
-| # | Critère | Mesure |
+| # | Criterion | Measure |
 |---|---|---|
-| 4.1 | AC-5 atteint : sur trace contrôlée à 2 ou 3 personnes, le compte est exact après 5 jours | Protocole d'évaluation |
-| 4.2 | Une même personne sur deux périphériques distincts reste un seul profil, avec deux modes | Scénario dédié |
-| 4.3 | Au moins une fusion rétrospective est observée et justifiée lisiblement | Chronologie dans la console |
-| 4.4 | Le nombre de profils est toujours présenté avec son intervalle crédible | Revue de l'interface |
+| 4.1 | AC-5 met: on a controlled trace with 2 or 3 people, the count is exact after 5 days | Evaluation protocol |
+| 4.2 | The same person on two distinct devices remains a single profile, with two modes | Dedicated scenario |
+| 4.3 | At least one retrospective merge is observed and readably justified | Timeline in the console |
+| 4.4 | The number of profiles is always presented with its credible interval | Interface review |
 
 ---
 
-## Lot 5 - Canal Humanité complet
+## WP 5 - Complete Humanity channel
 
-**Contenu** : signaux E02, E04, E06, E07, E09 à E18, et F05. Banc d'attaque dédié.
+**Content**: signals E02, E04, E06, E07, E09 to E18, and F05. Dedicated attack bench.
 
-**Banc d'attaque** (reproductible, scripté) :
-1. `ydotool` et automatisation locale.
-2. Injection HID matérielle (clé de type Rubber Ducky).
-3. Rejeu de presse-papiers via KVM sur IP.
-4. Session distante RDP puis VNC.
-5. **Agent IA pilotant le poste** (boucle percevoir / agir sur clavier et souris).
-6. Contrefaçon statistique : générateur entraîné sur les agrégats du gabarit (menace M8).
-7. Adversaire adaptatif : automate qui ralentit et randomise ses délais pour contourner E03 et E05.
+**Attack bench** (reproducible, scripted):
+1. `ydotool` and local automation.
+2. Hardware HID injection (Rubber Ducky type key).
+3. Clipboard replay through an IP KVM.
+4. Remote session, RDP then VNC.
+5. **AI agent driving the machine** (perceive / act loop on keyboard and mouse).
+6. Statistical forgery: generator trained on the aggregates of the template (threat M8).
+7. Adaptive adversary: automaton that slows down and randomises its delays to get around E03 and E05.
 
-**Critères d'acceptation**
+**Acceptance criteria**
 
-| # | Critère | Mesure |
+| # | Criterion | Measure |
 |---|---|---|
-| 5.1 | AC-3 atteint : détection des scénarios 1 à 3 en moins de 10 s sans enrôlement | Banc d'attaque |
-| 5.2 | Scénarios 4 et 5 détectés en moins de 60 s | Banc d'attaque |
-| 5.3 | Le scénario 7 (adversaire adaptatif) est détecté par des signaux non temporels (E01, E07, E10, E13) | Banc d'attaque |
-| 5.4 | Zéro fausse alarme du canal Humanité sur 7 jours d'usage humain normal | Mesure |
-| 5.5 | Le scénario 6 est documenté avec son taux de réussite, y compris s'il met le système en échec | Publication honnête dans `research/` |
+| 5.1 | AC-3 met: scenarios 1 to 3 detected in under 10 s with no enrolment | Attack bench |
+| 5.2 | Scenarios 4 and 5 detected in under 60 s | Attack bench |
+| 5.3 | Scenario 7 (adaptive adversary) is detected by non-temporal signals (E01, E07, E10, E13) | Attack bench |
+| 5.4 | Zero false alarms from the Humanity channel over 7 days of normal human use | Measurement |
+| 5.5 | Scenario 6 is documented with its success rate, including if it defeats the system | Honest publication in `research/` |
 
 ---
 
-## Lot 6 - Extension GNOME Shell et retour visuel
+## WP 6 - GNOME Shell extension and on-screen feedback
 
-**Contenu**
-- Extension GNOME Shell : contexte applicatif par catégorie sur D-Bus, et overlay.
-- Carré rouge en haut à droite, seuil `P > 0,50`, pourcentage affiché, hystérésis.
-- Modes `research` et `silent`.
-- Vue Santé et vie privée dans la console.
+**Content**
+- GNOME Shell extension: application context by category over D-Bus, and overlay.
+- Red square at the top right, threshold `P > 0.50`, percentage displayed, hysteresis.
+- `research` and `silent` modes.
+- Health and privacy view in the console.
 
-**Critères d'acceptation**
+**Acceptance criteria**
 
-| # | Critère | Mesure |
+| # | Criterion | Measure |
 |---|---|---|
-| 6.1 | Le carré apparaît en moins de 500 ms après franchissement du seuil | Mesure |
-| 6.2 | L'overlay ne vole jamais le focus et n'intercepte aucun clic | Test manuel documenté |
-| 6.3 | Pas plus d'une transition d'affichage par période de garde | Mesure sur 24 h |
-| 6.4 | L'extension n'expose jamais de titre de fenêtre ni de nom d'exécutable sur D-Bus | Inspection D-Bus |
-| 6.5 | Le mode `silent` n'affiche rien | Vérification |
-| 6.6 | INS-25 : sans l'extension installée, l'agent démarre et fonctionne en mode dégradé, et l'installation n'échoue pas | Test sans extension |
+| 6.1 | The square appears in under 500 ms after the threshold is crossed | Measurement |
+| 6.2 | The overlay never steals focus and intercepts no click | Documented manual test |
+| 6.3 | No more than one display transition per guard period | Measured over 24 h |
+| 6.4 | The extension never exposes a window title or an executable name over D-Bus | D-Bus inspection |
+| 6.5 | `silent` mode displays nothing | Check |
+| 6.6 | INS-25: with no extension installed, the agent starts and works in degraded mode, and installation does not fail | Test with no extension |
 
 ---
 
-## Lot 7 - Banc de recherche
+## WP 7 - Research bench
 
-**Contenu**
-- `fidus-lab` : rejeu déterministe, banc d'évaluation (FAR, FRR, EER, ANIA, ANGA, TTD), courbes DET et ROC.
-- Format de trace documenté et versionné.
-- Ingestion des corpus CMU, Balabit, SapiMouse.
-- Premier rapport de résultats comparé à l'état de l'art.
+**Content**
+- `fidus-lab`: deterministic replay, evaluation bench (FAR, FRR, EER, ANIA, ANGA, TTD), DET and ROC curves.
+- Documented, versioned trace format.
+- Ingestion of the CMU, Balabit and SapiMouse corpora.
+- First results report compared with the state of the art.
 
-**Critères d'acceptation**
+**Acceptance criteria**
 
-| # | Critère | Mesure |
+| # | Criterion | Measure |
 |---|---|---|
-| 7.1 | Deux rejeux de la même trace donnent un résultat identique bit à bit | Test automatisé |
-| 7.2 | Au moins un résultat comparable à l'état de l'art est publié sur un corpus public | Rapport dans `research/` |
-| 7.3 | AC-6 vérifié sur 7 jours consécutifs | Journal de santé |
-| 7.4 | Le rapport publie aussi les signaux non discriminants et les échecs | Revue |
+| 7.1 | Two replays of the same trace give a bit-identical result | Automated test |
+| 7.2 | At least one result comparable with the state of the art is published on a public corpus | Report in `research/` |
+| 7.3 | AC-6 verified over 7 consecutive days | Health log |
+| 7.4 | The report also publishes the non-discriminating signals and the failures | Review |
 
 ---
 
-## Lot 8 - Portage
+## WP 8 - Porting
 
-Windows (Raw Input, indicateur `LLKHF_INJECTED`), macOS (`CGEventTap`), Linux X11. Seul l'étage `Source` est réécrit.
+Windows (Raw Input, `LLKHF_INJECTED` flag), macOS (`CGEventTap`), Linux X11. Only the `Source` stage is rewritten.
 
-**Critère d'acceptation** : sur chaque plateforme, les critères 1.1 à 1.5 du lot 1 sont atteints, et une trace capturée sur une plateforme est rejouable par `fidus-lab` sans adaptation.
-
----
-
-## Lot 9 - Mobile
-
-SDK intégrable dans une application, modalités G01 à G10. Périmètre limité à l'intérieur de l'application hôte (cf. 00-ANALYSE T6).
-
-**Critère d'acceptation** : EER sous 10 % sur une session de 60 s d'interaction tactile, avec le même moteur de fusion et le même format de trace que le bureau.
+**Acceptance criterion**: on each platform, criteria 1.1 to 1.5 of WP 1 are met, and a trace captured on one platform can be replayed by `fidus-lab` without adaptation.
 
 ---
 
-## Ce qui n'est pas planifié
+## WP 9 - Mobile
 
-Conformément à la section 10 du [cahier des charges](01-CAHIER-DES-CHARGES.md) : console centralisée, déploiement en parc, action coercitive sur le poste, reconnaissance faciale, capture audio ou vidéo, clavier IME de substitution, service d'accessibilité Android.
+SDK embeddable in an application, modalities G01 to G10. Scope limited to the inside of the host application (cf. 00-ANALYSIS T6).
 
-Ces éléments ne sont pas « plus tard » : ils sont hors projet. Les inscrire dans une feuille de route même lointaine serait une invitation à les développer.
+**Acceptance criterion**: EER under 10 % over a 60 s session of touch interaction, with the same fusion engine and the same trace format as the desktop.
+
+---
+
+## What is not planned
+
+In line with section 10 of the [requirements](01-REQUIREMENTS.md): centralised console, fleet deployment, coercive action on the machine, face recognition, audio or video capture, substitute IME keyboard, Android accessibility service.
+
+These items are not "later": they are outside the project. Putting them on a roadmap, however distant, would be an invitation to build them.

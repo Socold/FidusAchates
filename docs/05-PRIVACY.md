@@ -1,137 +1,137 @@
-# 05 - Vie privée, éthique et conformité
+# 05 - Privacy, ethics and compliance
 
-> Répond aux exigences PR-1 à PR-10. Ce document fait foi : toute collecte non décrite ici est un défaut.
+> Covers requirements PR-1 to PR-10. This document is authoritative: any collection not described here is a defect.
 
 ---
 
-## 1. Position de principe
+## 1. Position of principle
 
-FidusAchates est un outil capable de lire tout ce qui est tapé sur un clavier. C'est un pouvoir dangereux, assumé plutôt que minimisé. Le projet se donne donc une règle qui prime sur toutes les autres :
+FidusAchates is a tool capable of reading everything typed on a keyboard. That is a dangerous power, owned rather than played down. The project therefore gives itself a rule that overrides all others:
 
-> **On ne collecte pas ce qu'on peut déduire, et on ne déduit pas ce dont on n'a pas besoin.**
+> **Do not collect what can be inferred, and do not infer what is not needed.**
 
-L'objectif du projet est de répondre à « est-ce la même personne ? ». Il n'est pas de savoir ce que cette personne écrit, lit, cherche ou produit. Toute fonctionnalité qui s'écarte de cette frontière est un défaut à corriger, pas une évolution à discuter (PR-9).
+The goal of the project is to answer "is it the same person?". It is not to know what that person writes, reads, searches for or produces. Any feature that strays from that boundary is a defect to fix, not an evolution to discuss (PR-9).
 
-## 2. Ce que l'outil ne fait jamais
+## 2. What the tool never does
 
-Liste opposable, à vérifier en revue de code et par test automatisé :
+Binding list, to be checked in code review and by automated test:
 
-- Aucun contenu saisi, sous aucune forme, y compris partielle ou dérivée reconstructible.
-- Aucun titre de fenêtre, nom d'exécutable, chemin de fichier, URL, terme de recherche.
-- Aucun contenu de presse-papiers.
-- Aucune capture d'écran, aucun accès à la caméra ou au microphone.
-- Aucune géolocalisation, aucun identifiant réseau (adresse MAC, IP, SSID).
-- Aucun identifiant civil : nom, compte, adresse électronique, numéro de série, identifiant matériel.
-- Aucune connexion réseau sortante, aucune télémétrie, aucun rapport d'incident distant, aucune police ni script distant.
-- Aucune mesure de productivité, d'assiduité, de présence ou de performance.
-- Aucune action coercitive sur le poste : pas de verrouillage, pas de déconnexion, pas de blocage.
+- No typed content, in any form, including partial or reconstructible derivatives.
+- No window title, executable name, file path, URL, search term.
+- No clipboard content.
+- No screenshot, no access to the camera or microphone.
+- No geolocation, no network identifier (MAC address, IP, SSID).
+- No civil identifier: name, account, e-mail address, serial number, hardware identifier.
+- No outbound network connection, no telemetry, no remote crash report, no remote font or script.
+- No measurement of productivity, attendance, presence or performance.
+- No coercive action on the machine: no locking, no logout, no blocking.
 
-Le point le plus important de cette liste est le suivant : l'absence de réseau n'est pas une promesse, c'est une propriété structurelle. Le processus de capture s'exécute sous `PrivateNetwork=yes`, **il n'a pas d'accès réseau à donner**, même s'il était compromis (SR-3, NFR-9).
+The most important point in this list is the following: the absence of network is not a promise, it is a structural property. The capture process runs under `PrivateNetwork=yes`: **it has no network access to give**, even if it were compromised (SR-3, NFR-9).
 
-## 3. Registre de traitement
+## 3. Processing register
 
-| Catégorie | Données | Finalité | Base | Rétention | Emplacement |
+| Category | Data | Purpose | Basis | Retention | Location |
 |---|---|---|---|---|---|
-| Timings d'entrée | Horodatages monotones, classes de touches, boutons | Signaux A, B, E | Fonctionnement | Tampon mémoire 10 s, non persisté | RAM |
-| Digraphes hachés | `HMAC(sel volatil, paire de codes)` tronqué à 32 bits | Signal A05 | Fonctionnement | Agrégés seulement | SQLite chiffré |
-| Vecteurs de fenêtre | Valeurs des signaux par fenêtre d'activité | Décision, regroupement | Fonctionnement | 7 jours | SQLite chiffré |
-| Agrégats | n, moyenne, M2, quantiles par signal, profil, mode | Gabarits | Fonctionnement | 90 jours | SQLite chiffré |
-| Gabarits | Paramètres statistiques par profil | Décision | Fonctionnement | Vie du profil | SQLite chiffré |
-| Décisions | Horodatage, niveau, contributions | Explicabilité, audit | Fonctionnement | 90 jours | SQLite chiffré |
-| Révisions de profils | Fusions, scissions, justifications | Traçabilité | Fonctionnement | Permanent | SQLite chiffré |
-| Contexte applicatif | Catégorie (7 valeurs) et identifiant opaque | Signaux C | Fonctionnement | 7 jours | SQLite chiffré |
-| Santé | CPU, mémoire, débit | Respect des NFR | Fonctionnement | 7 jours | SQLite chiffré |
+| Input timings | Monotonic timestamps, key classes, buttons | Signals A, B, E | Operation | 10 s memory buffer, not persisted | RAM |
+| Hashed digraphs | `HMAC(volatile salt, code pair)` truncated to 32 bits | Signal A05 | Operation | Aggregated only | Encrypted SQLite |
+| Window vectors | Signal values per activity window | Decision, clustering | Operation | 7 days | Encrypted SQLite |
+| Aggregates | n, mean, M2, quantiles per signal, profile, mode | Templates | Operation | 90 days | Encrypted SQLite |
+| Templates | Statistical parameters per profile | Decision | Operation | Life of the profile | Encrypted SQLite |
+| Decisions | Timestamp, level, contributions | Explainability, audit | Operation | 90 days | Encrypted SQLite |
+| Profile revisions | Merges, splits, justifications | Traceability | Operation | Permanent | Encrypted SQLite |
+| Application context | Category (7 values) and opaque identifier | Signals C | Operation | 7 days | Encrypted SQLite |
+| Health | CPU, memory, throughput | NFR compliance | Operation | 7 days | Encrypted SQLite |
 
-Aucune autre donnée n'est écrite sur disque. Toute ligne ajoutée à ce tableau doit l'être dans le même commit que le code qui la produit.
+No other data is written to disk. Any line added to this table must be added in the same commit as the code that produces it.
 
-## 4. Qualification juridique
+## 4. Legal qualification
 
-### 4.1 Nature des données
+### 4.1 Nature of the data
 
-Un gabarit comportemental permettant de distinguer un individu relève de la définition de la **donnée biométrique** (RGPD art. 4-14), et donc du régime de l'**article 9** (catégories particulières). La CNIL range explicitement la dynamique de frappe dans la biométrie comportementale et maintient ce régime pour l'authentification, y compris continue.
+A behavioural template that makes it possible to tell an individual apart falls under the definition of **biometric data** (GDPR art. 4-14), and therefore under the regime of **article 9** (special categories). The CNIL explicitly places keystroke dynamics within behavioural biometrics and maintains that regime for authentication, including continuous authentication.
 
-**Conséquence : le projet ne prétend pas produire des données anonymes.** Il produit des données pseudonymisées, minimisées et confinées localement. L'affirmation « parfaitement anonyme » serait fausse, et l'écrire exposerait le projet à un reproche fondé.
+**Consequence: the project does not claim to produce anonymous data.** It produces pseudonymised, minimised and locally confined data. The claim "perfectly anonymous" would be false, and writing it would expose the project to a well-founded objection.
 
-### 4.2 Situation actuelle : usage personnel
+### 4.2 Current situation: personal use
 
-Dans la configuration présente, ma machine personnelle et aucun tiers observé, le traitement relève de l'**exemption pour activité personnelle ou domestique** (art. 2-2-c). Aucune formalité n'est requise.
+In the present configuration, my personal machine and no third party observed, the processing falls under the **exemption for purely personal or household activity** (art. 2-2-c). No formality is required.
 
-Cette exemption disparaît dès que l'une des conditions suivantes est remplie :
+That exemption disappears as soon as one of the following holds:
 
-- une autre personne utilise le poste et est observée ;
-- l'outil est installé sur un poste professionnel ;
-- des résultats sont publiés à partir de données concernant un tiers ;
-- l'outil est déployé sur plusieurs postes.
+- another person uses the machine and is observed;
+- the tool is installed on a work machine;
+- results are published from data concerning a third party;
+- the tool is deployed on several machines.
 
-### 4.3 Conditions à réunir avant tout usage impliquant un tiers (PR-8)
+### 4.3 Conditions to meet before any use involving a third party (PR-8)
 
 | # | Condition |
 |---|---|
-| 1 | **Base légale art. 9-2-a** : consentement explicite, libre, spécifique, éclairé, révocable, recueilli et journalisé avant toute collecte |
-| 2 | **Analyse d'impact (AIPD)** : obligatoire (biométrie, surveillance systématique). Modèle fourni dans `docs/aipd-modele.md` |
-| 3 | **Information préalable** complète : finalités, données, durées, droits, destinataires, absence de décision automatisée |
-| 4 | **Droit d'opposition effectif** : arrêt et purge immédiats, sans conséquence pour la personne |
-| 5 | **En contexte professionnel** : consultation des représentants du personnel, et vérification que la surveillance est proportionnée. Un tel déploiement est hors périmètre du projet |
-| 6 | **Comité d'éthique** si le projet donne lieu à publication académique avec sujets humains |
-| 7 | **Aucune décision produisant des effets juridiques** ne peut être fondée sur la sortie de l'outil (art. 22) |
+| 1 | **Legal basis art. 9-2-a**: explicit, free, specific, informed, revocable consent, collected and logged before any collection |
+| 2 | **Data protection impact assessment (DPIA)**: mandatory (biometrics, systematic monitoring). Template provided in `docs/dpia-template.md` |
+| 3 | Complete **prior information**: purposes, data, durations, rights, recipients, absence of automated decision |
+| 4 | **Effective right to object**: immediate stop and purge, with no consequence for the person |
+| 5 | **In a work context**: consultation of staff representatives, and verification that monitoring is proportionate. Such a deployment is out of scope of the project |
+| 6 | **Ethics committee** if the project leads to academic publication with human subjects |
+| 7 | **No decision producing legal effects** may be based on the tool's output (art. 22) |
 
-Ces conditions sont reprises dans le README pour être vues avant installation.
+These conditions are repeated in the README so that they are seen before installation.
 
-## 5. Protection technique
+## 5. Technical protection
 
-| Mesure | Mise en œuvre | Exigence |
+| Measure | Implementation | Requirement |
 |---|---|---|
-| Chiffrement au repos | Base chiffrée, clé dans le trousseau du système, jamais sur disque en clair | PR-4 |
-| Sel volatil | Régénéré à chaque démarrage, en mémoire uniquement, jamais persisté | FR-3 |
-| Absence d'événements bruts | Propriété du schéma, pas politique de purge | FR-8 |
-| Rétention bornée | Purge automatique quotidienne selon le registre ci-dessus | PR-5 |
-| Purge totale | `fidus-cli purge` efface base, gabarits et journaux | FR-7, PR-5 |
-| Suspension immédiate | Raccourci global et commande CLI, effet en moins d'une seconde | FR-7 |
-| Liste noire applicative | Capture suspendue pour les applications listées, par défaut : gestionnaires de mots de passe | FR-6 |
-| Isolement réseau | `PrivateNetwork=yes` sur le processus de capture | NFR-9, SR-3 |
-| Console locale | Liaison `127.0.0.1` uniquement, jeton à chaque démarrage | FR-50, SR-2 |
-| Irréversibilité | Aucun gabarit ne permet de reconstruire une séquence d'entrée | PR-10 |
+| Encryption at rest | Encrypted database, key in the system keyring, never on disk in clear | PR-4 |
+| Volatile salt | Regenerated at every start, in memory only, never persisted | FR-3 |
+| No raw events | A property of the schema, not a purge policy | FR-8 |
+| Bounded retention | Daily automatic purge according to the register above | PR-5 |
+| Total purge | `fidus-cli purge` erases database, templates and logs | FR-7, PR-5 |
+| Immediate suspension | Global shortcut and CLI command, effective in under a second | FR-7 |
+| Application blocklist | Capture suspended for listed applications, by default: password managers | FR-6 |
+| Network isolation | `PrivateNetwork=yes` on the capture process | NFR-9, SR-3 |
+| Local console | Bound to `127.0.0.1` only, token at every start | FR-50, SR-2 |
+| Irreversibility | No template allows an input sequence to be reconstructed | PR-10 |
 
-### Limite assumée, à ne pas dissimuler
+### A limit I own, and do not hide
 
-**Sous Wayland, il n'existe aucun moyen fiable de détecter qu'un champ de saisie est un champ de mot de passe.** La protection contre la capture des mots de passe repose donc sur trois mesures imparfaites : la liste noire applicative (FR-6), la suspension manuelle (FR-7), et le fait qu'en niveau P0 et P1 aucun keycode en clair ne soit conservé.
+**Under Wayland there is no reliable way to detect that an input field is a password field.** Protection against capturing passwords therefore rests on three imperfect measures: the application blocklist (FR-6), manual suspension (FR-7), and the fact that at levels P0 and P1 no keycode is kept in clear.
 
-Cette limite figure dans le README, au-dessus des instructions d'installation, et non en note de bas de page.
+This limit appears in the README, above the installation instructions, and not in a footnote.
 
-## 6. Niveaux de granularité
+## 6. Granularity levels
 
-| Niveau | Ce qui est conservé | Usage prévu |
+| Level | What is kept | Intended use |
 |---|---|---|
-| **P0** | Classes de touches uniquement | Utilisateur prudent, démonstration publique |
-| **P1** (défaut) | Digraphes hachés et salés | Usage normal du projet |
-| **P2** | Keycodes en clair | **Corpus de test dédiés uniquement.** Refuser en usage réel. Le mode affiche un avertissement permanent dans la console et dans l'overlay |
+| **P0** | Key classes only | Cautious user, public demonstration |
+| **P1** (default) | Salted hashed digraphs | Normal use of the project |
+| **P2** | Keycodes in clear | **Dedicated test corpora only.** To be refused in real use. The mode shows a permanent warning in the console and in the overlay |
 
-Le niveau actif est affiché en permanence dans la console (FR-57).
+The active level is shown permanently in the console (FR-57).
 
-## 7. Éthique de la recherche
+## 7. Research ethics
 
-1. **Consentement avant tout sujet.** Aucune donnée d'un tiers n'est collectée sans son accord explicite préalable.
-2. **Réciprocité.** Toute personne observée a accès à la console et peut consulter, exporter et effacer ses propres données.
-3. **Pas de surprise.** L'outil est visible : service déclaré, indicateur d'état, aucune exécution discrète. Un outil de ce type qui se cache est un logiciel malveillant.
-4. **Publication des échecs.** Les signaux mesurés comme non discriminants sont publiés au même titre que les autres. Un catalogue de signaux qui ne contiendrait que des succès serait un catalogue biaisé.
-5. **Pas d'usage à charge.** Les sorties ne servent jamais à sanctionner, noter ou évaluer une personne.
-6. **Réversibilité.** À tout moment : arrêt, purge, désinstallation complète en une commande.
+1. **Consent before any subject.** No data from a third party is collected without their explicit prior agreement.
+2. **Reciprocity.** Anyone observed has access to the console and can view, export and erase their own data.
+3. **No surprise.** The tool is visible: declared service, status indicator, no discreet execution. A tool of this kind that hides is malware.
+4. **Publishing failures.** Signals measured as non-discriminating are published just like the others. A signal catalogue containing only successes would be a biased catalogue.
+5. **No use against a person.** Outputs are never used to sanction, grade or assess someone.
+6. **Reversibility.** At any time: stop, purge, complete uninstallation in one command.
 
-## 8. Risque de détournement
+## 8. Risk of misuse
 
-Le projet produit, de fait, une brique techniquement proche d'un enregistreur de frappe et d'un outil de surveillance. Le nier serait malhonnête. Les contre-mesures retenues :
+The project produces, in effect, a building block technically close to a keylogger and a monitoring tool. Denying it would be dishonest. The countermeasures retained:
 
-- **Licence non commerciale** : limite la reprise industrielle sans discussion préalable.
-- **Absence de fonction de remontée** : il n'existe aucun code d'exfiltration à réutiliser. Un détournement demande de l'écrire, ce qui en fait un autre logiciel.
-- **Absence de fonction d'invisibilité** : l'outil ne sait pas se cacher, et aucune contribution en ce sens ne sera acceptée.
-- **Absence d'action coercitive** : pas de verrouillage ni de blocage à détourner.
-- **Documentation frontale** : ce document est lié depuis le README, avant les instructions d'installation.
+- **Non-commercial licence**: limits industrial reuse without prior discussion.
+- **No upload function**: there is no exfiltration code to reuse. Misuse requires writing it, which makes it another piece of software.
+- **No invisibility function**: the tool does not know how to hide, and no contribution in that direction will be accepted.
+- **No coercive action**: no locking or blocking to repurpose.
+- **Up-front documentation**: this document is linked from the README, before the installation instructions.
 
-## 9. Ce que ce document engage
+## 9. What this document commits to
 
-Toute contribution doit répondre par l'affirmative aux quatre questions suivantes, sans quoi elle est refusée :
+Every contribution must answer yes to the following four questions, failing which it is refused:
 
-1. La donnée collectée figure-t-elle dans le registre de la section 3 ?
-2. Le signal ajouté est-il calculable sans connaître le contenu ?
-3. La finalité reste-t-elle « est-ce la même personne, est-ce un humain » ?
-4. Un utilisateur qui lirait le code se sentirait-il trahi ?
+1. Does the collected data appear in the register of section 3?
+2. Can the added signal be computed without knowing the content?
+3. Does the purpose remain "is it the same person, is it a human"?
+4. Would a user reading the code feel betrayed?
