@@ -203,6 +203,8 @@ First end-to-end result: no enrolment needed, so the whole chain can be demonstr
 
 ## WP 8 - Multiple profiles
 
+**Status**: clustering into profiles, the merge revision with logged statistical reasons, and the mode-versus-identity distinction via temporal interleaving are built and tested in Python (the two-distinct-people, one-person-many-regimes, and interleaved-two-devices cases pass). Live wiring and the Profiles view remain.
+
 **Content**: session vectors, clustering with an unbounded number of components, identity versus mode with the temporal interleaving criterion, merge and split with logged statistical justification, Profiles view.
 
 **Acceptance criteria**
