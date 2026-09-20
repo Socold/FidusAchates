@@ -41,7 +41,12 @@ impl Reducer {
             EV_REL => Self::reduce_rel(code, value)?,
             _ => return None,
         };
-        Some(Record { time, device, provenance, event })
+        Some(Record {
+            time,
+            device,
+            provenance,
+            event,
+        })
     }
 
     fn reduce_key(&mut self, code: u16, value: i32) -> Option<Event> {
@@ -51,7 +56,10 @@ impl Reducer {
                 0 => KeyPhase::Up,
                 _ => return None,
             };
-            return Some(Event::Button { phase, button: button_of(code) });
+            return Some(Event::Button {
+                phase,
+                button: button_of(code),
+            });
         }
         match value {
             1 => {
@@ -62,7 +70,11 @@ impl Reducer {
                 if class != KeyClass::Modifier {
                     self.previous_key_down = Some(code);
                 }
-                Some(Event::Key { phase: KeyPhase::Down, class, digraph })
+                Some(Event::Key {
+                    phase: KeyPhase::Down,
+                    class,
+                    digraph,
+                })
             }
             0 => Some(Event::Key {
                 phase: KeyPhase::Up,
@@ -107,14 +119,20 @@ mod tests {
     const KEY_J: u16 = 36;
 
     fn down(r: &mut Reducer, code: u16) -> Event {
-        r.reduce(0, 0, Provenance::Hardware, EV_KEY, code, 1).unwrap().event
+        r.reduce(0, 0, Provenance::Hardware, EV_KEY, code, 1)
+            .unwrap()
+            .event
     }
 
     #[test]
     fn key_down_carries_classes_not_codes() {
         let mut r = Reducer::new();
         match down(&mut r, KEY_A) {
-            Event::Key { phase: KeyPhase::Down, class, .. } => {
+            Event::Key {
+                phase: KeyPhase::Down,
+                class,
+                ..
+            } => {
                 assert_eq!(class, KeyClass::Letter)
             }
             e => panic!("{e:?}"),
@@ -145,18 +163,27 @@ mod tests {
     #[test]
     fn auto_repeat_is_dropped() {
         let mut r = Reducer::new();
-        assert!(r.reduce(0, 0, Provenance::Hardware, EV_KEY, KEY_A, 2).is_none());
+        assert!(r
+            .reduce(0, 0, Provenance::Hardware, EV_KEY, KEY_A, 2)
+            .is_none());
     }
 
     #[test]
     fn buttons_and_motion() {
         let mut r = Reducer::new();
         assert_eq!(
-            r.reduce(0, 0, Provenance::Hardware, EV_KEY, BTN_LEFT, 1).unwrap().event,
-            Event::Button { phase: KeyPhase::Down, button: Button::Left }
+            r.reduce(0, 0, Provenance::Hardware, EV_KEY, BTN_LEFT, 1)
+                .unwrap()
+                .event,
+            Event::Button {
+                phase: KeyPhase::Down,
+                button: Button::Left
+            }
         );
         assert_eq!(
-            r.reduce(0, 0, Provenance::Hardware, EV_REL, REL_X, -7).unwrap().event,
+            r.reduce(0, 0, Provenance::Hardware, EV_REL, REL_X, -7)
+                .unwrap()
+                .event,
             Event::Motion { dx: -7, dy: 0 }
         );
     }
@@ -164,7 +191,9 @@ mod tests {
     #[test]
     fn provenance_is_carried_through() {
         let mut r = Reducer::new();
-        let rec = r.reduce(0, 4, Provenance::Virtual, EV_KEY, KEY_A, 1).unwrap();
+        let rec = r
+            .reduce(0, 4, Provenance::Virtual, EV_KEY, KEY_A, 1)
+            .unwrap();
         assert_eq!(rec.provenance, Provenance::Virtual);
         assert_eq!(rec.device, 4);
     }

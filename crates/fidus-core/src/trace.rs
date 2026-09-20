@@ -34,18 +34,35 @@ pub fn encode(r: &Record) -> [u8; RECORD_LEN] {
     b[8..10].copy_from_slice(&r.device.to_le_bytes());
 
     let (kind, payload): (u8, [u8; 4]) = match r.event {
-        Event::Key { phase, class, digraph } => (
-            if phase == KeyPhase::Down { EV_KEY_DOWN } else { EV_KEY_UP },
+        Event::Key {
+            phase,
+            class,
+            digraph,
+        } => (
+            if phase == KeyPhase::Down {
+                EV_KEY_DOWN
+            } else {
+                EV_KEY_UP
+            },
             [class as u8, digraph.to_u8(), 0, 0],
         ),
         Event::Motion { dx, dy } => (EV_MOTION, pack_i16(dx, dy)),
         Event::Wheel { dx, dy } => (EV_WHEEL, pack_i16(dx, dy)),
         Event::Button { phase, button } => (
-            if phase == KeyPhase::Down { EV_BUTTON_DOWN } else { EV_BUTTON_UP },
+            if phase == KeyPhase::Down {
+                EV_BUTTON_DOWN
+            } else {
+                EV_BUTTON_UP
+            },
             [button as u8, 0, 0, 0],
         ),
     };
-    b[10] = kind | if r.provenance == Provenance::Virtual { PROV_VIRTUAL } else { 0 };
+    b[10] = kind
+        | if r.provenance == Provenance::Virtual {
+            PROV_VIRTUAL
+        } else {
+            0
+        };
     b[11..15].copy_from_slice(&payload);
     b
 }
@@ -55,12 +72,20 @@ pub fn encode(r: &Record) -> [u8; RECORD_LEN] {
 pub fn decode(b: &[u8; RECORD_LEN]) -> Option<Record> {
     let time = u64::from_le_bytes(b[0..8].try_into().unwrap());
     let device = u16::from_le_bytes(b[8..10].try_into().unwrap());
-    let provenance = if b[10] & PROV_VIRTUAL != 0 { Provenance::Virtual } else { Provenance::Hardware };
+    let provenance = if b[10] & PROV_VIRTUAL != 0 {
+        Provenance::Virtual
+    } else {
+        Provenance::Hardware
+    };
     let payload: [u8; 4] = b[11..15].try_into().unwrap();
 
     let event = match b[10] & 0x7f {
         EV_KEY_DOWN | EV_KEY_UP => Event::Key {
-            phase: if b[10] & 0x7f == EV_KEY_DOWN { KeyPhase::Down } else { KeyPhase::Up },
+            phase: if b[10] & 0x7f == EV_KEY_DOWN {
+                KeyPhase::Down
+            } else {
+                KeyPhase::Up
+            },
             class: KeyClass::from_u8(payload[0])?,
             digraph: DigraphClass::from_u8(payload[1])?,
         },
@@ -73,12 +98,21 @@ pub fn decode(b: &[u8; RECORD_LEN]) -> Option<Record> {
             Event::Wheel { dx, dy }
         }
         EV_BUTTON_DOWN | EV_BUTTON_UP => Event::Button {
-            phase: if b[10] & 0x7f == EV_BUTTON_DOWN { KeyPhase::Down } else { KeyPhase::Up },
+            phase: if b[10] & 0x7f == EV_BUTTON_DOWN {
+                KeyPhase::Down
+            } else {
+                KeyPhase::Up
+            },
             button: button_from_u8(payload[0])?,
         },
         _ => return None,
     };
-    Some(Record { time, device, provenance, event })
+    Some(Record {
+        time,
+        device,
+        provenance,
+        event,
+    })
 }
 
 fn pack_i16(dx: i32, dy: i32) -> [u8; 4] {
@@ -112,7 +146,12 @@ mod tests {
     use crate::biomech::{DigraphClass, Relation, RowMove};
 
     fn round_trip(ev: Event, prov: Provenance) {
-        let r = Record { time: 123_456_789, device: 3, provenance: prov, event: ev };
+        let r = Record {
+            time: 123_456_789,
+            device: 3,
+            provenance: prov,
+            event: ev,
+        };
         let bytes = encode(&r);
         assert_eq!(bytes.len(), RECORD_LEN);
         assert_eq!(decode(&bytes), Some(r));
@@ -120,17 +159,48 @@ mod tests {
 
     #[test]
     fn all_events_round_trip() {
-        let dg = DigraphClass { relation: Relation::SameHandDistant, row_move: RowMove::One };
-        round_trip(Event::Key { phase: KeyPhase::Down, class: KeyClass::Letter, digraph: dg }, Provenance::Hardware);
-        round_trip(Event::Key { phase: KeyPhase::Up, class: KeyClass::Correction, digraph: DigraphClass::NONE }, Provenance::Virtual);
+        let dg = DigraphClass {
+            relation: Relation::SameHandDistant,
+            row_move: RowMove::One,
+        };
+        round_trip(
+            Event::Key {
+                phase: KeyPhase::Down,
+                class: KeyClass::Letter,
+                digraph: dg,
+            },
+            Provenance::Hardware,
+        );
+        round_trip(
+            Event::Key {
+                phase: KeyPhase::Up,
+                class: KeyClass::Correction,
+                digraph: DigraphClass::NONE,
+            },
+            Provenance::Virtual,
+        );
         round_trip(Event::Motion { dx: -1200, dy: 900 }, Provenance::Hardware);
         round_trip(Event::Wheel { dx: 0, dy: -1 }, Provenance::Hardware);
-        round_trip(Event::Button { phase: KeyPhase::Down, button: Button::Right }, Provenance::Virtual);
+        round_trip(
+            Event::Button {
+                phase: KeyPhase::Down,
+                button: Button::Right,
+            },
+            Provenance::Virtual,
+        );
     }
 
     #[test]
     fn motion_saturates_rather_than_wrapping() {
-        let r = Record { time: 0, device: 0, provenance: Provenance::Hardware, event: Event::Motion { dx: 99_999, dy: -99_999 } };
+        let r = Record {
+            time: 0,
+            device: 0,
+            provenance: Provenance::Hardware,
+            event: Event::Motion {
+                dx: 99_999,
+                dy: -99_999,
+            },
+        };
         match decode(&encode(&r)).unwrap().event {
             Event::Motion { dx, dy } => {
                 assert_eq!(dx, i16::MAX as i32);

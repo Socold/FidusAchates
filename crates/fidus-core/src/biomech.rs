@@ -59,8 +59,10 @@ pub struct DigraphClass {
 }
 
 impl DigraphClass {
-    pub const NONE: DigraphClass =
-        DigraphClass { relation: Relation::None, row_move: RowMove::NotApplicable };
+    pub const NONE: DigraphClass = DigraphClass {
+        relation: Relation::None,
+        row_move: RowMove::NotApplicable,
+    };
 
     /// Packed form: relation in bits 0-2, row distance in bits 3-4.
     pub fn to_u8(self) -> u8 {
@@ -115,12 +117,18 @@ pub fn position(code: u16) -> Option<Pos> {
         9 => (Hand::Right, 1),
         _ => (Hand::Right, 0),
     };
-    Some(Pos { hand, finger, row: row as u8 })
+    Some(Pos {
+        hand,
+        finger,
+        row: row as u8,
+    })
 }
 
 /// Class of the pair `(previous, current)`.
 pub fn digraph_class(previous: Option<u16>, current: u16) -> DigraphClass {
-    let Some(previous) = previous else { return DigraphClass::NONE };
+    let Some(previous) = previous else {
+        return DigraphClass::NONE;
+    };
     let (Some(p), Some(c)) = (position(previous), position(current)) else {
         return DigraphClass::NONE;
     };
@@ -171,10 +179,38 @@ mod tests {
 
     #[test]
     fn home_row_positions() {
-        assert_eq!(position(KEY_F), Some(Pos { hand: Hand::Left, finger: 3, row: 2 }));
-        assert_eq!(position(KEY_J), Some(Pos { hand: Hand::Right, finger: 3, row: 2 }));
-        assert_eq!(position(KEY_A), Some(Pos { hand: Hand::Left, finger: 0, row: 2 }));
-        assert_eq!(position(KEY_SEMICOLON), Some(Pos { hand: Hand::Right, finger: 0, row: 2 }));
+        assert_eq!(
+            position(KEY_F),
+            Some(Pos {
+                hand: Hand::Left,
+                finger: 3,
+                row: 2
+            })
+        );
+        assert_eq!(
+            position(KEY_J),
+            Some(Pos {
+                hand: Hand::Right,
+                finger: 3,
+                row: 2
+            })
+        );
+        assert_eq!(
+            position(KEY_A),
+            Some(Pos {
+                hand: Hand::Left,
+                finger: 0,
+                row: 2
+            })
+        );
+        assert_eq!(
+            position(KEY_SEMICOLON),
+            Some(Pos {
+                hand: Hand::Right,
+                finger: 0,
+                row: 2
+            })
+        );
         assert_eq!(position(KEY_SPACE), None);
         assert_eq!(position(KEY_LEFTSHIFT), None);
     }

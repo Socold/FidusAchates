@@ -14,12 +14,38 @@ use std::io::Write;
 
 fn main() -> std::io::Result<()> {
     let records = [
-        rec(1000, Event::Key { phase: KeyPhase::Down, class: KeyClass::Letter, digraph: DigraphClass::NONE }),
-        rec(1040, Event::Key { phase: KeyPhase::Up, class: KeyClass::Letter, digraph: DigraphClass::NONE }),
+        rec(
+            1000,
+            Event::Key {
+                phase: KeyPhase::Down,
+                class: KeyClass::Letter,
+                digraph: DigraphClass::NONE,
+            },
+        ),
+        rec(
+            1040,
+            Event::Key {
+                phase: KeyPhase::Up,
+                class: KeyClass::Letter,
+                digraph: DigraphClass::NONE,
+            },
+        ),
         rec(2000, Event::Motion { dx: -5, dy: 3 }),
         rec(2100, Event::Wheel { dx: 0, dy: -1 }),
-        rec(3000, Event::Button { phase: KeyPhase::Down, button: Button::Left }),
-        rec(3050, Event::Button { phase: KeyPhase::Up, button: Button::Left }),
+        rec(
+            3000,
+            Event::Button {
+                phase: KeyPhase::Down,
+                button: Button::Left,
+            },
+        ),
+        rec(
+            3050,
+            Event::Button {
+                phase: KeyPhase::Up,
+                button: Button::Left,
+            },
+        ),
     ];
 
     let path = "research/fixtures/sample.fidustr";
@@ -33,5 +59,10 @@ fn main() -> std::io::Result<()> {
 }
 
 fn rec(time: u64, event: Event) -> Record {
-    Record { time, device: 0, provenance: Provenance::Hardware, event }
+    Record {
+        time,
+        device: 0,
+        provenance: Provenance::Hardware,
+        event,
+    }
 }

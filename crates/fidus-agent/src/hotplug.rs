@@ -33,7 +33,10 @@ impl Inotify {
             unsafe { libc::close(fd) };
             return Err(e);
         }
-        Ok(Self { fd, buf: [0u8; 4096] })
+        Ok(Self {
+            fd,
+            buf: [0u8; 4096],
+        })
     }
 
     pub fn raw_fd(&self) -> RawFd {
@@ -47,7 +50,11 @@ impl Inotify {
         loop {
             // Safety: read into our own buffer; n is the byte count.
             let n = unsafe {
-                libc::read(self.fd, self.buf.as_mut_ptr() as *mut libc::c_void, self.buf.len())
+                libc::read(
+                    self.fd,
+                    self.buf.as_mut_ptr() as *mut libc::c_void,
+                    self.buf.len(),
+                )
             };
             if n <= 0 {
                 break;
@@ -57,9 +64,7 @@ impl Inotify {
             while off + std::mem::size_of::<libc::inotify_event>() <= n {
                 // Safety: off is within the bytes just read and aligned to the
                 // event stream produced by the kernel.
-                let ev = unsafe {
-                    &*(self.buf.as_ptr().add(off) as *const libc::inotify_event)
-                };
+                let ev = unsafe { &*(self.buf.as_ptr().add(off) as *const libc::inotify_event) };
                 let len = ev.len as usize;
                 let name_start = off + std::mem::size_of::<libc::inotify_event>();
                 if len > 0 && name_start + len <= n {

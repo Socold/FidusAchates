@@ -30,10 +30,19 @@ pub enum Event {
         digraph: DigraphClass,
     },
     /// Relative pointer motion. Deltas are behaviour, not content.
-    Motion { dx: i32, dy: i32 },
+    Motion {
+        dx: i32,
+        dy: i32,
+    },
     /// Vertical (`dy`) and horizontal (`dx`) wheel notches.
-    Wheel { dx: i32, dy: i32 },
-    Button { phase: KeyPhase, button: Button },
+    Wheel {
+        dx: i32,
+        dy: i32,
+    },
+    Button {
+        phase: KeyPhase,
+        button: Button,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -43,7 +43,12 @@ impl EvdevReader {
             .open(path)?;
         // Ask the kernel to timestamp with CLOCK_MONOTONIC.
         set_clock_monotonic(file.as_raw_fd())?;
-        Ok(Self { file, buf: [0u8; EVENT_SIZE * 64], filled: 0, cursor: 0 })
+        Ok(Self {
+            file,
+            buf: [0u8; EVENT_SIZE * 64],
+            filled: 0,
+            cursor: 0,
+        })
     }
 
     pub fn raw_fd(&self) -> RawFd {
@@ -85,7 +90,9 @@ fn parse(b: &[u8]) -> InputEvent {
     let code = u16::from_ne_bytes(b[18..20].try_into().unwrap());
     let value = i32::from_ne_bytes(b[20..24].try_into().unwrap());
     InputEvent {
-        time_us: (sec as u64).wrapping_mul(1_000_000).wrapping_add(usec as u64),
+        time_us: (sec as u64)
+            .wrapping_mul(1_000_000)
+            .wrapping_add(usec as u64),
         etype,
         code,
         value,

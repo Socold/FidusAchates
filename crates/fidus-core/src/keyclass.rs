@@ -52,9 +52,8 @@ pub fn classify(code: u16) -> KeyClass {
     match code {
         KEY_Q..=KEY_P | KEY_A..=KEY_L | KEY_Z..=KEY_M => Letter,
         KEY_1..=KEY_0 => Digit,
-        KEY_MINUS | KEY_EQUAL | KEY_LEFTBRACE | KEY_RIGHTBRACE | KEY_SEMICOLON
-        | KEY_APOSTROPHE | KEY_GRAVE | KEY_BACKSLASH | KEY_COMMA | KEY_DOT | KEY_SLASH
-        | KEY_102ND => Punctuation,
+        KEY_MINUS | KEY_EQUAL | KEY_LEFTBRACE | KEY_RIGHTBRACE | KEY_SEMICOLON | KEY_APOSTROPHE
+        | KEY_GRAVE | KEY_BACKSLASH | KEY_COMMA | KEY_DOT | KEY_SLASH | KEY_102ND => Punctuation,
         KEY_SPACE => Space,
         KEY_ENTER => Enter,
         KEY_TAB => Tab,
@@ -63,7 +62,12 @@ pub fn classify(code: u16) -> KeyClass {
         | KEY_RIGHTALT | KEY_LEFTMETA | KEY_RIGHTMETA | KEY_COMPOSE => Modifier,
         KEY_HOME | KEY_UP | KEY_PAGEUP | KEY_LEFT | KEY_RIGHT | KEY_END | KEY_DOWN
         | KEY_PAGEDOWN | KEY_INSERT => Navigation,
-        KEY_ESC | KEY_F1..=KEY_F10 | KEY_F11 | KEY_F12 | KEY_CAPSLOCK | KEY_NUMLOCK
+        KEY_ESC
+        | KEY_F1..=KEY_F10
+        | KEY_F11
+        | KEY_F12
+        | KEY_CAPSLOCK
+        | KEY_NUMLOCK
         | KEY_SCROLLLOCK => Function,
         KEY_KPASTERISK | KEY_KP7..=KEY_KPDOT | KEY_KPENTER | KEY_KPSLASH => Keypad,
         _ => Other,
@@ -92,7 +96,9 @@ mod tests {
 
     #[test]
     fn every_letter_position_is_a_letter() {
-        let n = (0u16..256).filter(|c| classify(*c) == KeyClass::Letter).count();
+        let n = (0u16..256)
+            .filter(|c| classify(*c) == KeyClass::Letter)
+            .count();
         assert_eq!(n, 26);
     }
 

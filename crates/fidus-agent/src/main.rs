@@ -73,12 +73,20 @@ fn doctor() -> std::io::Result<()> {
     let confined = confine::network_is_blocked();
     println!(
         "  network sockets blocked : {}",
-        if confined { "yes" } else { "NO (self-test failed)" }
+        if confined {
+            "yes"
+        } else {
+            "NO (self-test failed)"
+        }
     );
 
     let devices = device::discover()?;
     let readable = devices.iter().filter(|d| d.readable).count();
-    println!("  input devices           : {} total, {} readable", devices.len(), readable);
+    println!(
+        "  input devices           : {} total, {} readable",
+        devices.len(),
+        readable
+    );
     if readable == 0 {
         println!("  hint: add yourself to the 'input' group, or install the capture helper");
     }

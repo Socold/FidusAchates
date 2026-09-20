@@ -38,7 +38,9 @@ pub fn run(args: Vec<String>) -> io::Result<()> {
     }
 
     if !confine::network_is_blocked() {
-        return Err(io::Error::other("refusing to capture without network lockdown"));
+        return Err(io::Error::other(
+            "refusing to capture without network lockdown",
+        ));
     }
     signal::install();
 
@@ -59,7 +61,10 @@ pub fn run(args: Vec<String>) -> io::Result<()> {
     let mut hotplug = Inotify::watch_dev_input()?;
     epoll.add(hotplug.raw_fd(), TAG_INOTIFY)?;
 
-    eprintln!("fidus-agent: recording from {} device(s), Ctrl-C to stop", sources.len());
+    eprintln!(
+        "fidus-agent: recording from {} device(s), Ctrl-C to stop",
+        sources.len()
+    );
 
     #[cfg(feature = "research-trace")]
     let mut sink = match &trace_path {
@@ -184,7 +189,10 @@ impl Epoll {
     }
 
     fn add(&self, fd: RawFd, data: u64) -> io::Result<()> {
-        let mut ev = libc::epoll_event { events: libc::EPOLLIN as u32, u64: data };
+        let mut ev = libc::epoll_event {
+            events: libc::EPOLLIN as u32,
+            u64: data,
+        };
         // Safety: epoll_ctl reads one epoll_event for the call.
         let rc = unsafe { libc::epoll_ctl(self.fd, libc::EPOLL_CTL_ADD, fd, &mut ev) };
         if rc < 0 {
@@ -196,9 +204,7 @@ impl Epoll {
     fn wait(&self, out: &mut [libc::epoll_event]) -> io::Result<usize> {
         // Safety: the kernel writes at most out.len() epoll_events into the
         // buffer, which is exactly an array of libc::epoll_event.
-        let n = unsafe {
-            libc::epoll_wait(self.fd, out.as_mut_ptr(), out.len() as i32, -1)
-        };
+        let n = unsafe { libc::epoll_wait(self.fd, out.as_mut_ptr(), out.len() as i32, -1) };
         if n < 0 {
             return Err(io::Error::last_os_error());
         }

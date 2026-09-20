@@ -95,18 +95,61 @@ fn install_seccomp() -> io::Result<()> {
     // Getting [1]'s jf wrong (sending non-socket syscalls to DENY) makes the
     // process refuse itself every syscall and crash; there is a test for it.
     let prog = [
-        SockFilter { code: LD_W_ABS, jt: 0, jf: 0, k: NR },
-        SockFilter { code: JEQ_K, jt: 0, jf: 4, k: nr_socket },
-        SockFilter { code: LD_W_ABS, jt: 0, jf: 0, k: ARG0_LOW },
-        SockFilter { code: JEQ_K, jt: 3, jf: 0, k: libc::AF_INET as u32 },
-        SockFilter { code: JEQ_K, jt: 2, jf: 0, k: libc::AF_INET6 as u32 },
-        SockFilter { code: JEQ_K, jt: 1, jf: 0, k: libc::AF_PACKET as u32 },
-        SockFilter { code: RET_K, jt: 0, jf: 0, k: ALLOW },
-        SockFilter { code: RET_K, jt: 0, jf: 0, k: EPERM },
+        SockFilter {
+            code: LD_W_ABS,
+            jt: 0,
+            jf: 0,
+            k: NR,
+        },
+        SockFilter {
+            code: JEQ_K,
+            jt: 0,
+            jf: 4,
+            k: nr_socket,
+        },
+        SockFilter {
+            code: LD_W_ABS,
+            jt: 0,
+            jf: 0,
+            k: ARG0_LOW,
+        },
+        SockFilter {
+            code: JEQ_K,
+            jt: 3,
+            jf: 0,
+            k: libc::AF_INET as u32,
+        },
+        SockFilter {
+            code: JEQ_K,
+            jt: 2,
+            jf: 0,
+            k: libc::AF_INET6 as u32,
+        },
+        SockFilter {
+            code: JEQ_K,
+            jt: 1,
+            jf: 0,
+            k: libc::AF_PACKET as u32,
+        },
+        SockFilter {
+            code: RET_K,
+            jt: 0,
+            jf: 0,
+            k: ALLOW,
+        },
+        SockFilter {
+            code: RET_K,
+            jt: 0,
+            jf: 0,
+            k: EPERM,
+        },
     ];
     assert!(prog.len() * size_of::<SockFilter>() < u16::MAX as usize);
 
-    let fprog = SockFprog { len: prog.len() as u16, filter: prog.as_ptr() };
+    let fprog = SockFprog {
+        len: prog.len() as u16,
+        filter: prog.as_ptr(),
+    };
 
     // Safety: seccomp(2) reads `fprog` for the call's duration only; `prog`
     // outlives it. No filter is installed on failure.
