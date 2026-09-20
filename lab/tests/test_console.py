@@ -2,6 +2,7 @@ import json
 import threading
 import urllib.request
 
+from fidus_lab.analyze import analyze_segments
 from fidus_lab.console import (
     ConsoleState,
     host_is_local,
@@ -10,7 +11,6 @@ from fidus_lab.console import (
     sse,
     start,
 )
-from fidus_lab.analyze import analyze_segments
 from fidus_lab.engine import IdentityEngine
 from fidus_lab.experts import KeystrokeTemplate
 from fidus_lab.registry import SanctionRegistry

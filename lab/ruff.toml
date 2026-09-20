@@ -1,0 +1,15 @@
+# An explicit rule set, so local and CI ruff versions agree on what to flag.
+# pyflakes (F), pycodestyle errors/warnings (E, W), import order (I), and a
+# few bug-prone patterns (B). Style-only rules are deliberately left out.
+line-length = 100
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "W", "I", "B"]
+ignore = [
+    "E501",  # line length: enforced loosely; long docstring lines are fine
+    "B008",  # function call in argument defaults: used for dataclass params on purpose
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["B011"]  # assert False in tests reads fine

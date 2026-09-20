@@ -91,7 +91,7 @@ def assess(
 
 def rolling_stability(templates: list[KeystrokeTemplate]) -> list[float]:
     """JS between each consecutive pair of template snapshots."""
-    return [template_stability(a, b) for a, b in zip(templates, templates[1:])]
+    return [template_stability(a, b) for a, b in zip(templates, templates[1:], strict=False)]
 
 
 # ---------------------------------------------------------------------------

@@ -1,9 +1,9 @@
 """The signal study picks discriminating signals and drops useless ones."""
 
 from fidus_lab.segment import segment_trace
+from fidus_lab.selection import d_prime, greedy_select, rank_features
 from fidus_lab.signals import FEATURE_NAMES, features
 from fidus_lab.synth import Typist
-from fidus_lab.selection import d_prime, greedy_select, rank_features
 
 
 def feature_table(params, n=60, keys=40, seed0=0):

@@ -64,7 +64,7 @@ def _click_durations(seg: Segment) -> list[float]:
 
 def _wheel_intervals(seg: Segment) -> list[float]:
     times = [r.time_us for r in seg.records if r.event.kind == EventKind.WHEEL]
-    return [float(b - a) for a, b in zip(times, times[1:]) if b > a]
+    return [float(b - a) for a, b in zip(times, times[1:], strict=False) if b > a]
 
 
 _SIGNALS = {

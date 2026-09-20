@@ -73,7 +73,7 @@ def features(seg: Segment) -> dict[str, float]:
     f["A02_flight_log_std"] = fs
 
     downs = _key_down_times(seg)
-    intervals = [float(b - a) for a, b in zip(downs, downs[1:])]
+    intervals = [float(b - a) for a, b in zip(downs, downs[1:], strict=False)]
     im, is_ = _log_stats(intervals)
     f["A03_dd_log_mean"] = im
     f["A03_dd_log_std"] = is_

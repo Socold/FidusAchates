@@ -67,7 +67,7 @@ class Segment:
     def key_down_intervals_us(self) -> list[int]:
         """Inter-key-down intervals, the basis of timing-regularity cues."""
         times = [r.time_us for r in self.records if r.event.kind == EventKind.KEY_DOWN]
-        return [b - a for a, b in zip(times, times[1:])]
+        return [b - a for a, b in zip(times, times[1:], strict=False)]
 
 
 def segment_trace(

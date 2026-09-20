@@ -52,16 +52,16 @@ class ScaledManhattan:
 
     @classmethod
     def train(cls, samples: list[CmuSample]) -> "ScaledManhattan":
-        cols = list(zip(*[s.features for s in samples]))
+        cols = list(zip(*[s.features for s in samples], strict=True))
         mean = [statistics.fmean(c) for c in cols]
         mad = [
             max(statistics.fmean([abs(v - m) for v in c]), 1e-9)
-            for c, m in zip(cols, mean)
+            for c, m in zip(cols, mean, strict=True)
         ]
         return cls(mean=mean, mad=mad)
 
     def score(self, sample: CmuSample) -> float:
         return sum(
             abs(x - m) / a
-            for x, m, a in zip(sample.features, self.mean, self.mad)
+            for x, m, a in zip(sample.features, self.mean, self.mad, strict=True)
         )
