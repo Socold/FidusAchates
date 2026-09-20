@@ -38,8 +38,8 @@ real corpora.
 | 2 | Lab: trace reader, replay, evaluation bench, corpus ingestion | done (real-corpus run gated on data) |
 | 3 | Attribution channel, GNOME Shell extension, red overlay | logic and extension done; live wiring and attack bench remain |
 | 4 | Signal study in Python, about fifteen signals retained | machinery done (real ranking gated on data) |
-| 5 | Fusion, CUSUM, explainability, console | done |
-| 6 | Enrolment, convergence criteria, anti-poisoning | done (modes and re-assurance remain) |
+| 5 | Fusion, CUSUM, explainability, console | done (bimodal mixtures, per-signal explanation) |
+| 6 | Enrolment, convergence criteria, anti-poisoning, modes | done (re-assurance remains) |
 | 7 | Port of the retained signals to the Rust agent | to do (after signals are chosen on real data) |
 | 8 | Multiple profiles and revision (counting users) | done |
 | 9 | Action sensitivity wired into the malice policy | to do |
@@ -106,6 +106,7 @@ feature: `fidus-agent record --trace out.fidustr`. See
 | [05 - Privacy](docs/05-PRIVACY.md) | Processing register, legal qualification, ethics, risk of misuse |
 | [06 - Roadmap](docs/06-ROADMAP.md) | Work packages and acceptance criteria |
 | [07 - Design review](docs/07-DESIGN-REVIEW.md) | Critical re-reading of the design: errors found, decisions reopened, gaps |
+| [08 - Code review](docs/08-CODE-REVIEW.md) | Critical re-reading of the code: confirmed bugs, weaknesses, and the fix and test for each |
 | [Trace format](research/TRACE-FORMAT.md) | Binary format of the reduced research trace |
 | [ADR](docs/adr/) | Architecture decisions and the alternatives ruled out |
 

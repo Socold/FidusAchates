@@ -149,7 +149,7 @@ First end-to-end result: no enrolment needed, so the whole chain can be demonstr
 
 ## WP 5 - Fusion, CUSUM, explainability and console
 
-**Status**: the web console (`fidus_lab.console`) is built and tested: a loopback HTTP server with a per-run token, Host/Origin validation (anti-rebinding), an SSE stream, and it drives the red overlay; a live runner replays a trace through it. The engine core (decibans, CUSUM, logistic fusion, a first keystroke expert, the Identity decision) is built in Python and validated end to end; explainability output and the console remain.
+**Status**: the web console (`fidus_lab.console`) is built and tested: a loopback HTTP server with a cookie session set by a one-time link, Host/Origin validation (anti-rebinding), an SSE stream, and it drives the red overlay; a live runner replays a trace through it. The engine now fuses a keystroke and a pointer expert with per-signal contributions, models bimodal signals with a two-component mixture, and resets the CUSUM at L4. The engine core (decibans, CUSUM, logistic fusion, a first keystroke expert, the Identity decision) is built in Python and validated end to end; explainability output and the console remain.
 
 **Content**
 - Expert calibration, reliability diagrams.
@@ -171,7 +171,7 @@ First end-to-end result: no enrolment needed, so the whole chain can be demonstr
 
 ## WP 6 - Enrolment
 
-**Status**: convergence criteria (C1, C2 via Jensen-Shannon stability, C4), phase transitions, and the anti-poisoning guards (admission filter, bounded update, anchor drift) are built and tested in Python. The C3 performance criterion reuses the bench; modes and system-authentication re-assurance remain.
+**Status**: convergence criteria (C1, C2 via Jensen-Shannon stability, C4), phase transitions, the anti-poisoning guards (admission filter, bounded update, anchor drift), an enrolment tracker that derives its counts from the data, and **modes** (one template per regime, scored against the best match) are built and tested in Python. The C3 performance criterion reuses the bench; system-authentication re-assurance remains.
 
 **Content**
 - Four life-cycle phases, criteria C1 to C4, held-out false alarm curve.

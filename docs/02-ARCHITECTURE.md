@@ -208,3 +208,4 @@ Nothing else in either mode: no root at run time for the agent, no setuid, no ca
 | [0008](adr/0008-biomechanical-digraph-classes.md) | Biomechanical digraph classes as the default granularity |
 | [0009](adr/0009-capture-helper-install-modes.md) | Two installation modes: `input` group or dedicated capture helper |
 | [0010](adr/0010-recorder-first.md) | Recorder first, signals in Python, reduced research trace |
+| [0011](adr/0011-attribution-not-malice.md) | Attribution is a tag, malice is a separate judgment |
