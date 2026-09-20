@@ -90,11 +90,13 @@ FidusAchates is a local agent for **implicit continuous authentication** through
 | **FR-31** | Fusion is a **weighted sum of LLRs**, hence exactly decomposable into per-signal contributions. | The sum of displayed contributions equals the total LLR, up to numerical error. |
 | **FR-32** | Evidence is accumulated by a **CUSUM** change detector, `S = max(0, S + E)`, with the alarm threshold set from a target **average run length to false alarm**. No forgetting factor. | Replay: measured run length to false alarm meets the budget; detection delay reported. |
 | **FR-33** | At any time the system exposes `P(impostor)` in `[0,1]` and a **level** L0 to L4. | Value readable through the local API and the console. |
-| **FR-34** | Detection of non-human input (Q3) works **without enrolment** and is an independent expert. | On a blank machine, a `ydotool` injection is detected from the first burst. |
-| **FR-35** | In its alerts the system distinguishes "different behaviour" (another human) from "non-human behaviour" (automaton), and does not blend them into a single score. | Two separate outputs, two separate thresholds. |
+| **FR-34** | Attribution of non-human input works **without enrolment** and is an independent expert. It assigns each activity segment an actor label (`human`, `automation_sanctioned`, `automation_unsanctioned`, `uncertain`), not a verdict (ADR-0011). | On a blank machine, a `ydotool` injection is labelled automation from the first burst. |
+| **FR-35** | Identity divergence and actor attribution are separate outputs, never a single score: the first drives an alarm, the second only a label. | Identity CUSUM and attribution label are reported independently. |
+| **FR-35b** | Automation, by itself, never raises the overlay. An alert requires either identity divergence, or `automation_unsanctioned` together with a sensitive context (FR-47). Sanctioned automation is only logged and tagged. | Scenario: a sanctioned agent drives the machine, the label shows `automation_sanctioned`, no overlay. |
 | **FR-36** | Every level change produces a timestamped **decision event**, keeping the contribution vector that led to the decision. | The log allows the decision to be reconstructed by replay. |
 | **FR-37** | **Deterministic indicators** are reported alongside the Humanity channel, without statistics: a remote-desktop or screencast session is active; **phantom activity** (the shell reports focus or window activity while no hardware input arrives); a keyboard **hot-plugged and typing immediately**. | Each indicator has a scripted scenario in the attack bench. |
-| **FR-38** | Virtual input devices seen during bootstrap (key remappers, gesture daemons, software KVMs) are learned into an **allowlist**; only an unlisted virtual device counts as evidence. | A running key remapper raises no alert; a new `uinput` device does. |
+| **FR-38** | Virtual input devices seen during bootstrap (key remappers, gesture daemons, software KVMs) are learned into an **allowlist**; only an unlisted virtual device counts as automation evidence. | A running key remapper raises no alert; a new `uinput` device is labelled automation. |
+| **FR-39** | A **sanctioned-actor registry** lets the user declare expected automation: by device-name pattern, or by opening an explicit, time-boxed "agent session" when handing control to an assistant or an MCP tool. Matching activity is labelled `automation_sanctioned`. Declaring an actor stores at most a name pattern or a session marker, never what the actor did. | An `ydotool` run inside a declared agent session is labelled sanctioned; the same run outside it is labelled unsanctioned. |
 
 ### 4.5 Estimating the number of users
 
@@ -112,6 +114,7 @@ FidusAchates is a local agent for **implicit continuous authentication** through
 |---|---|---|
 | **FR-45** | The legitimate user can state "it is me" through **real system authentication**. On success the current regime becomes a new mode of that identity and starts its own enrolment. A plain confirmation button is forbidden: it would be the poisoning vector of threat M10. | Scenario: new keyboard, re-assurance, the alert clears and a mode is created. Without authentication nothing changes. |
 | **FR-46** | Every alert can be **annotated** true or false from the console. Annotations are the ground truth used to compute the false alarm rate (AC-4). | Annotation stored with the decision event and exported. |
+| **FR-47** | The engine exposes a **sensitivity** input for a segment, derived from command-category signals (C09, C10) and destructive-looking sequences, that the malice policy combines with an `automation_unsanctioned` label. Until the correlation work package lands, sensitivity is a stub returning "low", so unsanctioned automation is tagged, not alarmed. | The policy seam is tested with a stubbed sensitivity; wiring the real signal changes no engine code. |
 
 ### 4.6 Administration console
 

@@ -191,11 +191,13 @@ What the tool tries to detect, by increasing difficulty:
 | M1 | Machine left unlocked, someone uses it | All modalities diverge at once | Low |
 | M2 | HID injection (BadUSB, Rubber Ducky, IP KVM) | A keyboard that appears and types at once, abnormal regularity, throughput. Not device provenance: this is real hardware | Low |
 | M3 | Local automation through `uinput` (`ydotool`, test robot) | Virtual device not on the allowlist, timestamp quantisation, ideal trajectories | Low |
-| M4 | AI agent driving the machine | Through `uinput`: as M3. Through the desktop portal: invisible to `evdev`, caught as phantom activity by the shell extension | Low to moderate |
+| M4 | **Hostile** agent driving the machine | Through `uinput`: as M3. Through the desktop portal: invisible to `evdev`, caught as phantom activity by the shell extension. Distinguished from a *sanctioned* agent by the actor registry, not by the input itself (ADR-0011) | Low to moderate |
 | M5 | Remote takeover (RDP, VNC, RAT) | Under Wayland the input never reaches `evdev`: remote session reported by the compositor, phantom activity. Timing signatures only where remote input reaches the capture layer | Moderate |
 | M6 | Uninformed human impostor | Progressive multimodal divergence | Moderate |
 | M7 | Human impostor who has observed the victim | Divergence on involuntary signals (Fitts, micro-corrections, rare digraphs) | High |
 | M8 | Synthetic forgery trained on the template statistics | Cross-modal consistency, second-order signals | Very high |
+
+**Not a threat: sanctioned automation.** A developer's AI coding assistant and a user's MCP tools produce automation that is wanted. The tool must label it, not report it as an attack (ADR-0011). It becomes a concern only if it coincides with identity divergence or a sensitive action, which is why attribution and malice are kept apart. An assistant that types through an editor API produces no input events at all, only phantom activity, and is a first-class case, not an oversight.
 
 Threats **against the tool itself**, to be handled in [01-REQUIREMENTS.md](01-REQUIREMENTS.md) section SR:
 

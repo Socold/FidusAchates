@@ -13,14 +13,15 @@
 | **0** | Foundation | Repository, licence, specifications, evaluation protocol | |
 | **1** | Recorder | Minimal Rust capture, privacy reduction, reduced trace, self-confinement, CLI | 0 |
 | **2** | Lab | Python trace reader, replay, evaluation bench, corpus ingestion | 1 |
-| **3** | Humanity channel and overlay | Non-human input detection, deterministic indicators, GNOME Shell extension, red square | 1, 2 |
+| **3** | Attribution channel and overlay | Human/automation labelling, sanctioned-actor registry, deterministic indicators, GNOME Shell extension, red square | 1, 2 |
 | **4** | Signal study | Every candidate signal, in Python, measured; about fifteen retained | 2 |
 | **5** | Fusion and console | Logistic fusion, CUSUM, explainability, administration console | 4 |
 | **6** | Enrolment | Convergence criteria, modes, re-assurance, anti-poisoning | 5 |
 | **7** | Port to the agent | Retained signals and engine in Rust, resource budgets verified, installer | 6 |
 | **8** | Multiple profiles | Clustering, revision, identity versus mode | 6 |
-| **9** | Porting | Windows, macOS, Linux X11, other compositors | 7 |
-| **10** | Mobile | In-app SDK | 7 |
+| **9** | Action sensitivity | Wire command-category sensitivity into the malice policy | 5, 8 |
+| **10** | Porting | Windows, macOS, Linux X11, other compositors | 7 |
+| **11** | Mobile | In-app SDK | 7 |
 
 Critical path: 0 → 1 → 2 → 4 → 5 → 6 → 7. Package 3 runs in parallel as soon as 2 exists, and gives the first end-to-end result.
 
@@ -85,14 +86,16 @@ The only component that ever reads `/dev/input`. It must stay small enough to be
 
 ---
 
-## WP 3 - Humanity channel and overlay
+## WP 3 - Attribution channel and overlay
 
 First end-to-end result: no enrolment needed, so the whole chain can be demonstrated within days of the recorder running.
 
 **Content**
-- Signals E01 to E14, E17 to E19, with the virtual-device allowlist (FR-38).
+- Signals E01 to E14, E17 to E22, with the virtual-device allowlist (FR-38).
 - Deterministic indicators (FR-37): remote session active, phantom activity, hot-plug then typing.
-- CUSUM on the Humanity channel, threshold set from a false alarm budget of one per 30 days.
+- Actor labelling (FR-34): human / automation_sanctioned / automation_unsanctioned / uncertain. Automation alone never alarms (FR-35b).
+- Sanctioned-actor registry (FR-39): device patterns and time-boxed agent sessions, for AI assistants and MCP tools.
+- Malice policy seam with a stubbed sensitivity (FR-47).
 - GNOME Shell extension: application category and remote-session state over D-Bus, and the overlay.
 - Red square at the top right, `research` and `silent` modes, clearing on lock and idle events.
 
@@ -111,7 +114,8 @@ First end-to-end result: no enrolment needed, so the whole chain can be demonstr
 | 3.1 | AC-3: scenarios 1 to 3 detected in under 10 s with no enrolment | Attack bench |
 | 3.2 | Scenarios 4 and 5 raised by a deterministic indicator, not by timing statistics | Attack bench |
 | 3.3 | Scenario 6 detected by non-temporal signals | Attack bench |
-| 3.4 | Zero false alarms from the Humanity channel over 7 days of normal use, with a key remapper running | Measurement |
+| 3.3b | A declared agent session (an AI assistant or MCP tool driving input) is labelled `automation_sanctioned` and raises no overlay; the same automation outside a session is labelled `automation_unsanctioned` and is tagged, not alarmed | Scenario |
+| 3.4 | Zero false alarms from the Attribution channel over 7 days of normal use, with a key remapper and a sanctioned agent running | Measurement |
 | 3.5 | The overlay never steals focus, intercepts no click, and clears on lock | Documented manual test |
 | 3.6 | The extension never exposes a window title or an executable name over D-Bus | D-Bus inspection |
 | 3.7 | Without the extension the agent runs, and the console lists what it can no longer see (INS-25) | Test |
@@ -206,7 +210,24 @@ First end-to-end result: no enrolment needed, so the whole chain can be demonstr
 
 ---
 
-## WP 9 - Porting
+## WP 9 - Action sensitivity and the malice policy
+
+Wire the stubbed sensitivity (FR-47) to the real command-category signals (C09, C10) and destructive-looking sequences, and let the policy lift or keep doubt on `automation_unsanctioned` accordingly (ADR-0011, decision engine 4.4b).
+
+**Content**
+- Sensitivity derived from command classes, elevation cadence, and mass-destructive patterns, all content-free.
+- Policy: `automation_unsanctioned` in a sensitive context raises the overlay; in a benign context it stays a tag.
+- Console: the sensitivity that lifted a doubt is shown in the explanation.
+
+**Acceptance criteria**
+
+| # | Criterion | Measure |
+|---|---|---|
+| 9.1 | Unsanctioned automation running a benign read-only sequence stays tagged, not alarmed | Scenario |
+| 9.2 | Unsanctioned automation elevating privileges or mass-deleting raises the overlay | Attack bench |
+| 9.3 | Wiring the real sensitivity changed no engine code, only the sensitivity provider | Diff review |
+
+## WP 10 - Porting
 
 Windows, macOS, Linux X11, and other Wayland compositors (layer-shell and foreign-toplevel replace the GNOME extension where available). Only the capture stage is rewritten.
 
@@ -214,7 +235,7 @@ Windows, macOS, Linux X11, and other Wayland compositors (layer-shell and foreig
 
 ---
 
-## WP 10 - Mobile
+## WP 11 - Mobile
 
 SDK embeddable in an application, modalities G01 to G10. Scope limited to the inside of the host application (cf. 00-ANALYSIS T6).
 

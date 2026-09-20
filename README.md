@@ -58,6 +58,8 @@ Detailed roadmap with acceptance criteria: [docs/06-ROADMAP.md](docs/06-ROADMAP.
 | [Trace format](research/TRACE-FORMAT.md) | Binary format of the reduced research trace |
 | [ADR](docs/adr/) | Architecture decisions and the alternatives ruled out |
 
+Among the decisions, [ADR-0011](docs/adr/0011-attribution-not-malice.md) separates *attribution* (human or automated, sanctioned or not) from the judgment of *malice*.
+
 ## Design principles
 
 **Content-free.** No typed content, window title, URL, file name or clipboard is captured. A blocking test in continuous integration types canary words and checks that none ends up in the database.
@@ -86,14 +88,14 @@ budget. It answers "has the user changed at some unknown moment?" with the
 shortest possible delay, and genuine use never piles up as credit.
 ```
 
-Two cumulative evidences are maintained separately, never blended:
+Two things are tracked separately, never blended:
 
-| Channel | Question | Enrolment | Detects |
+| Channel | Question | Enrolment | Output |
 |---|---|---|---|
-| **Identity** | Same person? | Required | Human takeover |
-| **Humanity** | Human? | **None** | `uinput` automation, BadUSB, IP KVM; remote desktop and portal-driven agents through the shell extension |
+| **Identity** | Same person? | Required | An alarm on takeover |
+| **Attribution** | A human, or automation the user did or did not sanction? | **None** | A label, not an alarm |
 
-The Humanity channel is the best value-to-risk ratio in the project: it detects the most concrete threats, it works from the first second, and **it stores no personal template**.
+The Attribution channel matters because **automated is not the same as hostile**. A developer's AI coding assistant, or a user's MCP tools, produce automation that is wanted: the tool labels it `automation_sanctioned` and stays quiet. Unknown automation is tagged too, and only becomes an alert when it coincides with identity divergence or a sensitive action (privilege elevation, credential rotation, mass deletion). The tool under-reacts rather than cry wolf on the people most likely to run it. See [ADR-0011](docs/adr/0011-attribution-not-malice.md).
 
 ## Calibration
 

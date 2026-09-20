@@ -122,18 +122,40 @@ The probabilities in this table are computed from the formula of section 2.2, an
 
 **Clearing without a timer.** `S` only changes when there is input. If an impostor walks away, nothing would ever clear the overlay. The statistic is therefore reset on **session lock** and after **idle** beyond a set duration, both delivered as logind events, so the agent still never polls (INS-1).
 
-### 4.4 Two separate channels
+### 4.4 Two channels, and why the second one only tags
 
-In line with FR-35, the system maintains **two distinct CUSUM statistics**, never blended:
+The system maintains two distinct statistics, never blended:
 
-| Channel | Question | Enrolment needed | False alarm budget |
+| Channel | Question | Enrolment needed | What it drives |
 |---|---|---|---|
-| **Identity** | Is it the same person? | Yes | 1 per 8 h of use |
-| **Humanity** | Is it a human? | No | 1 per 30 days of use |
+| **Identity** | Is it the same person? | Yes | An alarm (CUSUM, budget 1 false alarm per 8 h) |
+| **Attribution** | Who is acting: a human, or automation the user did or did not sanction? | No | A **label**, not an alarm |
 
-The Humanity channel is much stricter on false alarms because it concludes that a compromise has happened, which is a heavier claim. It is also the fastest: an injection typically produces several tens of decibans within seconds.
+The Identity channel is unchanged: it accumulates evidence that the person has changed and raises the overlay on its own.
 
-The display combines both without adding them: the `P(impostor)` used for the overlay is the maximum of the two, and the console always states which channel is responsible.
+The Attribution channel is the former "Humanity channel", but its meaning is corrected (ADR-0011). Non-human input is not the same as hostile input: a developer's AI coding assistant, or a user's MCP tools, produce automation that is wanted. So this channel does not conclude "compromise". It assigns each segment of activity an **actor label**, always computed and always shown, that by itself never raises the overlay:
+
+| Label | Meaning |
+|---|---|
+| `human` | Consistent with a person typing and pointing |
+| `automation_sanctioned` | Matches the sanctioned-actor registry (FR-39) |
+| `automation_unsanctioned` | Automation with no matching sanction |
+| `uncertain` | Not enough evidence yet |
+
+**Malice is a policy, not the label.** An alert is raised only when:
+
+- the Identity channel diverges (someone else), whether the actor is human or automated; **or**
+- input is `automation_unsanctioned` **and** the context is sensitive (section 4.4b).
+
+`automation_sanctioned` is never, on its own, an alert. `automation_unsanctioned` on its own is *noted*, a tag and a log line, until it coincides with one of the two conditions above. The tool under-reacts rather than cry wolf on the very people who run automation on purpose.
+
+The overlay's `P(impostor)` is the Identity probability. The Attribution label is shown beside it, and the console always states which channel, and which label, is responsible.
+
+### 4.4b Sensitivity, the future link
+
+"Sensitive context" is what turns unsanctioned automation from a tag into a doubt. It is derived from the command-category signals already in the catalogue (C09 command classes, C10 elevation cadence) and from destructive-looking sequences: unsanctioned automation that only reads and navigates is low concern; unsanctioned automation that elevates privileges, rotates credentials or mass-deletes is what should lift or keep doubt.
+
+This correlation is its own work package. Today the engine puts the seam in place, the label, the registry and the policy, so it can be added without reshaping anything. Until then, unsanctioned automation in a sensitive context is tagged and logged, not alarmed.
 
 ### 4.5 Deterministic indicators
 

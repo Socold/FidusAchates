@@ -84,8 +84,8 @@ Reminder: categories and opaque identifiers only, never a title nor an executabl
 | C06 | Number of windows | Distribution of the number of windows open at once | L | Medium | 2 | 4 |
 | C07 | Virtual desktop use | Number of workspaces, frequency of changes | L | High | 3 | 4 |
 | C08 | Terminal / graphical ratio | Preference for the command line | L | High | 3 | 4 |
-| C09 | Command categories | Classes of shell commands (files, network, version control, containers), **never the arguments** | M | High | 3 | 4 |
-| C10 | Elevation cadence | Frequency of privilege requests | L | Medium | 3 | 4 |
+| C09 | Command categories | Classes of shell commands (files, network, version control, containers), **never the arguments**. Feeds action sensitivity (FR-47) | M | High | 3 | 4 |
+| C10 | Elevation cadence | Frequency of privilege requests. Feeds the **action-sensitivity** input (FR-47): unsanctioned automation that elevates is what lifts doubt | L | Medium | 3 | 4 |
 | C11 | File navigation style | Tree depth, use of search versus browsing | M | Medium | 3 | 4 |
 | C12 | Multitasking density | Entropy of the time split between applications | M | Medium | 3 | 4 |
 
@@ -102,9 +102,9 @@ Reminder: categories and opaque identifiers only, never a title nor an executabl
 | D07 | Circadian regularity | Stability of the hourly profile from one day to the next | M | Medium | 3 | 4 |
 | D08 | Locking cadence | Frequency and context of manual locks | L | Medium | 3 | 4 |
 
-## Family E - Detecting non-human input (Humanity channel)
+## Family E - Attribution: human or automation (Attribution channel)
 
-**These signals require no enrolment** (FR-34). They form the most cost-effective and the fastest channel.
+**These signals require no enrolment** (FR-34). They tell human input from automated input. Automated is **not** the same as hostile: the label they produce is combined with the sanctioned-actor registry (FR-39) and, for doubt, with action sensitivity (family C), before anything is alarmed (ADR-0011). A developer's AI assistant or a user's MCP tools land here as `automation_sanctioned`.
 
 | ID | Signal | Definition | Cost | Disc. | Forge | WP |
 |---|---|---|---|---|---|---|
@@ -129,6 +129,7 @@ Reminder: categories and opaque identifiers only, never a title nor an executabl
 | E19 | **Hot-plug then typing** | A keyboard that appears and starts typing at full speed within a second or two. The actual BadUSB signal | L | Very high | 3 | 3 |
 | E20 | **Phantom activity** | The shell reports focus changes or window activity while no hardware input arrives. Signature of input injected into the compositor (remote desktop, portal-driven agent). Deterministic indicator, needs the shell extension | L | Very high | 4 | 3 |
 | E21 | **Remote session active** | The compositor reports an active remote-desktop or screencast session. Deterministic indicator, needs the shell extension | L | Very high | 4 | 3 |
+| E22 | **Sanctioned-actor match** | The segment matches the sanctioned-actor registry (a declared device pattern or an open agent session). Turns an automation label into `automation_sanctioned` (FR-39) | L | n/a (label) | n/a | 3 |
 
 ## Family F - Meta-signals
 
