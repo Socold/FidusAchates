@@ -1,0 +1,44 @@
+{
+  "note": "synthetic typists; validates the selection machinery, not real signal utility",
+  "ranking_d_prime": [
+    {
+      "signal": "A03_dd_log_mean",
+      "d_prime": 8.103
+    },
+    {
+      "signal": "A08_speed_keys_per_s",
+      "d_prime": 7.947
+    },
+    {
+      "signal": "A02_flight_log_mean",
+      "d_prime": 6.012
+    },
+    {
+      "signal": "A01_hold_log_mean",
+      "d_prime": 5.617
+    },
+    {
+      "signal": "A01_hold_log_std",
+      "d_prime": 1.401
+    },
+    {
+      "signal": "A02_flight_log_std",
+      "d_prime": 1.385
+    },
+    {
+      "signal": "A03_dd_log_std",
+      "d_prime": 1.378
+    },
+    {
+      "signal": "E03_dd_cv",
+      "d_prime": 1.16
+    },
+    {
+      "signal": "A10_correction_rate",
+      "d_prime": 0.0
+    }
+  ],
+  "greedy_selected": [
+    "A03_dd_log_mean"
+  ]
+}
