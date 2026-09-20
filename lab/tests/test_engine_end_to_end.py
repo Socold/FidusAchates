@@ -63,3 +63,18 @@ def test_evidence_points_the_right_way():
     eng_g = build_engine().step(g).evidence_db
     eng_i = build_engine().step(imp).evidence_db
     assert eng_i > eng_g, "impostor evidence not higher than genuine"
+
+
+def test_alarm_resets_the_statistic_so_it_does_not_stick():
+    """Bug fixed: after an alarm the CUSUM must reset. Otherwise one alarm
+    made every subsequent window 'alarmed' for the rest of the session."""
+    eng = build_engine()
+    impostor_segs = segments_from(IMPOSTOR, n_segments=6, seed_start=800)
+    fired = [eng.step(s).alarmed for s in impostor_segs]
+    assert any(fired), "impostor never detected"
+    # After the first alarm the statistic restarts from zero: a genuine
+    # segment right after must NOT report an alarm.
+    genuine_seg = segments_from(GENUINE, 1, seed_start=950)[0]
+    d = eng.step(genuine_seg)
+    assert not d.alarmed
+    assert d.cumulative < eng.cusum_h

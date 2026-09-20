@@ -33,14 +33,22 @@ class IdentityEngine:
         # Quality gate: a segment with too few observations does not vote.
         if n < self.min_quality:
             return Decision(seg, evidence_db=0.0, cumulative=self._cusum.s,
-                            p_impostor=self._p(), alarmed=self._cusum.alarmed, quality=n)
+                            p_impostor=self._p(self._cusum.s), alarmed=False, quality=n)
         fused = self.fusion.fuse({self.expert.name: e})
         alarmed = self._cusum.update(fused)
-        return Decision(seg, evidence_db=fused, cumulative=self._cusum.s,
-                        p_impostor=self._p(), alarmed=alarmed, quality=n)
+        # The statistic at the moment of decision, before any reset, is what
+        # the decision reports and what the probability is derived from.
+        s_at_decision = self._cusum.s
+        if alarmed:
+            # L4: alert, full decision event, and the statistic resets so that
+            # one alarm does not make every later window "alarmed" for good
+            # (decision engine 4.3).
+            self._cusum.reset()
+        return Decision(seg, evidence_db=fused, cumulative=s_at_decision,
+                        p_impostor=self._p(s_at_decision), alarmed=alarmed, quality=n)
 
-    def _p(self) -> float:
-        return probability_from_evidence(self._cusum.s, self.prior_db)
+    def _p(self, s: float) -> float:
+        return probability_from_evidence(s, self.prior_db)
 
     def reset(self) -> None:
         self._cusum.reset()
