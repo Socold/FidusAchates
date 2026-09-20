@@ -12,10 +12,10 @@ from .explain import Contribution, Explanation, explain, waterfall
 from .corpus import CmuSample, ScaledManhattan, load_cmu
 from .engine import Decision, IdentityEngine
 from .evidence import Cusum, LogisticFusion, deciban, probability_from_evidence
-from .experts import KeystrokeExpert, KeystrokeTemplate
+from .experts import KeystrokeExpert, KeystrokeTemplate, PointerExpert, PointerTemplate
 from .metrics import eer, far_frr, run_lengths
 from .stats import LogNormal, Welford, median_mad
-from .synth import Typist
+from .synth import Mouser, Typist
 from .attribution import ActorLabel, Attribution, AttributionParams, attribute
 from .policy import Outcome, Sensitivity, decide, stub_sensitivity
 from .registry import AgentSession, SanctionRegistry
@@ -43,10 +43,10 @@ __all__ = [
     "CmuSample", "ScaledManhattan", "load_cmu",
     "Decision", "IdentityEngine",
     "Cusum", "LogisticFusion", "deciban", "probability_from_evidence",
-    "KeystrokeExpert", "KeystrokeTemplate",
+    "KeystrokeExpert", "KeystrokeTemplate", "PointerExpert", "PointerTemplate",
     "eer", "far_frr", "run_lengths",
     "LogNormal", "Welford", "median_mad",
-    "Typist",
+    "Typist", "Mouser",
     "Contribution", "Explanation", "explain", "waterfall",
     "gaussian_js", "template_stability",
     "Convergence", "CriteriaParams", "Phase", "assess", "rolling_stability",

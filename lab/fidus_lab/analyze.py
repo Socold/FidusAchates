@@ -69,8 +69,7 @@ def analyze_segments(
     for i, seg in enumerate(segments, start=1):
         a = attribute(seg, registry)
         d = engine.step(seg)
-        contribs = engine.fusion.contributions({engine.expert.name: d.evidence_db})
-        exp = explain(contribs, channel="Identity")
+        exp = explain(d.contributions, channel="Identity")
         outcome = decide(a.label, identity_diverged=d.alarmed,
                          sensitivity=stub_sensitivity(seg))
         reports.append(SegmentReport(

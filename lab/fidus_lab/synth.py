@@ -49,3 +49,44 @@ class Typist:
                               Event(EventKind.KEY_UP, KeyClass.LETTER, 0)))
             t += hold + self._ln(self.gap_mu, self.gap_sigma)
         return out
+
+
+@dataclass
+class Mouser:
+    """A synthetic pointer user: motion velocity, pause before click and click
+    duration drawn from log-normal laws, for testing the pointer expert."""
+
+    vel_mu: float        # log pixels-per-ms
+    vel_sigma: float
+    pause_mu: float      # log-us pause before a click
+    pause_sigma: float
+    click_mu: float      # log-us click duration
+    click_sigma: float
+    seed: int = 0
+
+    def __post_init__(self) -> None:
+        self._r = random.Random(self.seed)
+
+    def _ln(self, mu: float, sigma: float) -> float:
+        return math.exp(self._r.gauss(mu, sigma))
+
+    def move_and_click(self, n_gestures: int, start_us: int = 0, device: int = 1) -> list[Record]:
+        """Each gesture: ~20 motion events at ~8 ms, a pause, a click."""
+        out: list[Record] = []
+        t = float(start_us)
+        for _ in range(n_gestures):
+            for _ in range(20):
+                dt_ms = 8.0
+                dist = self._ln(self.vel_mu, self.vel_sigma) * dt_ms
+                dx = int(round(dist * self._r.choice((-1, 1))))
+                out.append(Record(int(t), device, False,
+                                  Event(EventKind.MOTION, dx=dx, dy=0)))
+                t += dt_ms * 1000
+            t += self._ln(self.pause_mu, self.pause_sigma)
+            out.append(Record(int(t), device, False,
+                              Event(EventKind.BUTTON_DOWN, button=0)))
+            t += self._ln(self.click_mu, self.click_sigma)
+            out.append(Record(int(t), device, False,
+                              Event(EventKind.BUTTON_UP, button=0)))
+            t += 300_000
+        return out

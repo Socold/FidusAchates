@@ -29,10 +29,16 @@ _TEMPLATES = {
     "A01_hold": "key hold times",
     "A02_flight": "flight times between keys",
     "A03_dd": "key-to-key rhythm",
+    "A05_digraph": "digraph rhythm (motor class)",
     "A08_speed": "typing speed",
     "A10_correction": "correction rate",
+    "B01_velocity": "pointer velocity",
+    "B09_pause": "pause before click",
+    "B10_click": "click duration",
+    "B13_wheel": "wheel cadence",
     "E03_dd_cv": "timing regularity",
     "keystroke": "keystroke timing",
+    "pointer": "pointer behaviour",
 }
 
 

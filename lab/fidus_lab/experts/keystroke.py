@@ -79,17 +79,26 @@ class KeystrokeExpert:
         seg: Segment,
         genuine: KeystrokeTemplate,
         reference: KeystrokeTemplate,
-    ) -> tuple[float, int]:
-        """Total decibans for the segment, and the observation count (quality)."""
-        total = 0.0
+    ) -> tuple[dict[str, float], int]:
+        """Per-signal decibans for the segment, and the observation count.
+
+        Keys name the signal family and class ("A01_hold_letter",
+        "A05_digraph_5"), so the fusion can weight them and the explanation
+        can show them as separate bars, not one opaque number.
+        """
+        out: dict[str, float] = {}
         n = 0
         for kc, dt in _hold_times(seg):
-            total += self._one(dt, genuine.hold.get(int(kc)), reference.hold.get(int(kc)))
+            e = self._one(dt, genuine.hold.get(int(kc)), reference.hold.get(int(kc)))
+            key = f"A01_hold_{KeyClass(kc).name.lower()}"
+            out[key] = out.get(key, 0.0) + e
             n += 1
         for dc, dt in _digraph_latencies(seg):
-            total += self._one(dt, genuine.digraph.get(dc), reference.digraph.get(dc))
+            e = self._one(dt, genuine.digraph.get(dc), reference.digraph.get(dc))
+            key = f"A05_digraph_{dc}"
+            out[key] = out.get(key, 0.0) + e
             n += 1
-        return total, n
+        return out, n
 
     def _one(self, x: float, g: LogNormal | None, r: LogNormal | None) -> float:
         # Need the genuine model; without an impostor model, fall back to a wide

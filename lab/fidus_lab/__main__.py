@@ -14,7 +14,7 @@ import sys
 
 from .analyze import analyze_segments
 from .engine import IdentityEngine
-from .experts import KeystrokeTemplate
+from .experts import KeystrokeTemplate, PointerTemplate
 from .registry import SanctionRegistry
 from .segment import segment_trace
 from .trace import read_trace
@@ -33,13 +33,16 @@ def main(argv: list[str]) -> int:
         print("note: too few segments for a temporal split; Identity is not "
               "enrolled, only the Attribution channel is meaningful here")
         tpl = KeystrokeTemplate.fit(segments)
+        ptr = PointerTemplate.fit(segments)
         test = segments
     else:
         tpl = KeystrokeTemplate.fit(enrol)
+        ptr = PointerTemplate.fit(enrol)
         print(f"enrolled on the first {len(enrol)} segment(s), evaluating the "
               f"next {len(test)}; impostor reference: wide fallback "
               f"(no impostor population enrolled)")
-    engine = IdentityEngine(genuine=tpl, reference=None)
+    engine = IdentityEngine(genuine=tpl, reference=None,
+                            pointer=ptr if ptr.models else None)
     report = analyze_segments(test, engine, SanctionRegistry())
     print(report.as_text())
     return 0
