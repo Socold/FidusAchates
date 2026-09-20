@@ -1,0 +1,9 @@
+{
+  "decision_unit": "activity segment (~40 keystrokes)",
+  "eer_per_segment": 0.0094,
+  "anga_segments_before_false_alarm": null,
+  "ania_segments_before_detection": 1.125,
+  "ttd_median_segments": 1.0,
+  "n_genuine_sessions": 40,
+  "n_impostor_sessions": 40
+}
