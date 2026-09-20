@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: rustup component add clippy rustfmt
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Tests
+        run: cargo test --workspace
+      - name: Tests with research-trace
+        run: cargo test --workspace --features research-trace
+
+  self-contained:
+    # NFR-10: the project builds and its tests pass with no network once
+    # dependencies are fetched.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo fetch
+      - name: Offline build and test
+        run: cargo test --workspace --offline
+
+  no-trace-in-release:
+    # ADR-0010 / FR-8: a default release binary must not contain the trace
+    # writer. We check that its magic string is absent.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo build --release --bin fidus-agent
+      - name: Assert no trace code in release binary
+        run: |
+          if strings target/release/fidus-agent | grep -q FIDUSTR; then
+            echo "trace writer present in default release build" >&2
+            exit 1
+          fi
+          echo "ok: no trace code in default release build"
+
+  lab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pytest
+      - run: cd lab && python3 -m pytest

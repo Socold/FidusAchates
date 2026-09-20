@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = ["crates/fidus-core", "crates/fidus-agent"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "LicenseRef-PolyForm-Noncommercial-1.0.0"
+repository = "https://github.com/Socold/FidusAchates"
+publish = false
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

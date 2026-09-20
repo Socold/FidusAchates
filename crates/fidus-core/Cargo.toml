@@ -1,0 +1,16 @@
+[package]
+name = "fidus-core"
+description = "Event model, privacy reduction and trace format. No I/O, no dependency."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+research-trace = []
+
+[dependencies]
+
+[[example]]
+name = "write_fixture"
+required-features = ["research-trace"]

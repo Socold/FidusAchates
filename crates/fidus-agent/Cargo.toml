@@ -1,0 +1,19 @@
+[package]
+name = "fidus-agent"
+description = "The recorder: evdev capture, self-confinement, reduced trace writing."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "fidus-agent"
+path = "src/main.rs"
+
+[features]
+# Off by default: a release binary contains no event-writing code (ADR-0010).
+research-trace = ["fidus-core/research-trace"]
+
+[dependencies]
+fidus-core = { path = "../fidus-core" }
+libc = "0.2"
