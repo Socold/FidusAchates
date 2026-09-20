@@ -76,6 +76,8 @@ The only component that ever reads `/dev/input`. It must stay small enough to be
 - Ingestion of the CMU, Balabit and SapiMouse corpora into the same event model.
 - Result directory format of the evaluation protocol.
 
+**Status**: reader, segmentation/replay, evaluation bench (FAR/EER/ANIA/ANGA/TTD) and CMU ingestion done and tested; a first synthetic-validation result is committed. Real-corpus run (2.2) gated on data.
+
 **Acceptance criteria**
 
 | # | Criterion | Measure |
@@ -142,6 +144,8 @@ First end-to-end result: no enrolment needed, so the whole chain can be demonstr
 ---
 
 ## WP 5 - Fusion, CUSUM, explainability and console
+
+**Status**: the engine core (decibans, CUSUM, logistic fusion, a first keystroke expert, the Identity decision) is built in Python and validated end to end; explainability output and the console remain.
 
 **Content**
 - Expert calibration, reliability diagrams.
