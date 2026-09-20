@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 
 from ..evidence import deciban_from_logpdf
 from ..segment import Segment
-from ..stats import LogNormal
+from ..stats import Distribution, LogNormal, fit_best, wide_reference
 from ..trace import EventKind
 
 
@@ -77,7 +77,7 @@ _SIGNALS = {
 
 @dataclass
 class PointerTemplate:
-    models: dict[str, LogNormal] = field(default_factory=dict)
+    models: dict[str, Distribution] = field(default_factory=dict)
 
     @classmethod
     def fit(cls, segments: list[Segment], min_obs: int = 4) -> "PointerTemplate":
@@ -85,7 +85,7 @@ class PointerTemplate:
         for seg in segments:
             for name, fn in _SIGNALS.items():
                 values[name].extend(fn(seg))
-        models = {k: LogNormal.fit(v) for k, v in values.items() if len(v) >= min_obs}
+        models = {k: fit_best(v) for k, v in values.items() if len(v) >= min_obs}
         return cls(models=models)
 
 
@@ -117,5 +117,5 @@ class PointerExpert:
         return out, n
 
     @staticmethod
-    def _wide(x: float, g: LogNormal) -> float:
-        return LogNormal(mu=g.mu, sigma=g.sigma * 3.0, n=g.n).logpdf(x)
+    def _wide(x: float, g: Distribution) -> float:
+        return wide_reference(g).logpdf(x)

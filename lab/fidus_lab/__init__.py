@@ -25,7 +25,7 @@ from .policy import Outcome, Sensitivity, decide, stub_sensitivity
 from .profiles import Mode, Profile, ProfileSet, RevisionEvent, temporal_interleaving
 from .registry import AgentSession, SanctionRegistry
 from .segment import Segment, segment_trace
-from .stats import LogNormal, Welford, median_mad
+from .stats import Distribution, LogNormal, LogNormalMixture, Welford, fit_best, median_mad, wide_reference
 from .synth import HostileTypist, Mouser, Typist
 from .trace import Event, EventKind, KeyClass, Record, read_trace
 
@@ -52,7 +52,7 @@ __all__ = [
     "Cusum", "LogisticFusion", "deciban", "probability_from_evidence",
     "KeystrokeExpert", "KeystrokeTemplate", "PointerExpert", "PointerTemplate",
     "eer", "far_frr", "run_lengths",
-    "LogNormal", "Welford", "median_mad",
+    "Distribution", "LogNormal", "LogNormalMixture", "Welford", "fit_best", "median_mad", "wide_reference",
     "Typist", "Mouser", "HostileTypist",
     "Contribution", "Explanation", "explain", "waterfall",
     "gaussian_js", "template_stability",

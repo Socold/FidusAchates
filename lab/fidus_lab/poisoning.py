@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 from .divergence import template_stability
 from .experts import KeystrokeTemplate
-from .stats import LogNormal
+from .stats import Distribution, LogNormal, LogNormalMixture
 
 
 def admits(evidence_db: float, threshold_db: float = -5.0) -> bool:
@@ -25,7 +25,21 @@ def admits(evidence_db: float, threshold_db: float = -5.0) -> bool:
     return evidence_db <= threshold_db
 
 
-def _blend(old: LogNormal, new: LogNormal, max_step: float) -> LogNormal:
+def _blend(old: Distribution, new: Distribution, max_step: float) -> Distribution:
+    """Move `old` a bounded step towards `new`. Two mixtures blend component by
+    component (components are ordered by mean, so they match), which keeps a
+    bimodal model bimodal under adaptation; any other pairing blends the
+    envelopes and yields a single log-normal."""
+    if isinstance(old, LogNormalMixture) and isinstance(new, LogNormalMixture):
+        w = tuple(o + max_step * (n - o) for o, n in zip(old.weights, new.weights, strict=True))
+        tot = w[0] + w[1]
+        w = (w[0] / tot, w[1] / tot)
+        mus = tuple(o + max_step * (n - o) for o, n in zip(old.mus, new.mus, strict=True))
+        sg = tuple(
+            max(o + max_step * (n - o), LogNormalMixture.SIGMA_FLOOR)
+            for o, n in zip(old.sigmas, new.sigmas, strict=True)
+        )
+        return LogNormalMixture(weights=w, mus=mus, sigmas=sg, n=old.n + new.n)
     mu = old.mu + max_step * (new.mu - old.mu)
     sigma = old.sigma + max_step * (new.sigma - old.sigma)
     return LogNormal(mu=mu, sigma=max(sigma, LogNormal.SIGMA_FLOOR), n=old.n + new.n)

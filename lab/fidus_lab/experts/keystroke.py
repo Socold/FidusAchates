@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 
 from ..evidence import deciban_from_logpdf
 from ..segment import Segment
-from ..stats import LogNormal
+from ..stats import Distribution, LogNormal, fit_best, wide_reference
 from ..trace import EventKind, KeyClass
 
 
@@ -50,8 +50,10 @@ def _digraph_latencies(seg: Segment) -> list[tuple[int, float]]:
 class KeystrokeTemplate:
     """Fitted per-class distributions for one actor (genuine or reference)."""
 
-    hold: dict[int, LogNormal] = field(default_factory=dict)
-    digraph: dict[int, LogNormal] = field(default_factory=dict)
+    # Each class is a single log-normal, or a two-component mixture when the
+    # data is clearly bimodal (the close-impostor remedy, decision engine 3).
+    hold: dict[int, Distribution] = field(default_factory=dict)
+    digraph: dict[int, Distribution] = field(default_factory=dict)
 
     @classmethod
     def fit(cls, segments: list[Segment], min_obs: int = 4) -> "KeystrokeTemplate":
@@ -62,8 +64,8 @@ class KeystrokeTemplate:
                 holds.setdefault(int(kc), []).append(dt)
             for dc, dt in _digraph_latencies(seg):
                 digs.setdefault(dc, []).append(dt)
-        hold = {k: LogNormal.fit(v) for k, v in holds.items() if len(v) >= min_obs}
-        digraph = {k: LogNormal.fit(v) for k, v in digs.items() if len(v) >= min_obs}
+        hold = {k: fit_best(v) for k, v in holds.items() if len(v) >= min_obs}
+        digraph = {k: fit_best(v) for k, v in digs.items() if len(v) >= min_obs}
         return cls(hold=hold, digraph=digraph)
 
 
@@ -100,7 +102,7 @@ class KeystrokeExpert:
             n += 1
         return out, n
 
-    def _one(self, x: float, g: LogNormal | None, r: LogNormal | None) -> float:
+    def _one(self, x: float, g: Distribution | None, r: Distribution | None) -> float:
         # Need the genuine model; without an impostor model, fall back to a wide
         # reference so an out-of-distribution value still scores as suspicious.
         if g is None:
@@ -111,7 +113,9 @@ class KeystrokeExpert:
         return max(-self.clamp_db, min(self.clamp_db, e))
 
     @staticmethod
-    def _wide_logpdf(x: float, g: LogNormal) -> float:
-        # A reference three times as broad as the genuine model, same centre.
-        wide = LogNormal(mu=g.mu, sigma=g.sigma * 3.0, n=g.n)
-        return wide.logpdf(x)
+    def _wide_logpdf(x: float, g: Distribution) -> float:
+        # A reference three times as broad as the genuine model's envelope,
+        # same centre. For a mixture the envelope is its overall moments, so
+        # the reference stays unimodal and wide while the genuine density
+        # stays sharp: that contrast is what exposes a close impostor.
+        return wide_reference(g).logpdf(x)
