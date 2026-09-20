@@ -53,6 +53,7 @@ Detailed roadmap with acceptance criteria: [docs/06-ROADMAP.md](docs/06-ROADMAP.
 | [04 - Signal catalogue](docs/04-SIGNAL-CATALOGUE.md) | 90 signals in 7 families, with cost, discriminating power and forgery difficulty |
 | [05 - Privacy](docs/05-PRIVACY.md) | Processing register, legal qualification, ethics, risk of misuse |
 | [06 - Roadmap](docs/06-ROADMAP.md) | Work packages and acceptance criteria |
+| [07 - Design review](docs/07-DESIGN-REVIEW.md) | Critical re-reading of the design: errors found, decisions to reopen, gaps |
 | [ADR](docs/adr/) | Architecture decisions and the alternatives ruled out |
 
 ## Design principles
