@@ -1,5 +1,6 @@
 """The offline half of FidusAchates: trace reading, replay, attribution."""
 
+from .analyze import AnalysisReport, SegmentReport, analyze_segments, analyze_trace
 from .profiles import Mode, Profile, ProfileSet, RevisionEvent, temporal_interleaving
 from .divergence import gaussian_js, template_stability
 from .enrolment import Convergence, CriteriaParams, Phase, assess, rolling_stability
@@ -48,4 +49,5 @@ __all__ = [
     "Convergence", "CriteriaParams", "Phase", "assess", "rolling_stability",
     "AnchorWatch", "admits", "bounded_update",
     "Mode", "Profile", "ProfileSet", "RevisionEvent", "temporal_interleaving",
+    "AnalysisReport", "SegmentReport", "analyze_segments", "analyze_trace",
 ]
