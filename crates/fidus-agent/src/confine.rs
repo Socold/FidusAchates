@@ -21,8 +21,12 @@ pub fn lock_down() -> io::Result<()> {
     Ok(())
 }
 
-/// True if creating an internet socket fails, as it must after `lock_down`.
+/// True if creating an internet socket fails and io_uring cannot be set up,
+/// as both must after `lock_down`.
 pub fn network_is_blocked() -> bool {
+    if !io_uring_is_blocked() {
+        return false;
+    }
     // Safety: socket(2) with these arguments has no memory effect; a returned
     // fd is closed immediately.
     let fd = unsafe { libc::socket(libc::AF_INET, libc::SOCK_STREAM, 0) };
@@ -38,6 +42,22 @@ pub fn network_is_blocked() -> bool {
     true
 }
 
+/// io_uring_setup must be refused: ENOSYS by our filter, or EPERM when the
+/// system itself has io_uring disabled (kernel.io_uring_disabled). Before any
+/// of that, a null params pointer yields EFAULT, so the errno tells them apart.
+fn io_uring_is_blocked() -> bool {
+    // Safety: the kernel validates the pointer; a null one never dereferences.
+    let rc = unsafe { libc::syscall(libc::SYS_io_uring_setup, 1u32, std::ptr::null::<u8>()) };
+    if rc >= 0 {
+        unsafe { libc::close(rc as i32) };
+        return false;
+    }
+    matches!(
+        io::Error::last_os_error().raw_os_error(),
+        Some(libc::ENOSYS) | Some(libc::EPERM)
+    )
+}
+
 fn set_no_new_privs() -> io::Result<()> {
     // Safety: prctl with PR_SET_NO_NEW_PRIVS takes no pointer.
     let rc = unsafe { libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) };
@@ -47,9 +67,15 @@ fn set_no_new_privs() -> io::Result<()> {
     Ok(())
 }
 
-// A classic BPF program for seccomp. It inspects the syscall number and, for
-// socket(2), the address family in the first argument: AF_INET, AF_INET6 and
-// AF_PACKET are refused with EPERM, everything else is allowed.
+// A classic BPF program for seccomp. Three things, in order:
+//   1. Refuse any syscall not from the native ABI. On x86_64 a 32-bit call via
+//      int 0x80 uses a different syscall table, where "socket" has another
+//      number; without this check the filter could be bypassed by switching
+//      ABI. Such a call is killed, not merely refused.
+//   2. Refuse io_uring_setup, because an io_uring ring can create sockets
+//      (IORING_OP_SOCKET) without ever calling socket(2).
+//   3. For socket(2), refuse the internet and packet families with EPERM,
+//      allowing UNIX sockets (the console IPC) and the rest.
 fn install_seccomp() -> io::Result<()> {
     use std::mem::size_of;
 
@@ -68,6 +94,7 @@ fn install_seccomp() -> io::Result<()> {
 
     // Offsets into struct seccomp_data.
     const NR: u32 = 0;
+    const ARCH: u32 = 4;
     const ARG0_LOW: u32 = 16;
 
     // BPF opcodes.
@@ -77,29 +104,62 @@ fn install_seccomp() -> io::Result<()> {
 
     const ALLOW: u32 = 0x7fff_0000; // SECCOMP_RET_ALLOW
     const EPERM: u32 = 0x0005_0000 | 1; // SECCOMP_RET_ERRNO | EPERM
+    const ENOSYS: u32 = 0x0005_0000 | 38; // SECCOMP_RET_ERRNO | ENOSYS
+    const KILL_PROCESS: u32 = 0x8000_0000; // SECCOMP_RET_KILL_PROCESS
+
+    #[cfg(target_arch = "x86_64")]
+    const ARCH_NATIVE: u32 = 0xC000_003E; // AUDIT_ARCH_X86_64
+    #[cfg(target_arch = "aarch64")]
+    const ARCH_NATIVE: u32 = 0xC000_00B7; // AUDIT_ARCH_AARCH64
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    compile_error!("seccomp filter: add the AUDIT_ARCH constant for this architecture");
 
     let nr_socket = libc::SYS_socket as u32;
+    let nr_io_uring_setup = libc::SYS_io_uring_setup as u32;
 
-    // Program. Instruction indices in brackets; jt/jf are offsets counted from
-    // the *next* instruction. ALLOW is at [6], DENY (EPERM) at [7].
+    // Program. Indices in brackets; jt/jf are offsets from the *next*
+    // instruction. ALLOW [9], EPERM [10], KILL [11], ENOSYS [12].
     //
-    //   [0] A = nr
-    //   [1] if A != socket        -> jump to ALLOW [6]   (jf = 4)
-    //   [2] A = arg0 low 32 bits
-    //   [3] if A == AF_INET       -> jump to DENY  [7]   (jt = 3)
-    //   [4] if A == AF_INET6      -> jump to DENY  [7]   (jt = 2)
-    //   [5] if A == AF_PACKET     -> jump to DENY  [7]   (jt = 1)
-    //   [6] return ALLOW          (a socket of some other family: UNIX, netlink)
-    //   [7] return EPERM
+    //   [0]  A = arch
+    //   [1]  if A != native          -> KILL   [11]  (jf = 9)
+    //   [2]  A = nr
+    //   [3]  if A == io_uring_setup  -> ENOSYS [12]  (jt = 8)
+    //   [4]  if A != socket          -> ALLOW  [9]   (jf = 4)
+    //   [5]  A = arg0 low 32 bits
+    //   [6]  if A == AF_INET         -> EPERM  [10]  (jt = 3)
+    //   [7]  if A == AF_INET6        -> EPERM  [10]  (jt = 2)
+    //   [8]  if A == AF_PACKET       -> EPERM  [10]  (jt = 1)
+    //   [9]  return ALLOW
+    //   [10] return EPERM
+    //   [11] return KILL_PROCESS
+    //   [12] return ENOSYS
     //
-    // Getting [1]'s jf wrong (sending non-socket syscalls to DENY) makes the
-    // process refuse itself every syscall and crash; there is a test for it.
+    // A wrong jump here can make the process refuse itself every syscall; the
+    // integration test runs the real binary's self-test to catch that.
     let prog = [
         SockFilter {
             code: LD_W_ABS,
             jt: 0,
             jf: 0,
+            k: ARCH,
+        },
+        SockFilter {
+            code: JEQ_K,
+            jt: 0,
+            jf: 9,
+            k: ARCH_NATIVE,
+        },
+        SockFilter {
+            code: LD_W_ABS,
+            jt: 0,
+            jf: 0,
             k: NR,
+        },
+        SockFilter {
+            code: JEQ_K,
+            jt: 8,
+            jf: 0,
+            k: nr_io_uring_setup,
         },
         SockFilter {
             code: JEQ_K,
@@ -142,6 +202,18 @@ fn install_seccomp() -> io::Result<()> {
             jt: 0,
             jf: 0,
             k: EPERM,
+        },
+        SockFilter {
+            code: RET_K,
+            jt: 0,
+            jf: 0,
+            k: KILL_PROCESS,
+        },
+        SockFilter {
+            code: RET_K,
+            jt: 0,
+            jf: 0,
+            k: ENOSYS,
         },
     ];
     assert!(prog.len() * size_of::<SockFilter>() < u16::MAX as usize);
