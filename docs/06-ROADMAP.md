@@ -22,6 +22,7 @@
 | **9** | Action sensitivity | Wire command-category sensitivity into the malice policy | 5, 8 |
 | **10** | Porting | Windows, macOS, Linux X11, other compositors | 7 |
 | **11** | Mobile | In-app SDK | 7 |
+| **12** | Doubt resolution | Challenge (hardware-key touch, OTP) or session lock on strong doubt. Long-term vision, gated on real false-alarm numbers | 9, own decision |
 
 Critical path: 0 → 1 → 2 → 4 → 5 → 6 → 7. Package 3 runs in parallel as soon as 2 exists, and gives the first end-to-end result.
 
@@ -255,12 +256,68 @@ SDK embeddable in an application, modalities G01 to G10. Scope limited to the in
 
 ---
 
+## WP 12 - Doubt resolution: responding, not only flagging (long-term vision)
+
+Everything up to here observes and flags; it never acts on the machine, and the
+requirements say so (section 10, and the README). This package is the one
+deliberate exception, and it is a **vision**, not a commitment: it changes the
+nature of the tool from an observer to something that can stand in the user's
+way, so it needs its own decision, its own threat model, and numbers that do
+not exist yet.
+
+**The idea.** When the doubt is strong enough, do not just show a red square:
+challenge the person at the keyboard, and lift the doubt or lock the session.
+
+**The challenge must match the threat.** This is the point that makes it worth
+more than a lock:
+
+| Suspected threat | Challenge | Why it works |
+|---|---|---|
+| Remote takeover (RDP, RAT, portal-driven agent) | **Touch a hardware key** (FIDO2 user-presence, a YubiKey or equivalent plugged into the machine) | A remote attacker cannot touch a physical key. Presence is the one thing a takeover cannot fake |
+| Local impostor (someone at the desk) | **OTP** from the user's phone, or a password re-entry | Possession or knowledge the impostor does not have |
+| Either, when the challenge fails or times out | **Lock the session** (logind `Lock`, non-destructive: nothing is lost, the user logs back in) | The safe fallback; it costs the user a login, not their work |
+
+**Tiers, not a switch.** A coercive response demands a far lower false alarm
+rate than a tag: every false alarm now locks the legitimate user out of their
+own session. So the response is tiered by confidence and by action sensitivity
+(WP 9), and the hard tier is reserved for the top of the scale:
+
+| Tier | Trigger | Response |
+|---|---|---|
+| 1 | L3 (doubt) | The red square, as today. Dismissable, no challenge |
+| 2 | L4 (alarm) or unsanctioned automation on a sensitive action | A challenge that blocks input to sensitive actions until passed; passing it is the re-assurance of FR-45 made mandatory |
+| 3 | Challenge failed, timed out, or refused twice | Session lock |
+
+**What has to be true first.** This package is gated on:
+
+- AC-4 measured on real use, and a stricter budget for tier 3 (a locked
+  session is not "one false alarm per 8 hours"; it is a support call);
+- ADR-0011 fully wired: sanctioned automation must never trigger a challenge,
+  or the tool locks out the developer whose assistant is typing;
+- the console (SR-10) and any agent must be unable to trigger the lock: a
+  response mechanism is itself an attack surface. An attacker who can provoke
+  false alarms gets a denial of service on the legitimate user, so the trigger
+  path is inside the agent only, never exposed over IPC.
+
+**Mechanisms, for when the time comes.** Session lock through logind
+(`org.freedesktop.login1.Session.Lock`), which is non-destructive; hardware
+presence through a FIDO2 assertion with the user-presence flag (libfido2);
+OTP through TOTP. None of these belongs in the recorder: the response lives in
+a separate process with its own confinement, so a bug in capture cannot lock
+anyone out.
+
+**Acceptance, when specified.** A remote takeover scenario from the attack bench
+ends in a lock the attacker cannot lift; a legitimate user with the key never
+sees tier 3 over 30 days; a sanctioned agent session never sees a challenge.
+
 ## Recurring costs to budget
 
 - **GNOME Shell extension**: a major GNOME version every six months regularly breaks extensions. The extension stays minimal, supported Shell versions are pinned, and each GNOME release gets a check.
 
 ## What is not planned
 
-In line with section 10 of the [requirements](01-REQUIREMENTS.md): centralised console, fleet deployment, coercive action on the machine, face recognition, audio or video capture, substitute IME keyboard, Android accessibility service.
+In line with section 10 of the [requirements](01-REQUIREMENTS.md): centralised console, fleet deployment, face recognition, audio or video capture, substitute IME keyboard, Android accessibility service.
+
+Coercive action on the machine is excluded from every package up to 11; the one exception is WP 12, a long-term vision with its own gate and its own decision, precisely because it changes what the tool is.
 
 These items are not "later": they are outside the project. Putting them on a roadmap, however distant, would be an invitation to build them.

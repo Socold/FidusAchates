@@ -45,6 +45,7 @@ real corpora.
 | 9 | Action sensitivity wired into the malice policy | to do |
 | 10 | Porting to Windows, macOS, X11, other compositors | to do |
 | 11 | Mobile SDK | to do |
+| 12 | Doubt resolution: challenge or session lock (long-term vision) | not planned yet |
 
 Detailed roadmap with acceptance criteria and per-package status:
 [docs/06-ROADMAP.md](docs/06-ROADMAP.md).
@@ -132,7 +133,7 @@ Among the decisions, [ADR-0011](docs/adr/0011-attribution-not-malice.md) separat
 
 **Explainable by construction.** The engine adds log-likelihood ratios expressed in decibans. The contribution of each signal to the decision is therefore **exact**, not estimated. The displayed explanation is the formula itself, read term by term.
 
-**Observes, does not act.** The tool locks nothing, blocks nothing, logs nobody out. It flags.
+**Observes, does not act.** The tool locks nothing, blocks nothing, logs nobody out. It flags. A long-term vision, work package 12, sketches a response (a challenge by hardware-key touch or OTP, a session lock on failure); it is gated on real false-alarm numbers and is out of scope until then.
 
 ## How it works, in short
 

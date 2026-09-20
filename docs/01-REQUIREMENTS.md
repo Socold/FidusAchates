@@ -284,7 +284,7 @@ Explicitly excluded, and to be refused in review:
 - Recording typed content, window titles, URLs, the clipboard, screenshots.
 - Any form of telemetry, upload to a server, synchronisation between machines.
 - Measuring productivity, presence time, attendance.
-- Automatic session blocking, locking, logout or any coercive action. The tool observes and flags; it does not act on the machine. A possible response action would be a separate decision, to be specified in its own right.
+- Automatic session blocking, locking, logout or any coercive action. The tool observes and flags; it does not act on the machine. A response action (a challenge by hardware-key touch or OTP, a session lock on failure) is a **long-term vision**, sketched as [work package 12](06-ROADMAP.md) with its own gate and its own decision; it is out of scope for every package before it.
 - Face recognition, audio capture, video capture, geolocation.
 - Substitute IME keyboard and Android accessibility service (cf. 00-ANALYSIS T6).
 - Bypassing the iOS or Android sandbox.
