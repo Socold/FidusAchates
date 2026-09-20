@@ -45,6 +45,12 @@ impostors were far.
 
 ## What follows from it
 
+**Update:** both remedies below are now built and measured in
+[2026-09-20-off-model-remedies](../2026-09-20-off-model-remedies/README.md):
+the mixture takes close-impostor detection from 0 % to 47 %, and modes catch a
+cross-regime impostor that per-signal mixtures cannot (0 % to 100 %).
+
+
 - The design already names the remedy for (1): a two-component mixture when a
   distribution is clearly bimodal, and modes (decision engine section 3 and
   6). Neither is implemented in the keystroke expert yet.

@@ -1,0 +1,28 @@
+{
+  "note": "remedies for the off-model close-impostor failure; same generators and seeds as 2026-09-20-off-model-validation where applicable",
+  "case_1_bimodal_within_segments_mixture_remedy": {
+    "false_alarm_rate": 0.0,
+    "close_impostor": {
+      "detected_fraction": 0.467,
+      "median_delay_segments": 6
+    }
+  },
+  "case_2_bimodal_across_segments_modes_remedy": {
+    "modes_recovered": 2,
+    "single_template_per_signal_mixtures": {
+      "false_alarm_rate": 0.0,
+      "cross_impostor": {
+        "detected_fraction": 0.0,
+        "median_delay_segments": null
+      }
+    },
+    "modes_joint_templates": {
+      "false_alarm_rate": 0.0,
+      "cross_impostor": {
+        "detected_fraction": 1.0,
+        "median_delay_segments": 1
+      }
+    }
+  },
+  "sessions": 60
+}

@@ -28,6 +28,12 @@ class IdentityEngine:
     # nobody types, which is exactly the gap the pointer expert closes.
     pointer: PointerTemplate | None = None
     pointer_reference: PointerTemplate | None = None
+    # Modes: one keystroke template per regime of the same person (decision
+    # engine 6.1). When given, a segment is scored against its best-matching
+    # mode, so a person on two keyboards is not their own impostor, while an
+    # impostor still has to be far from every mode. `genuine` is then only a
+    # fallback and may be any of them.
+    modes: list[KeystrokeTemplate] | None = None
     cusum_h: float = 25.0
     prior_db: float = -10.0
     keystroke_expert: KeystrokeExpert = field(default_factory=KeystrokeExpert)
@@ -49,11 +55,24 @@ class IdentityEngine:
     def reference_kind(self) -> str:
         return "population" if self.reference is not None else "wide-fallback"
 
+    def _keystroke_evidence(self, seg: Segment) -> tuple[dict[str, float], int]:
+        """Against the best-matching mode when modes are enrolled: the mode
+        with the least total evidence for the impostor hypothesis. Its
+        per-signal contributions are what gets explained."""
+        ref = self.reference or KeystrokeTemplate()
+        candidates = self.modes or [self.genuine]
+        best: tuple[dict[str, float], int] | None = None
+        best_total = None
+        for tpl in candidates:
+            ev, n = self.keystroke_expert.evidence(seg, tpl, ref)
+            total = sum(ev.values())
+            if best is None or total < best_total:
+                best, best_total = (ev, n), total
+        return best  # type: ignore[return-value]
+
     def _collect(self, seg: Segment) -> tuple[dict[str, float], int]:
         """Per-signal evidence from every enrolled expert, and total quality."""
-        ev, n = self.keystroke_expert.evidence(
-            seg, self.genuine, self.reference or KeystrokeTemplate()
-        )
+        ev, n = self._keystroke_evidence(seg)
         if self.pointer is not None:
             pev, pn = self.pointer_expert.evidence(
                 seg, self.pointer, self.pointer_reference or PointerTemplate()

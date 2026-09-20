@@ -19,14 +19,23 @@ from .experts import KeystrokeExpert, KeystrokeTemplate, PointerExpert, PointerT
 from .explain import Contribution, Explanation, explain, waterfall
 from .live import drive, drive_trace
 from .metrics import eer, far_frr, run_lengths
+from .modes import fit_modes
 from .overlay import NullOverlay, OverlayClient, best_overlay
 from .poisoning import AnchorWatch, admits, bounded_update
 from .policy import Outcome, Sensitivity, decide, stub_sensitivity
 from .profiles import Mode, Profile, ProfileSet, RevisionEvent, temporal_interleaving
 from .registry import AgentSession, SanctionRegistry
 from .segment import Segment, segment_trace
-from .stats import Distribution, LogNormal, LogNormalMixture, Welford, fit_best, median_mad, wide_reference
-from .synth import HostileTypist, Mouser, Typist
+from .stats import (
+    Distribution,
+    LogNormal,
+    LogNormalMixture,
+    Welford,
+    fit_best,
+    median_mad,
+    wide_reference,
+)
+from .synth import HostileTypist, ModalTypist, Mouser, Typist
 from .trace import Event, EventKind, KeyClass, Record, read_trace
 
 __all__ = [
@@ -53,7 +62,7 @@ __all__ = [
     "KeystrokeExpert", "KeystrokeTemplate", "PointerExpert", "PointerTemplate",
     "eer", "far_frr", "run_lengths",
     "Distribution", "LogNormal", "LogNormalMixture", "Welford", "fit_best", "median_mad", "wide_reference",
-    "Typist", "Mouser", "HostileTypist",
+    "Typist", "Mouser", "HostileTypist", "ModalTypist", "fit_modes",
     "Contribution", "Explanation", "explain", "waterfall",
     "gaussian_js", "template_stability",
     "Convergence", "CriteriaParams", "EnrolmentTracker", "Phase", "assess", "rolling_stability",

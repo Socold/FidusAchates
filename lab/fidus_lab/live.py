@@ -14,6 +14,7 @@ from .analyze import analyze_segments
 from .console import Console
 from .engine import IdentityEngine
 from .experts import KeystrokeTemplate, PointerTemplate
+from .modes import fit_modes
 from .overlay import OverlayClient, best_overlay
 from .profiles import ProfileSet
 from .registry import SanctionRegistry
@@ -30,10 +31,12 @@ def drive(
     overlay: OverlayClient | None = None,
     delay_s: float = 0.0,
     pointer: PointerTemplate | None = None,
+    modes: list[KeystrokeTemplate] | None = None,
 ) -> None:
     """Analyse each segment, publish to the console, drive the overlay."""
     overlay = overlay or best_overlay()
-    engine = IdentityEngine(genuine=genuine, reference=reference, pointer=pointer)
+    engine = IdentityEngine(genuine=genuine, reference=reference, pointer=pointer,
+                            modes=modes)
     report = analyze_segments(segments, engine, registry or SanctionRegistry())
     profiles = ProfileSet()
     for i, seg_report in enumerate(report.segments):
@@ -66,7 +69,8 @@ def drive_trace(path: str, console: Console, delay_s: float = 0.0) -> None:
         # Too short to split: self-enrol and replay everything. Identity
         # cannot diverge here; only Attribution is meaningful.
         enrol, test = segments, segments
-    tpl = KeystrokeTemplate.fit(enrol) if enrol else KeystrokeTemplate()
+    modes = fit_modes(enrol) if enrol else [KeystrokeTemplate()]
     ptr = PointerTemplate.fit(enrol) if enrol else PointerTemplate()
-    drive(test, console, genuine=tpl, reference=None, delay_s=delay_s,
-          pointer=ptr if ptr.models else None)
+    drive(test, console, genuine=modes[0], reference=None, delay_s=delay_s,
+          pointer=ptr if ptr.models else None,
+          modes=modes if len(modes) > 1 else None)

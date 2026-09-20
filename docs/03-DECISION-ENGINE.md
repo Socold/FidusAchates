@@ -66,7 +66,8 @@ The displayed probability is an **aid to reading**. Alarms are not triggered by 
 Each signal needs two densities: under the genuine hypothesis and under the impostor hypothesis.
 
 - **Genuine**: estimated during enrolment, with robust statistics (median, median absolute deviation) rather than mean and standard deviation, to withstand outliers.
-- **Latencies are modelled on a log scale.** Hold times, flight times and pointing times are right-skewed, close to log-normal. A Gaussian on the raw scale gives wrong likelihood ratios in the tails, which is exactly where the evidence is. Default model: Gaussian on the robustly standardised **log** value, or a two-component mixture when the distribution is clearly bimodal (a sign of a second **mode**, cf. section 6).
+- **Latencies are modelled on a log scale.** Hold times, flight times and pointing times are right-skewed, close to log-normal. A Gaussian on the raw scale gives wrong likelihood ratios in the tails, which is exactly where the evidence is. Default model: Gaussian on the **log** value, or a **two-component mixture** when the distribution is clearly bimodal. The mixture is chosen only when it wins on BIC by a margin and its components are separated (pooled sigma), after trimming heavy-tail outliers, so a merely skewed sample is not split. A single log-normal over two regimes inflates its sigma and lets a close impostor through; the mixture keeps the density low in the valley (measured in `research/results/2026-09-20-off-model-remedies`).
+- **The no-population reference is scaled from the within-regime spread**, never from a bimodal signal's envelope: the envelope is inflated by the distance between regimes, and a reference built on it was so wide that everything near the user looked genuine.
 - **Impostor**: two sources, in order of preference:
   1. The other profiles observed **on the same machine**, when there are any.
   2. A wide non-informative model centred on the genuine one.
@@ -228,6 +229,8 @@ Identity (presumed person)
 ```
 
 A new, well-separated regime that is **temporally interleaved** with a known regime (fast alternation between the two within a single session) is a **mode** of the same identity, not a new person. A regime that occupies disjoint time ranges and never coexists with the other is a candidate for being a distinct identity. This temporal interleaving criterion is the main discriminant between "mode" and "person".
+
+**At enrolment**, segments are grouped into regimes by agglomeration on their per-segment templates (`fit_modes`) and one template is fitted per regime. **At decision time**, a segment is scored against its best-matching mode (the one with the least evidence for the impostor hypothesis), so a person on two keyboards is not their own impostor, while an impostor has to be far from every mode. What modes add over per-signal mixtures is **joint structure**: a mixture makes each signal bimodal on its own, so someone copying regime A's holds and regime B's rhythm is plausible signal by signal, and only modes reject the combination (measured: 0 % detected by mixtures alone, 100 % with modes). Modes only help when regimes are well separated on every signal involved; otherwise the impostor borrows the mode where its mismatch is mild.
 
 ### 6.2 Clustering
 

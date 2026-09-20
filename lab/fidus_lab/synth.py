@@ -141,3 +141,20 @@ class HostileTypist:
             gap_mu = self.burst_gap_mu if in_burst else self.pause_gap_mu
             t += hold + self._ln(gap_mu, self.gap_sigma)
         return out
+
+
+@dataclass
+class ModalTypist:
+    """One person, two regimes that alternate ACROSS segments (never within):
+    an internal laptop keyboard and an external one, say. Each segment is
+    entirely in one regime. This is the case modes exist for: a mixture inside
+    a signal does not help when every segment is unimodal on its own, but a
+    single template fitted over both regimes is wrong for each of them."""
+
+    a: dict
+    b: dict
+    seed: int = 0
+
+    def segment(self, index: int, n_keys: int = 40, start_us: int = 0) -> list[Record]:
+        params = self.a if index % 2 == 0 else self.b
+        return Typist(seed=self.seed + index, **params).type_segment(n_keys, start_us=start_us)

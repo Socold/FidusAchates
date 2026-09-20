@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 
 from ..evidence import deciban_from_logpdf
 from ..segment import Segment
-from ..stats import Distribution, LogNormal, fit_best, wide_reference
+from ..stats import Distribution, fit_best, wide_reference
 from ..trace import EventKind
 
 
