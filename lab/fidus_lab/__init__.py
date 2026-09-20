@@ -15,7 +15,7 @@ from .evidence import Cusum, LogisticFusion, deciban, probability_from_evidence
 from .experts import KeystrokeExpert, KeystrokeTemplate, PointerExpert, PointerTemplate
 from .metrics import eer, far_frr, run_lengths
 from .stats import LogNormal, Welford, median_mad
-from .synth import Mouser, Typist
+from .synth import HostileTypist, Mouser, Typist
 from .attribution import ActorLabel, Attribution, AttributionParams, attribute
 from .policy import Outcome, Sensitivity, decide, stub_sensitivity
 from .registry import AgentSession, SanctionRegistry
@@ -46,7 +46,7 @@ __all__ = [
     "KeystrokeExpert", "KeystrokeTemplate", "PointerExpert", "PointerTemplate",
     "eer", "far_frr", "run_lengths",
     "LogNormal", "Welford", "median_mad",
-    "Typist", "Mouser",
+    "Typist", "Mouser", "HostileTypist",
     "Contribution", "Explanation", "explain", "waterfall",
     "gaussian_js", "template_stability",
     "Convergence", "CriteriaParams", "EnrolmentTracker", "Phase", "assess", "rolling_stability",

@@ -1,0 +1,13 @@
+{
+  "note": "genuine user is a HostileTypist (bimodal holds, bursty gaps, corrections, heavy tails), deliberately off the log-normal model; impostor reference: wide fallback (none enrolled)",
+  "false_alarm_rate_per_session_6_segments": 0.0,
+  "distinct_impostor": {
+    "detected_fraction": 1.0,
+    "median_delay_segments": 1
+  },
+  "close_impostor": {
+    "detected_fraction": 0.0,
+    "median_delay_segments": null
+  },
+  "sessions": 60
+}
