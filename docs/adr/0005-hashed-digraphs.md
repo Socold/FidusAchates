@@ -1,6 +1,6 @@
 # ADR-0005 - Salted hashed digraphs as the default trade-off
 
-- **Status**: accepted
+- **Status**: **superseded by [ADR-0008](0008-biomechanical-digraph-classes.md)**. The rotating salt described here cannot work: see the design review, A4
 - **Date**: 2024-11, decision taken 2022-06
 
 ## Context

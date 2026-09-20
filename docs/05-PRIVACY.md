@@ -26,14 +26,16 @@ Binding list, to be checked in code review and by automated test:
 - No measurement of productivity, attendance, presence or performance.
 - No coercive action on the machine: no locking, no logout, no blocking.
 
-The most important point in this list is the following: the absence of network is not a promise, it is a structural property. The capture process runs under `PrivateNetwork=yes`: **it has no network access to give**, even if it were compromised (SR-3, NFR-9).
+The most important point in this list is the following: the absence of network is not a promise, it is a structural property, and the process enforces it **itself**. At start-up the agent sets `no_new_privs`, installs a seccomp filter that denies network sockets, then checks that opening one fails and refuses to run otherwise. It does not trust its unit file. `PrivateNetwork=yes` is a second layer where the system supports it: I verified that it works in a user unit on my machine, and it cannot be assumed everywhere (SR-3, INS-14).
 
 ## 3. Processing register
 
 | Category | Data | Purpose | Basis | Retention | Location |
 |---|---|---|---|---|---|
 | Input timings | Monotonic timestamps, key classes, buttons | Signals A, B, E | Operation | 10 s memory buffer, not persisted | RAM |
-| Hashed digraphs | `HMAC(volatile salt, code pair)` truncated to 32 bits | Signal A05 | Operation | Aggregated only | Encrypted SQLite |
+| Biomechanical digraph classes | Motor class of a key pair (same finger, alternating hands, row change...), about twenty values | Signal A05 | Operation | Aggregated only | Encrypted SQLite |
+| Hashed digraphs (opt-in P1h) | Hash of a key pair with a per-installation secret held in the keyring | Signal A05h | Operation, opt-in | Aggregated only | Encrypted SQLite |
+| **Reduced event trace** (`research-trace` builds only) | Timestamp, event kind, key class, biomechanical class, pointer deltas, device index. Never a keycode | Replay, signal study | Research, on my machine | Until the study is published, then deleted | Trace files in the data directory |
 | Window vectors | Signal values per activity window | Decision, clustering | Operation | 7 days | Encrypted SQLite |
 | Aggregates | n, mean, M2, quantiles per signal, profile, mode | Templates | Operation | 90 days | Encrypted SQLite |
 | Templates | Statistical parameters per profile | Decision | Operation | Life of the profile | Encrypted SQLite |
@@ -43,6 +45,8 @@ The most important point in this list is the following: the absence of network i
 | Health | CPU, memory, throughput | NFR compliance | Operation | 7 days | Encrypted SQLite |
 
 No other data is written to disk. Any line added to this table must be added in the same commit as the code that produces it.
+
+The reduced event trace deserves a word. Release builds persist no event at all, and do not even contain the code to do so. But evaluating a **new** signal by replay needs events, not window vectors, and a research project that cannot replay cannot measure. The trace is therefore a build-time feature, off by default. What it records is pointer movement and the **rhythm** of typing with motor classes; it cannot give back a single typed character. Pointer deltas are a behavioural signal in their own right and are covered by the same biometric qualification as the templates.
 
 ## 4. Legal qualification
 
@@ -82,19 +86,19 @@ These conditions are repeated in the README so that they are seen before install
 | Measure | Implementation | Requirement |
 |---|---|---|
 | Encryption at rest | Encrypted database, key in the system keyring, never on disk in clear | PR-4 |
-| Volatile salt | Regenerated at every start, in memory only, never persisted | FR-3 |
+| Reduction at capture | Key identity is reduced to classes inside the function that reads the event; no keycode reaches storage, logs or the trace | FR-3 |
 | No raw events | A property of the schema, not a purge policy | FR-8 |
 | Bounded retention | Daily automatic purge according to the register above | PR-5 |
 | Total purge | `fidus-cli purge` erases database, templates and logs | FR-7, PR-5 |
 | Immediate suspension | Global shortcut and CLI command, effective in under a second | FR-7 |
 | Application blocklist | Capture suspended for listed applications, by default: password managers | FR-6 |
-| Network isolation | `PrivateNetwork=yes` on the capture process | NFR-9, SR-3 |
-| Local console | Bound to `127.0.0.1` only, token at every start | FR-50, SR-2 |
+| Network isolation | Self-applied seccomp filter and start-up self-test; `PrivateNetwork=yes` as a second layer | INS-14, SR-3 |
+| Local console | Bound to `127.0.0.1` only, `Host` and `Origin` checks, `SameSite=Strict` session, system re-authentication to open it | FR-50, SR-9, SR-10 |
 | Irreversibility | No template allows an input sequence to be reconstructed | PR-10 |
 
 ### A limit I own, and do not hide
 
-**Under Wayland there is no reliable way to detect that an input field is a password field.** Protection against capturing passwords therefore rests on three imperfect measures: the application blocklist (FR-6), manual suspension (FR-7), and the fact that at levels P0 and P1 no keycode is kept in clear.
+**Under Wayland there is no reliable way to detect that an input field is a password field.** At the default level this matters less than it sounds: what is kept about a password is its typing rhythm and motor classes, never its characters. The rhythm of a frequently typed password is nonetheless distinctive, so the application blocklist (FR-6) and manual suspension (FR-7) remain.
 
 This limit appears in the README, above the installation instructions, and not in a footnote.
 
@@ -103,7 +107,8 @@ This limit appears in the README, above the installation instructions, and not i
 | Level | What is kept | Intended use |
 |---|---|---|
 | **P0** | Key classes only | Cautious user, public demonstration |
-| **P1** (default) | Salted hashed digraphs | Normal use of the project |
+| **P1** (default) | Key classes plus biomechanical digraph classes | Normal use of the project |
+| **P1h** | Hashed digraphs, per-installation secret in the keyring | Opt-in comparison point; open to frequency analysis |
 | **P2** | Keycodes in clear | **Dedicated test corpora only.** To be refused in real use. The mode shows a permanent warning in the console and in the overlay |
 
 The active level is shown permanently in the console (FR-57).

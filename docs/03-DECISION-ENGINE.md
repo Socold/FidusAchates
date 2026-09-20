@@ -1,117 +1,143 @@
 # 03 - Decision engine, confidence and calibration
 
-> Covers requirements FR-20 to FR-44 of the [requirements](01-REQUIREMENTS.md).
+> Covers requirements FR-20 to FR-46 of the [requirements](01-REQUIREMENTS.md).
 
 ---
 
 ## 1. Guiding principle
 
-A single decision is weak. The state of the art gives an EER of the order of 3 % to 10 % for a one-off decision, depending on the modality. The system therefore **never** tries to settle on one observation: it **accumulates evidence** and settles as soon as the accumulated evidence crosses a threshold matching the target error rates.
+A single decision is weak. The state of the art gives an EER of the order of 3 % to 10 % for a one-off decision, depending on the modality. The system therefore **never** tries to settle on one observation: it **accumulates evidence** and raises an alarm as soon as the accumulated evidence crosses a threshold set from a target false alarm rate.
 
 Three properties are wanted at once, and a single formulation delivers all three:
 
-1. **Speed**: decide with the minimum number of observations, at a fixed error rate.
+1. **Speed**: detect a takeover with the shortest possible delay, at a fixed false alarm rate.
 2. **Cross-checking**: combine heterogeneous signals on a common scale.
 3. **Explainability**: know exactly what moved the decision.
 
-The formulation that satisfies all three is the **cumulative log-likelihood ratio**, assessed by a **sequential probability ratio test** (Wald's SPRT). Cross-checking becomes an addition, and the explanation is that addition read term by term.
+The formulation that satisfies all three is a **sum of log-likelihood ratios**, accumulated by a **CUSUM** change detector. Cross-checking becomes an addition, and the explanation is that addition read term by term.
+
+An earlier version of this document used Wald's SPRT with exponential forgetting and an inconsistent evidence sign. Both were wrong; see [07-DESIGN-REVIEW.md](07-DESIGN-REVIEW.md) A1 and A2, and [ADR-0007](adr/0007-cusum-and-logistic-fusion.md).
 
 ## 2. Unit of evidence: the deciban
 
-For each signal `i` observed at value `x_i`, the evidence contributed is defined as:
+Evidence is always evidence **for the impostor hypothesis**. For each signal `i` observed at value `x_i`:
 
 ```
-e_i = 10 · log10 [ P(x_i | genuine) / P(x_i | impostor) ]      (in decibans)
+e_i = 10 · log10 [ P(x_i | impostor) / P(x_i | genuine) ]      (in decibans)
 ```
 
-- `e_i > 0`: the observation supports the legitimate user.
-- `e_i < 0`: it contradicts them.
+- `e_i > 0`: the observation points to someone, or something, other than the legitimate user.
+- `e_i < 0`: it supports the legitimate user.
 - `e_i = 0`: the signal contributes nothing.
+
+One convention, used everywhere: **up means suspicious**. Thresholds, levels, the console gauge and the overlay all follow it.
 
 The deciban is an additive and readable unit: "this typing burst contributed 12 dB of evidence against the legitimate user" is a sentence with a precise meaning, displayable as is in the console (FR-53).
 
-Total evidence over a window is:
+### 2.1 Fusion
+
+Evidence over a window is a **linear logistic-regression fusion** of the experts' LLRs:
 
 ```
-E = Σ_i  w_i · q_i · e_i
+E = b + Σ_i  w_i · q_i · e_i
 ```
 
-- `w_i`: **reliability** of the signal, learned and bounded. Initialised at `1 - 2·EER_i` then re-estimated.
-- `q_i`: **quality** of the current observation (enough observations, acceptable estimator variance). Zero if the evidence is too thin (FR-11).
+- `w_i`: weight of the signal, **learned** on development data by logistic regression over the experts' outputs. Redundant signals end up with small weights, which is how correlation between signals is handled: per signal, not with one global damping factor.
+- `b`: offset learned at the same time; together with the weights it calibrates the fused score.
+- `q_i`: **quality** of the current observation, in `[0, 1]` (enough observations, acceptable estimator variance). Zero if the evidence is too thin (FR-11): the signal then does not vote at all.
 
-The displayed probability follows directly from the cumulative evidence:
+The fusion is linear, so the contribution `w_i · q_i · e_i` of each signal is **exact**. That is the property the whole explainability argument rests on (ADR-0004), and it is untouched.
+
+### 2.2 Displayed probability
+
+A posterior probability needs a prior, and the prior is stated, not hidden:
 
 ```
-P(impostor) = 1 / (1 + 10^(E_cumulative / 10))
+posterior_dB = prior_dB + S
+P(impostor)  = 1 / (1 + 10^(-posterior_dB / 10))
 ```
+
+where `S` is the accumulated evidence of section 4. The initial prior is **-10 dB** (about one chance in eleven that a given stretch of activity is not mine), to be revised in the calibration work package. With it, `P = 0.50` is reached at `S = 10 dB` and `P = 0.99` at `S = 30 dB`.
+
+The displayed probability is an **aid to reading**. Alarms are not triggered by it but by the run-length thresholds of section 4; the two are specified separately on purpose.
 
 ## 3. Reference densities
 
 Each signal needs two densities: under the genuine hypothesis and under the impostor hypothesis.
 
-- **Genuine**: estimated during enrolment, with robust statistics (median, median absolute deviation) rather than mean and standard deviation, to withstand outliers. Default model: Gaussian on the robustly standardised value, or a two-component mixture when the distribution is clearly bimodal (a sign of a second **mode**, cf. section 6).
-- **Impostor**: three sources, in order of preference:
-  1. The other profiles observed on the machine, when there are any.
-  2. A reference population drawn from the public corpora (CMU, Balabit, SapiMouse), shipped with the project.
-  3. A wide non-informative model, as a last resort.
+- **Genuine**: estimated during enrolment, with robust statistics (median, median absolute deviation) rather than mean and standard deviation, to withstand outliers.
+- **Latencies are modelled on a log scale.** Hold times, flight times and pointing times are right-skewed, close to log-normal. A Gaussian on the raw scale gives wrong likelihood ratios in the tails, which is exactly where the evidence is. Default model: Gaussian on the robustly standardised **log** value, or a two-component mixture when the distribution is clearly bimodal (a sign of a second **mode**, cf. section 6).
+- **Impostor**: two sources, in order of preference:
+  1. The other profiles observed **on the same machine**, when there are any.
+  2. A wide non-informative model centred on the genuine one.
 
-**Calibration is mandatory.** Raw expert scores are not probabilities. Each expert goes through calibration (Platt logistic regression, or isotonic if the data allows), validated with a reliability diagram (FR-30). Without this step the addition of LLRs is wrong and the explanation misleading.
+Public corpora are **not** an impostor reference for my machine: they were recorded on other hardware, and hardware differences dominate differences between people (design review B4). They serve within-corpus experiments only.
 
-**Independence assumption: owned and corrected.** Adding LLRs assumes conditional independence of the signals, which does not hold (typing speed and digraph latency are correlated). Two corrections:
+**Calibration is mandatory.** Raw expert scores are not probabilities. Each expert goes through calibration, validated with a reliability diagram (FR-30). Without this step the addition is wrong and the explanation misleading.
 
-- Grouping strongly correlated signals into a single expert that produces one multivariate LLR.
-- Applying a damping factor `0 < λ ≤ 1` to the sum, estimated empirically so that observed error rates match nominal ones. This is exactly the correction used in naive Bayes fusion, and it has to be measured, not guessed.
+## 4. Sequential detection
 
-## 4. Sequential decision
+### 4.1 Why CUSUM
 
-### 4.1 Wald thresholds
-
-For targets `α` (false alarm) and `β` (missed detection):
+The question is not "which of two hypotheses has held since the start?" but "has the user changed at some **unknown moment**?". That is change detection. The CUSUM statistic is optimal for it: it minimises the detection delay for a given rate of false alarms.
 
 ```
-upper threshold  A = 10 · log10 ( (1-β) / α )       → conclude "impostor"
-lower threshold  B = 10 · log10 ( β / (1-α) )       → conclude "genuine"
-in between                                           → keep observing
+S_t = max(0, S_{t-1} + E_t)          alarm when S_t ≥ h
 ```
 
-With `α = 0.01` and `β = 0.05`, this gives `A ≈ 19.8 dB` and `B ≈ -19.9 dB`.
+Each window's fused evidence `E_t` is added; the statistic never goes below zero.
 
-### 4.2 Forgetting
+What the reflecting barrier at zero buys:
 
-Evidence that is three hours old should not weigh as much as evidence from ten seconds ago. Cumulative evidence decays exponentially:
+- A long, clean morning cannot be "spent" by an impostor in the afternoon: genuine evidence does not pile up as credit.
+- No half-life to tune. Forgetting is replaced by the barrier.
+- `S_t` is still a plain sum of per-signal contributions since it last left zero, so the explanation stays exact.
 
-```
-E_cumulative(t) = E_cumulative(t-1) · 2^(-Δt / T½)  +  E(t)
-```
+### 4.2 Thresholds from run lengths
 
-The half-life `T½` is a central parameter: too short and the system forgets and never concludes; too long and it stays stuck on a stale conclusion. Proposed initial value: **15 minutes of effective activity** (not wall-clock time, so that a lunch break does not wipe the history). To be calibrated in work package 3.
+Thresholds are set from **average run lengths**, which are my primary metrics:
+
+| Quantity | Meaning | Metric |
+|---|---|---|
+| `ARL0` | Mean time between false alarms under genuine use | ANGA |
+| `ARL1` | Mean detection delay once an impostor is present | ANIA, TTD |
+
+`h` is chosen so that the measured `ARL0` meets the false alarm budget (AC-4: fewer than one per 8 hours of use). The expected delay is then roughly `h` divided by the mean evidence per window under the impostor hypothesis. Both are **measured by replay** on recorded traces, not derived from a formula.
 
 ### 4.3 Levels
 
-| Level | Cumulative evidence | P(impostor) | Meaning | Effect |
+Levels are bands of the CUSUM statistic. With the initial prior of -10 dB:
+
+| Level | Statistic `S` | P(impostor) | Meaning | Effect |
 |---|---|---|---|---|
-| **L0** | `E < B` | < 0.01 | Conforming | None |
-| **L1** | `B ≤ E < 5 dB` | 0.01 to 0.24 | Nominal | None |
-| **L2** | `5 ≤ E < 10 dB` | 0.24 to 0.50 | Weak signal | Logged, visible in the console |
-| **L3** | `10 ≤ E < A` | 0.50 to 0.99 | Doubt | **Red overlay** (FR-60), alert |
-| **L4** | `E ≥ A` | > 0.99 | Impostor conclusion | Alert, full decision event |
+| **L0** | `S = 0` | 0.09 (the prior) | Conforming | None |
+| **L1** | `0 < S < 5 dB` | 0.09 to 0.24 | Nominal fluctuation | None |
+| **L2** | `5 ≤ S < 10 dB` | 0.24 to 0.50 | Weak signal | Logged, visible in the console |
+| **L3** | `10 ≤ S < h` | 0.50 and above | Doubt | **Red overlay** (FR-60) |
+| **L4** | `S ≥ h` | | Alarm | Alert, full decision event, statistic reset |
 
-The display threshold of the red square, 50 % confidence, therefore falls at the entry of level L3.
+The probabilities in this table are computed from the formula of section 2.2, and a unit test recomputes them: the table can no longer drift from the formula. `h` is calibrated; a plausible starting value is 25 dB.
 
-**Hysteresis** (FR-62): going down a level requires dropping 3 dB below the rising threshold, and a minimum of 20 seconds at the current level. Without it, the indicator flickers at the slightest noise.
+**Hysteresis** (FR-62): going down a level requires dropping 3 dB below the rising threshold.
+
+**Clearing without a timer.** `S` only changes when there is input. If an impostor walks away, nothing would ever clear the overlay. The statistic is therefore reset on **session lock** and after **idle** beyond a set duration, both delivered as logind events, so the agent still never polls (INS-1).
 
 ### 4.4 Two separate channels
 
-In line with FR-35, the system maintains **two distinct cumulative evidences**, never blended:
+In line with FR-35, the system maintains **two distinct CUSUM statistics**, never blended:
 
-| Channel | Question | Enrolment needed | Thresholds |
+| Channel | Question | Enrolment needed | False alarm budget |
 |---|---|---|---|
-| **Identity** | Is it the same person? | Yes | `α = 0.01`, `β = 0.05` |
-| **Humanity** | Is it a human? | No | `α = 0.001`, `β = 0.05` |
+| **Identity** | Is it the same person? | Yes | 1 per 8 h of use |
+| **Humanity** | Is it a human? | No | 1 per 30 days of use |
 
-The Humanity channel is stricter on false alarms because it concludes that a compromise has happened, which is a heavier claim. It is also the fastest: an HID injection typically produces several tens of decibans within seconds.
+The Humanity channel is much stricter on false alarms because it concludes that a compromise has happened, which is a heavier claim. It is also the fastest: an injection typically produces several tens of decibans within seconds.
 
-The display combines both without adding them: the `P(impostor)` used for the overlay is the maximum of the two probabilities, and the console always states which of the two channels is responsible.
+The display combines both without adding them: the `P(impostor)` used for the overlay is the maximum of the two, and the console always states which channel is responsible.
+
+### 4.5 Deterministic indicators
+
+Some facts need no statistics: a remote-desktop session is active, or the shell reports window activity while no hardware input arrives (design review A3). They are reported as **indicators** alongside the Humanity channel, with their own log entries, and can raise the overlay by themselves.
 
 ## 5. Calibration: when is the model ready?
 
@@ -127,14 +153,14 @@ The enrolment phase ends when all four criteria are satisfied simultaneously. Ea
 |---|---|---|
 | **C1 - Volume** | Minimum observations per modality | 10,000 keystrokes, 5,000 pointing events, 300 pointings with a target (for Fitts), 8 sessions, 5 distinct days |
 | **C2 - Stability** | The template no longer moves: Jensen-Shannon divergence between the template at `t` and at `t-Δ` below threshold, over 3 consecutive windows | JS < 0.02 over 3 windows of 24 h |
-| **C3 - Performance** | EER self-estimated by temporal cross-validation (training on the first `k` sessions, test on the next), against a reference impostor population, with a 95 % bootstrap confidence interval | Upper bound of the CI < 8 % |
+| **C3 - Performance** | Self-consistency by temporal cross-validation: the template trained on the first `k` sessions must accept the next one. Measured as the false alarm rate on held-out genuine sessions at the operating threshold | Within the AC-4 budget on 3 consecutive held-out sessions |
 | **C4 - Coverage** | Contextual diversity: number of application categories, time slots, input devices | ≥ 4 categories, ≥ 3 time slots, all usual devices |
 
-C3 is the decisive criterion: it is the only one that directly measures what matters. C1 prevents computing it on too little data, C2 guarantees that a transient regime has not been frozen, C4 that a single context has not been learned.
+C3 is the decisive criterion. It deliberately measures only what can be measured honestly on one machine: that the model **keeps recognising me** on sessions it has not seen. It says nothing about rejecting impostors; an EER estimated against foreign hardware would be flattering and false (design review B4). Impostor rejection is measured separately, with real same-machine sessions, in the evaluation protocol. C1 prevents computing C3 on too little data, C2 guarantees that a transient regime has not been frozen, C4 that a single context has not been learned.
 
 ### 5.2 The convergence curve (FR-22)
 
-The system produces and displays the curve of **estimated EER versus enrolment volume**, recomputed at each step. It gives:
+The system produces and displays the curve of **held-out false alarm rate versus enrolment volume**, recomputed at each step. It gives:
 
 - the empirical `X` for this machine and this user (the volume beyond which the curve flattens);
 - an estimate of the time remaining before the end of enrolment, at the observed rate of use;
@@ -155,9 +181,17 @@ Continuous adaptation is a way in: a patient impostor can make the template drif
 
 Three safeguards:
 
-1. **Admission filter**: only windows with `E ≤ B` (a clear "genuine" conclusion) feed the update.
+1. **Admission filter**: a window feeds the update only if the statistic has stayed at `S = 0` over the last several windows **and** its own fused evidence is clearly negative.
 2. **Bounded rate**: the template cannot move by more than a fixed fraction per 24-hour period, whatever the amount of data.
 3. **Frozen anchor**: the enrolment template is kept intact. A dedicated expert continuously compares the current template to the anchor; cumulative drift beyond a threshold triggers a drift alert, not a silent adjustment.
+
+### 5.5 Re-assurance: telling the system "it is me"
+
+A new keyboard, an injured hand or a new desk can make the legitimate user look foreign for good. Without a way out, the tool gets uninstalled.
+
+The way out is **re-assurance through real system authentication** (the platform's own password or biometric prompt). On success, the current regime is labelled as a new **mode** of the authenticated identity and starts its own enrolment.
+
+It must be real authentication. A plain "it's me" button would be precisely the poisoning vector of threat M10: the impostor would press it.
 
 ## 6. Counting and revising profiles
 
@@ -217,18 +251,18 @@ For every decision, the console renders:
 
 ## 8. Parameters and initial values
 
-All values below are **starting hypotheses to be calibrated in work package 3**, not justified constants. They are gathered in a single versioned configuration file, so that every experiment is reproducible.
+All values below are **starting hypotheses to be calibrated**, not justified constants. They are gathered in a single versioned configuration file, so that every experiment is reproducible.
 
 | Parameter | Initial value | Calibrated in |
 |---|---|---|
-| `alpha_identity` | 0.01 | WP 3 |
-| `beta_identity` | 0.05 | WP 3 |
-| `alpha_humanity` | 0.001 | WP 5 |
-| `evidence_half_life` | 15 min of effective activity | WP 3 |
-| `damping_lambda` | 0.6 | WP 2, by measurement |
-| `overlay_threshold` | P = 0.50 | Fixed by the need |
-| `hysteresis` | 3 dB and 20 s | WP 6 |
-| `typing_window` | 50 keystrokes or 60 s | WP 1 |
-| `mouse_window` | 30 gestures or 60 s | WP 2 |
-| `hellinger_merge_threshold` | 0.15 | WP 4 |
-| `max_adaptation_rate` | 2 % of the template per 24 h | WP 3 |
+| `prior_db` | -10 dB | WP 6 |
+| `cusum_h_identity` | 25 dB, then set from `ARL0` = 8 h of use | WP 5 |
+| `cusum_h_humanity` | set from `ARL0` = 30 days of use | WP 3 |
+| `fusion_weights` | learned by logistic regression | WP 5 |
+| `overlay_threshold` | P = 0.50, i.e. `S` = 10 dB at the initial prior | Fixed by the need |
+| `hysteresis` | 3 dB | WP 3 |
+| `idle_reset` | 10 min | WP 3 |
+| `typing_window` | 50 keystrokes or 60 s | WP 4 |
+| `mouse_window` | 30 gestures or 60 s | WP 4 |
+| `hellinger_merge_threshold` | 0.15 | WP 8 |
+| `max_adaptation_rate` | 2 % of the template per 24 h | WP 6 |

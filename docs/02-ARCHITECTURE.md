@@ -22,7 +22,7 @@
 │  │ 3. Extraction    │  overlay   │  • locked / idle state      │     │
 │  │ 4. Experts       │───────────►│                             │     │
 │  │ 5. LLR fusion    │            └─────────────────────────────┘     │
-│  │ 6. SPRT          │                                                │
+│  │ 6. CUSUM         │                                                │
 │  │ 7. Profiles      │                                                │
 │  └────────┬─────────┘                                                │
 │           │ UNIX socket (0600)                                       │
@@ -51,6 +51,10 @@
 
 The heart of the system. A single process, no root, started by a `systemd --user` unit.
 
+**It grows in two steps.** It starts as a **recorder** (work package 1): stages 1 and 2 below, privacy reduction, and a reduced trace writer behind a build feature. Stages 3 to 7 are first built and measured in Python, in `fidus-lab`, and only what measurement has kept is ported into the agent (work package 7). Writing a hundred extractors in Rust before knowing which fifteen matter would be the expensive order. See [ADR-0010](adr/0010-recorder-first.md).
+
+The code is split so that the part touching `/dev/input` stays readable in one sitting: `fidus-core` holds the event model, the privacy reduction and the trace format, with no I/O and full unit tests; `fidus-agent` holds device discovery, the event loop and self-confinement. The only dependency is the C library binding.
+
 **Why Rust**: the dominant requirement is NFR-1 to NFR-4 (under 1 % CPU, under 40 MB, latency under 250 ms) for a process that runs permanently. No garbage collector, predictable memory footprint, direct `evdev` access, and compilation to a single binary with no run-time dependency. See [ADR-0001](adr/0001-agent-language-rust.md).
 
 Internally organised in stages, each isolated behind a trait:
@@ -62,25 +66,26 @@ Internally organised in stages, each isolated behind a trait:
 | 3. Extraction | Streaming signal computation, Welford aggregates | `Extractor` |
 | 4. Experts | One calibrated score per modality | `Expert` |
 | 5. Fusion | Weighted sum of LLRs | |
-| 6. Decision | SPRT, hysteresis, levels | |
+| 6. Decision | CUSUM, hysteresis, levels | |
 | 7. Profiles | Online clustering, revisions | |
 
 A new expert is added by implementing `Expert` and registering it: the core is not modified (FR-12).
 
 ### 2.2 `fidus-shell-ext` (GNOME Shell extension, JavaScript)
 
-A **required** component, not an optional one, for two reasons established in the analysis (T4): under GNOME Wayland, neither the active-window context nor a permanent overlay is reachable from an ordinary process.
+Needed for three reasons established in the analysis (T4): under GNOME Wayland, neither the active-window context nor a permanent overlay is reachable from an ordinary process, and **input injected into the compositor (remote desktop, portal-driven agents) never reaches `evdev`**. The agent runs without it, but is then blind to remote takeover (INS-25).
 
-Two functions, and nothing else:
+Three functions, and nothing else:
 
 1. **Context**: publishes on D-Bus the **category** of the foreground application and a stable opaque identifier, never the title nor the binary name (FR-5).
 2. **Overlay**: shows the red square at the top right, without focus and without intercepting events (FR-60 to FR-62).
+3. **Compositor-side facts** (FR-37): whether a remote-desktop or screencast session is active, and a bare activity tick on focus change, which lets the agent notice activity that has no hardware input behind it.
 
 The extension is deliberately tiny and readable in one sitting: it is the most privileged component in the chain on the interface side, it must be auditable in a few minutes.
 
 ### 2.3 `fidus-console` (local server plus web interface)
 
-HTTP server embedded in the agent or a separate light process, bound to `127.0.0.1`, protected by a token regenerated at every start (SR-2).
+HTTP server in a separate light process, bound to `127.0.0.1`. A local web server is reachable by any page open in the browser, so it validates `Host` and `Origin` strictly, keeps its session in a `SameSite=Strict` cookie rather than the URL, sends no CORS headers (SR-9), and asks for system re-authentication before opening (SR-10).
 
 Real-time delivery through **Server-Sent Events** rather than WebSocket: the stream is one-way, SSE reconnects by itself, and it costs less (NFR-5).
 
@@ -130,7 +135,7 @@ evdev ──► normalisation ──► hot buffer (10 s)
                  └──► LLR ◄──────┴───────────────┴──────────────┘
                         │  weighting by quality and reliability
                         ▼
-                   Σ weighted LLRs  ──► SPRT (2 thresholds, decay)
+                   Σ weighted LLRs  ──► CUSUM (run-length threshold)  
                         │                       │
                         ▼                       ▼
                  contributions (dB)       level L0..L4
@@ -145,18 +150,20 @@ Stage 1 (`Source`) is the only system-specific one. The rest is portable as is.
 
 | Target | Capture | Application context | Overlay | WP |
 |---|---|---|---|---|
-| Linux Wayland (GNOME) | `evdev` | GNOME Shell extension | GNOME Shell extension | 1 to 6 |
-| Linux X11 | `evdev` or XInput2 | XLib | `override-redirect` window | 8 |
-| Windows | low-level `SetWindowsHookEx` or Raw Input | Win32 | layered window | 8 |
-| macOS | `CGEventTap` (accessibility permission required) | Accessibility API | screen-level `NSWindow` | 8 |
-| Android and iOS | in-app SDK only (cf. T6) | inside the application | inside the application | 9 |
+| Linux Wayland (GNOME) | `evdev` | GNOME Shell extension | GNOME Shell extension | 1 to 8 |
+| Linux Wayland (wlroots, KDE) | `evdev` | foreign-toplevel protocol, KWin script | layer-shell | 9 |
+| Linux X11 | `evdev` or XInput2 | XLib | `override-redirect` window | 9 |
+| Windows | low-level `SetWindowsHookEx` or Raw Input | Win32 | layered window | 9 |
+| macOS | `CGEventTap` (accessibility permission required) | Accessibility API | screen-level `NSWindow` | 9 |
+| Android and iOS | in-app SDK only (cf. T6) | inside the application | inside the application | 10 |
 
 On Windows, detecting synthetic provenance is made easier by the `LLKHF_INJECTED` flag; on Linux, by identifying the `uinput` device. Both feed the same signal.
 
 ## 6. Deployment on the test machine
 
-- Hardened `systemd --user` unit: `NoNewPrivileges`, `PrivateNetwork=yes` for the capture process, `ProtectSystem=strict`, `ProtectHome=read-only` outside the data directory, `SystemCallFilter=@system-service`, `MemoryMax` aligned on NFR-2 (SR-3).
-- `PrivateNetwork=yes` on the capture process makes NFR-9 structural: **it cannot exfiltrate, even if compromised**.
+- **Self-confinement first.** At start-up the agent sets `no_new_privs`, installs a seccomp filter denying network sockets, then checks that opening one fails, and exits if it does not. This needs no privilege and does not depend on the init system, so NFR-9 holds on any distribution: **it cannot exfiltrate, even if compromised**.
+- Hardened `systemd --user` unit as a second layer: `NoNewPrivileges`, `PrivateNetwork=yes`, `ProtectSystem=strict`, `ProtectHome=read-only` outside the data directory, `MemoryMax` aligned on NFR-2 (SR-3). Verified on the test machine: `PrivateNetwork=yes` does take effect in a user unit there (systemd 259, unprivileged user namespaces enabled). It would not where those are disabled, hence the first point.
+- **Two installation modes** (requirements 6.2): simple, through the `input` group; hardened, through a minimal capture helper under a dedicated account. See [ADR-0009](adr/0009-capture-helper-install-modes.md).
 - Data in `~/.local/share/fidusachates/`, configuration in `~/.config/fidusachates/`.
 - GNOME Shell extension installed by script, enabled explicitly by the user.
 
@@ -180,11 +187,12 @@ Design consequences, not to be lost sight of across work packages:
 
 Permissions, in full:
 
-| Permission | When | Revocation |
+| Mode | Privileged step, once | Who can read `/dev/input` afterwards |
 |---|---|---|
-| Membership of the `input` group | Once, at installation | `sudo gpasswd -d $USER input` |
+| Simple | User added to the `input` group | Every process of that user |
+| Hardened | Capture helper installed as a system service under a dedicated account | The helper only |
 
-No other, at any time: no root at run time, no setuid, no capability, no kernel module, no system service, no network access, no accessibility permission. See [ADR-0006](adr/0006-least-privilege-installation.md).
+Nothing else in either mode: no root at run time for the agent, no setuid, no capability, no kernel module, no network access, no accessibility permission. See [ADR-0006](adr/0006-least-privilege-installation.md) and [ADR-0009](adr/0009-capture-helper-install-modes.md).
 
 ## 8. Architecture decisions
 
@@ -193,6 +201,10 @@ No other, at any time: no root at run time, no setuid, no capability, no kernel 
 | [0001](adr/0001-agent-language-rust.md) | Rust for the agent, Python for the offline lab |
 | [0002](adr/0002-noncommercial-licence.md) | PolyForm Noncommercial rather than an OSI licence |
 | [0003](adr/0003-evdev-and-gnome-extension.md) | evdev plus GNOME Shell extension under Wayland |
-| [0004](adr/0004-fusion-llr-sprt.md) | LLR fusion and Wald sequential decision |
-| [0005](adr/0005-hashed-digraphs.md) | Salted hashed digraphs as the default trade-off |
-| [0006](adr/0006-least-privilege-installation.md) | Least privilege, rootless installation, event-driven execution |
+| [0004](adr/0004-fusion-llr-sprt.md) | LLR fusion and Wald sequential decision (sequential part superseded by 0007) |
+| [0005](adr/0005-hashed-digraphs.md) | Salted hashed digraphs as the default trade-off (superseded by 0008) |
+| [0006](adr/0006-least-privilege-installation.md) | Least privilege, rootless installation, event-driven execution (amended by 0009) |
+| [0007](adr/0007-cusum-and-logistic-fusion.md) | CUSUM change detection and logistic-regression fusion |
+| [0008](adr/0008-biomechanical-digraph-classes.md) | Biomechanical digraph classes as the default granularity |
+| [0009](adr/0009-capture-helper-install-modes.md) | Two installation modes: `input` group or dedicated capture helper |
+| [0010](adr/0010-recorder-first.md) | Recorder first, signals in Python, reduced research trace |

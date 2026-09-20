@@ -2,7 +2,7 @@
 
 > A critical re-reading of documents 00 to 06 before any code is written. The point is to find what is wrong while it is still cheap to change.
 >
-> Nothing below is applied yet. Section A lists plain errors; sections B to D need a decision.
+> **Status: every item below has been decided and applied to the specifications.** The text is kept as written at review time, because the reasoning is worth more than the conclusion; the summary table at the end says where each item landed.
 
 ---
 
@@ -198,20 +198,27 @@ Not everything needs changing. After this pass I still stand by:
 
 ## Summary
 
-| # | Item | Kind | Touches |
+| # | Item | Kind | Applied in |
 |---|---|---|---|
-| A1 | Evidence sign, explicit prior, recomputed level table | Error | 03, README |
-| A2 | CUSUM instead of SPRT with forgetting | Error | 03, ADR-0004, 01 (FR-32) |
-| A3 | Remote sessions invisible to evdev; phantom activity; extension required for M4/M5 | Error | 00, 04, 01 (INS-25), README |
-| A4 | Biomechanical digraph classes as default; salt rotation dropped | Error | ADR-0005, 00 (T2), 05 |
-| A5 | README targets worded as targets | Error | README |
-| A6 | Start-up self-test and seccomp self-confinement | Hardening | 02, 01 (SR-3) |
-| B1 | Hardened install mode with a dedicated capture helper | Decision | ADR-0006, 01 (INS-12) |
-| B2 | Rust recorder first, Python for signals; `research-trace` feature | Decision | ADR-0001, 01 (FR-8, FR-71), 05 |
-| B3 | Logistic-regression fusion instead of a global `λ` | Decision | 03, ADR-0004 |
-| B4 | C3 no longer measured against foreign hardware | Decision | 03, protocol |
-| B5 | AC-1 reworded; two evidence tiers | Decision | 01, protocol |
-| B6 | Parsimony target on signals | Decision | 04, 06 |
-| B7 | Log-latency modelling | Correction | 03 |
-| C1-C8 | Gaps | Additions | 01, 04, protocol |
+| A1 | Evidence sign, explicit prior, level table computed from the formula | Error | 03 sections 2 and 4.3, ADR-0007, README |
+| A2 | CUSUM instead of SPRT with forgetting | Error | 03 section 4, ADR-0007, FR-32 |
+| A3 | Remote sessions invisible to evdev; phantom activity; extension needed for M4 and M5 | Error | 00 (T4, threat model), signals E11, E20, E21, FR-37, INS-25, README |
+| A4 | Biomechanical digraph classes as default; salt rotation dropped | Error | ADR-0008, 00 (T2), FR-3, signal A05, privacy register |
+| A5 | README budgets worded as budgets | Error | README |
+| A6 | Start-up self-test and seccomp self-confinement | Hardening | INS-14, SR-3, 02 section 6, ADR-0009; implemented in work package 1 |
+| B1 | Hardened installation mode with a dedicated capture helper | Decision | ADR-0009, FR-1, INS-12, requirements 6.2 |
+| B2 | Rust recorder first, Python for signals; `research-trace` feature | Decision | ADR-0010, FR-8, FR-70, privacy register |
+| B3 | Logistic-regression fusion instead of a global `λ` | Decision | 03 section 2.1, ADR-0007 |
+| B4 | C3 no longer measured against foreign hardware | Decision | 03 section 5.1, evaluation protocol |
+| B5 | AC-1 split in two evidence tiers | Decision | AC-1 and AC-1b, evaluation protocol rule 0 |
+| B6 | Parsimony target on signals | Decision | Catalogue header, FR-10, roadmap WP 4 |
+| B7 | Log-latency modelling | Correction | 03 section 3, catalogue rule 7 |
+| C1 | Virtual-device allowlist; hot-plug then typing | Addition | FR-38, signals E01 and E19 |
+| C2 | Re-assurance through system authentication | Addition | FR-45, 03 section 5.5 |
+| C3 | Alert annotation as ground truth | Addition | FR-46 |
+| C4 | Console hardened against the browser | Addition | SR-9 |
+| C5 | Console behind system re-authentication | Addition | SR-10 |
+| C6 | Overlay cleared by lock and idle events | Addition | FR-62, 03 section 4.3 |
+| C7 | Extension maintenance budgeted | Addition | Roadmap, recurring costs |
+| C8 | `legit-shift` trace | Addition | Evaluation protocol |
 | D | Roadmap reordered | Decision | 06 |

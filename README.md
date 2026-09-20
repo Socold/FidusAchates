@@ -25,20 +25,21 @@ All of it **without ever recording what is typed**, **with no network access at 
 
 ## Status
 
-**Design.** The reference documentation is stable. Implementation starts with work package 1.
+**Work package 1 in progress**: the recorder. The design was reviewed critically before any code was written ([design review](docs/07-DESIGN-REVIEW.md)), and the specifications were revised accordingly.
 
 | WP | Purpose | Status |
 |---|---|---|
 | 0 | Analysis, specifications, architecture, licence | done |
-| 1 | evdev agent, keystroke dynamics, minimal console | to do |
-| 2 | Pointer dynamics, LLR fusion, explainability | to do |
-| 3 | Calibration | to do |
-| 4 | Multiple profiles and revision | to do |
-| 5 | Detection of non-human input (complete) | to do |
-| 6 | GNOME Shell extension and overlay | to do |
-| 7 | Research bench and public corpora | to do |
-| 8 | Porting to Windows, macOS, X11 | to do |
-| 9 | Mobile SDK | to do |
+| 1 | Recorder: capture, privacy reduction, reduced trace, self-confinement | in progress |
+| 2 | Lab: trace reader, replay, evaluation bench, public corpora | to do |
+| 3 | Humanity channel, GNOME Shell extension, overlay | to do |
+| 4 | Signal study in Python, about fifteen signals retained | to do |
+| 5 | Fusion, CUSUM, explainability, console | to do |
+| 6 | Enrolment, modes, re-assurance | to do |
+| 7 | Port of the retained signals to the agent, installer | to do |
+| 8 | Multiple profiles and revision | to do |
+| 9 | Porting to Windows, macOS, X11, other compositors | to do |
+| 10 | Mobile SDK | to do |
 
 Detailed roadmap with acceptance criteria: [docs/06-ROADMAP.md](docs/06-ROADMAP.md).
 
@@ -49,11 +50,12 @@ Detailed roadmap with acceptance criteria: [docs/06-ROADMAP.md](docs/06-ROADMAP.
 | [00 - Analysis](docs/00-ANALYSIS.md) | Problem restated, tensions, sourced state of the art, threat model |
 | [01 - Requirements](docs/01-REQUIREMENTS.md) | Numbered, verifiable requirements (FR, NFR, INS, PR, SR), acceptance criteria |
 | [02 - Architecture](docs/02-ARCHITECTURE.md) | Components, flows, storage, portability |
-| [03 - Decision engine](docs/03-DECISION-ENGINE.md) | LLR fusion, SPRT, levels, calibration, counting users |
-| [04 - Signal catalogue](docs/04-SIGNAL-CATALOGUE.md) | 90 signals in 7 families, with cost, discriminating power and forgery difficulty |
+| [03 - Decision engine](docs/03-DECISION-ENGINE.md) | LLR fusion, CUSUM, levels, calibration, counting users |
+| [04 - Signal catalogue](docs/04-SIGNAL-CATALOGUE.md) | About a hundred candidate signals in 7 families, of which about fifteen are meant to survive measurement |
 | [05 - Privacy](docs/05-PRIVACY.md) | Processing register, legal qualification, ethics, risk of misuse |
 | [06 - Roadmap](docs/06-ROADMAP.md) | Work packages and acceptance criteria |
-| [07 - Design review](docs/07-DESIGN-REVIEW.md) | Critical re-reading of the design: errors found, decisions to reopen, gaps |
+| [07 - Design review](docs/07-DESIGN-REVIEW.md) | Critical re-reading of the design: errors found, decisions reopened, gaps |
+| [Trace format](research/TRACE-FORMAT.md) | Binary format of the reduced research trace |
 | [ADR](docs/adr/) | Architecture decisions and the alternatives ruled out |
 
 ## Design principles
@@ -62,7 +64,7 @@ Detailed roadmap with acceptance criteria: [docs/06-ROADMAP.md](docs/06-ROADMAP.
 
 **Identity-free.** No civil identifier, account or serial number. Profiles are opaque labels such as `profile-a1b2`.
 
-**Local-first, structurally.** The capture process runs under `PrivateNetwork=yes`: it has no network access to give, even if compromised. No telemetry, no CDN, no remote font.
+**Local-first, structurally.** At start-up the agent installs a seccomp filter that denies network sockets, checks that opening one fails, and refuses to run otherwise. It has no network access to give, even if compromised, and does not rely on its unit file for that. No telemetry, no CDN, no remote font.
 
 **Explainable by construction.** The engine adds log-likelihood ratios expressed in decibans. The contribution of each signal to the decision is therefore **exact**, not estimated. The displayed explanation is the formula itself, read term by term.
 
@@ -71,15 +73,17 @@ Detailed roadmap with acceptance criteria: [docs/06-ROADMAP.md](docs/06-ROADMAP.
 ## How it works, in short
 
 ```
-Each signal contributes evidence, measured in decibans:
+Each signal contributes evidence for the impostor hypothesis, in decibans:
 
-   e = 10 · log10 [ P(observation | genuine) / P(observation | impostor) ]
+   e = 10 · log10 [ P(observation | impostor) / P(observation | genuine) ]
 
-Evidence adds up, weighted by reliability and quality,
-with old evidence gradually forgotten.
+Evidence adds up, with weights learned by logistic regression.
 
-Wald's sequential test settles as soon as the cumulative evidence crosses
-a threshold derived from the target error rates, hence as early as possible.
+A CUSUM detector accumulates it:   S = max(0, S + E)
+
+and raises an alarm when S crosses a threshold set from the false alarm
+budget. It answers "has the user changed at some unknown moment?" with the
+shortest possible delay, and genuine use never piles up as credit.
 ```
 
 Two cumulative evidences are maintained separately, never blended:
@@ -87,13 +91,13 @@ Two cumulative evidences are maintained separately, never blended:
 | Channel | Question | Enrolment | Detects |
 |---|---|---|---|
 | **Identity** | Same person? | Required | Human takeover |
-| **Humanity** | Human? | **None** | `ydotool`, BadUSB, IP KVM, RDP, AI agent |
+| **Humanity** | Human? | **None** | `uinput` automation, BadUSB, IP KVM; remote desktop and portal-driven agents through the shell extension |
 
 The Humanity channel is the best value-to-risk ratio in the project: it detects the most concrete threats, it works from the first second, and **it stores no personal template**.
 
 ## Calibration
 
-To the question "how long does it take for the tool to recognise me?", the project does not answer with an arbitrary duration. The end of enrolment is triggered by four measured convergence criteria (volume, template stability, performance self-estimated by temporal cross-validation with a confidence interval, contextual coverage), and the system produces the performance versus volume curve, which gives the real value for this machine and this user. Details in [docs/03-DECISION-ENGINE.md](docs/03-DECISION-ENGINE.md) section 5.
+To the question "how long does it take for the tool to recognise me?", the project does not answer with an arbitrary duration. The end of enrolment is triggered by four measured convergence criteria (volume, template stability, false alarm rate on held-out sessions, contextual coverage), and the system produces the convergence curve, which gives the real value for this machine and this user. Details in [docs/03-DECISION-ENGINE.md](docs/03-DECISION-ENGINE.md) section 5.
 
 ## Counting users
 
@@ -117,33 +121,34 @@ The tool is made to be installed once and forgotten. Its cost is measured **at r
 
 **Execution.** The agent is event-driven: it stays blocked on `epoll` waiting on the input descriptors. With no typing and no movement it does not run at all, and does not wake the processor. No polling loop, anywhere. The console does not exist until it is opened: it is started by socket activation.
 
-| | At rest | Active |
+These are **budgets I hold the project to, not measurements**. They become measurements as work packages close, and the numbers will be published either way.
+
+| Budget | At rest | Active |
 |---|---|---|
-| CPU | 0 % | under 1 % on average |
+| CPU | 0 %, no wake-up | under 1 % on average |
 | Resident memory | under 40 MB | under 40 MB |
-| Storage | under 2 MB per day of heavy use | |
+| Storage | | under 2 MB per day of heavy use |
 | Binary | under 8 MB, installed footprint under 15 MB | |
 
-**Permissions requested, in full:**
+**Permissions requested, in full.** Two installation modes, because the cheapest permission is not the safest one:
 
-| Permission | When | Revocation |
+| Mode | Privileged step, once | Who can read `/dev/input` afterwards |
 |---|---|---|
-| Membership of the `input` group | Once only, at installation | `sudo gpasswd -d $USER input` |
+| **Simple** | You join the `input` group (`sudo gpasswd -d $USER input` reverts it) | **Every process running as you** |
+| **Hardened** | A minimal capture helper is installed as a system service under a dedicated account | The helper only |
 
-Nothing else, at any time: **no root at run time**, no setuid, no capability, no kernel module, no system service (`systemd --user` only), no network access, no accessibility permission, no browser extension, no system configuration file modified.
-
-That single permission is nonetheless a strong privilege: it gives access to every input of the session. It is incompressible for global capture under Wayland. The project does not present it as harmless, it reduces it to the strict minimum and compensates with auditable sources and structural network isolation (`PrivateNetwork=yes`: the capture process has no network access to give, even if compromised). See [ADR-0006](docs/adr/0006-least-privilege-installation.md).
+Simple mode is the lightest, and it removes a system-wide protection against keyloggers for your whole session. It is acceptable on a personal research machine and I say so plainly; anywhere else, use hardened mode. Nothing else is requested in either mode: **no root at run time**, no setuid, no capability, no kernel module, no network access, no accessibility permission, no browser extension. See [ADR-0009](docs/adr/0009-capture-helper-install-modes.md).
 
 **Installation.** One command, prebuilt binary, no toolchain required, under 60 seconds to the first processed event. Complete uninstallation in one command, data purge included.
 
-The GNOME Shell extension is **optional**: without it the agent works in degraded mode (application context and overlay are lost, the latter replaced by a desktop notification). Installation never fails for lack of the extension.
+The GNOME Shell extension is **optional to install, not optional for coverage**: without it the agent works, but loses application context, the overlay, and all detection of remote-desktop sessions and portal-driven agents, whose input never reaches `evdev` under Wayland. Installation never fails for lack of the extension, and the console lists the blind spots.
 
 **Prerequisites (from work package 1)**
 
 - Linux, Wayland or X11 session (developed on Fedora / GNOME / Wayland)
 - Membership of the `input` group
 - Optional: GNOME Shell, for application context and the overlay
-- To contribute code: stable Rust; for `fidus-lab`, Python 3.12 or later, offline only
+- To build: stable Rust, or Docker (`make docker-test` needs nothing else); for `fidus-lab`, Python 3.12 or later, offline only
 
 ## Out of scope
 

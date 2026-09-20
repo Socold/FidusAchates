@@ -1,6 +1,8 @@
 # 06 - Roadmap and acceptance criteria
 
 > Each work package ends on a **verifiable** criterion, not an impression. A package is not closed until its criterion has been measured and recorded in `research/`.
+>
+> Reordered after the [design review](07-DESIGN-REVIEW.md), section D. Three ideas drive the order: **record from day one** (the calendar is dominated by a 30-day trace), **make everything measurable before building on it**, and **spend Rust effort only on what measurement has kept**.
 
 ---
 
@@ -9,210 +11,220 @@
 | WP | Title | Purpose | Depends on |
 |---|---|---|---|
 | **0** | Foundation | Repository, licence, specifications, evaluation protocol | |
-| **1** | Capture and typing | evdev agent, keyboard signals, storage, minimal console, basic automaton detection | 0 |
-| **2** | Pointer and fusion | Mouse signals, LLR, SPRT, explainability | 1 |
-| **3** | Calibration | Convergence criteria, performance curve, parameter calibration | 2 |
-| **4** | Multiple profiles | Clustering, revision, modes | 3 |
-| **5** | Humanity channel | Complete detection of non-human input | 2 |
-| **6** | On-screen feedback | GNOME Shell extension, overlay | 2 |
-| **7** | Research bench | Replay, public corpora, publishable results | 3 |
-| **8** | Porting | Windows, macOS, Linux X11 | 5 |
-| **9** | Mobile | In-app SDK | 7 |
+| **1** | Recorder | Minimal Rust capture, privacy reduction, reduced trace, self-confinement, CLI | 0 |
+| **2** | Lab | Python trace reader, replay, evaluation bench, corpus ingestion | 1 |
+| **3** | Humanity channel and overlay | Non-human input detection, deterministic indicators, GNOME Shell extension, red square | 1, 2 |
+| **4** | Signal study | Every candidate signal, in Python, measured; about fifteen retained | 2 |
+| **5** | Fusion and console | Logistic fusion, CUSUM, explainability, administration console | 4 |
+| **6** | Enrolment | Convergence criteria, modes, re-assurance, anti-poisoning | 5 |
+| **7** | Port to the agent | Retained signals and engine in Rust, resource budgets verified, installer | 6 |
+| **8** | Multiple profiles | Clustering, revision, identity versus mode | 6 |
+| **9** | Porting | Windows, macOS, Linux X11, other compositors | 7 |
+| **10** | Mobile | In-app SDK | 7 |
 
-Critical path: 0 → 1 → 2 → 3 → 4. Packages 5 and 6 can run in parallel after package 2.
+Critical path: 0 → 1 → 2 → 4 → 5 → 6 → 7. Package 3 runs in parallel as soon as 2 exists, and gives the first end-to-end result.
+
+The `legit-long` trace (30 days) starts recording as soon as package 1 runs. Everything from package 4 onwards consumes it.
 
 ---
 
 ## WP 0 - Foundation
 
-**Content**: repository, PolyForm Noncommercial 1.0.0 licence, documents 00 to 06, architecture decisions, evaluation protocol, basic continuous integration, contribution and review templates.
+**Content**: repository, PolyForm Noncommercial 1.0.0 licence, documents 00 to 07, architecture decisions, evaluation protocol.
 
-**Acceptance criterion**: documents 00 to 06 exist, are consistent with one another, and every requirement carries an explicit means of verification.
+**Acceptance criterion**: the documents exist, are consistent with one another, and every requirement carries an explicit means of verification.
 
 **Status**: done.
 
 ---
 
-## WP 1 - Capture and keystroke dynamics
+## WP 1 - Recorder
+
+The only component that ever reads `/dev/input`. It must stay small enough to be read in one sitting.
 
 **Content**
-- `fidus-agent`: rootless `evdev` reading, normalisation, provenance tagging (E01).
-- Hot buffer bounded to 10 s, never persisted.
-- Signals A01 to A05, A07, A08, A10, A23.
-- Event loop on `epoll`, no polling. Maintenance triggered by event thresholds.
-- One-command installer, uninstaller, `fidus-cli doctor` checking prerequisites.
-- Signals E01, E03, E05 (Humanity channel, no enrolment).
-- Encrypted SQLite schema, Welford aggregates, approximate quantiles.
-- Salted digraph hashing, levels P0 and P1.
-- `fidus-cli`: `status`, `pause`, `resume`, `purge`, `doctor`.
-- Console: minimal Live view (gauge, event stream, health).
-- Hardened `systemd --user` unit.
+- `fidus-core`: event model, key classes, biomechanical digraph classes, trace format. No I/O, fully unit-tested.
+- `fidus-agent`: device discovery, provenance tagging (hardware or virtual), hot-plug by `inotify`, event loop on `epoll`, no polling.
+- Privacy reduction **at capture time**: a keycode never leaves the function that reads it.
+- Reduced trace writer behind the `research-trace` build feature (FR-70).
+- Self-confinement: `no_new_privs`, seccomp filter denying network sockets, start-up self-test (INS-14).
+- Commands: `record`, `devices`, `doctor`.
+- Dependencies: the C library binding and nothing else.
 
 **Acceptance criteria**
 
 | # | Criterion | Measure |
 |---|---|---|
-| 1.1 | The agent runs 24 h with no memory leak and no lost event | RSS stable under 40 MB, zero lost events |
-| 1.2 | NFR-1 to NFR-4 met over 24 h of real use | Health log |
-| 1.3 | "Content-free" test blocking in CI | 200 canary words typed, zero hits in the database |
-| 1.4 | A `ydotool` injection is flagged as virtual | Automated test |
-| 1.5 | A `ydotool` burst triggers L3 on the Humanity channel in under 10 s, with no enrolment at all | End-to-end test |
-| 1.6 | `purge` leaves no residue | File system check |
-| 1.7 | INS-1 and INS-2: 0 % CPU and no wake-up after 60 s with no input | `powertop` over 5 min |
-| 1.8 | INS-10 to INS-14: no privilege at run time, no system service, no network access possible | Audit of the unit and the process |
-| 1.9 | INS-20 to INS-24: one-command installation on a blank machine, under 60 s, binary under 8 MB | Test in a blank container |
-| 1.10 | INS-26 and INS-27: uninstallation with no residue, no system file modified | Before and after comparison |
+| 1.1 | **Content-free, by property**: two different texts with the same class structure and the same timings produce byte-identical traces | Automated test, blocking |
+| 1.2 | No keycode type appears in any persisted record | Compile-time: the record type has no such field; reviewed |
+| 1.3 | The agent cannot open a network socket, even when started outside any sandbox | Automated test |
+| 1.4 | 0 % CPU and no wake-up after 60 s with no input (INS-1, INS-2) | `powertop` over 5 min |
+| 1.5 | The recorder runs 24 h with no memory growth and no lost event | RSS stable, sequence numbers contiguous |
+| 1.6 | A virtual device is tagged virtual, a hardware one hardware | Test on sysfs path resolution, plus manual check |
+| 1.7 | A trace written by the Rust recorder is read back identically by the Python reader | Cross-language test |
+| 1.8 | Binary under 8 MB, no run-time dependency beyond libc (INS-21, INS-22) | CI |
+
+**Status**: in progress.
 
 ---
 
-## WP 2 - Pointer, fusion and explainability
+## WP 2 - Lab
 
 **Content**
-- Signals B01 to B11, B13, B21, and E08.
-- Expert calibration (Platt), reliability diagrams.
-- Weighted LLR fusion, measurement of the damping factor.
-- Two-threshold SPRT, exponential decay, hysteresis, levels L0 to L4.
-- Two separate channels (Identity, Humanity).
-- Console: Explanation view (waterfall in decibans, five dominant pieces of evidence, trajectory).
+- `fidus-lab` (Python, offline): trace reader, deterministic replay harness, evaluation bench (FAR, FRR, EER, ANIA, ANGA, TTD, run lengths), DET and ROC curves.
+- Ingestion of the CMU, Balabit and SapiMouse corpora into the same event model.
+- Result directory format of the evaluation protocol.
 
 **Acceptance criteria**
 
 | # | Criterion | Measure |
 |---|---|---|
-| 2.1 | The sum of displayed contributions equals the total evidence | Gap under 0.01 dB |
-| 2.2 | The experts are calibrated | Expected calibration error under 0.05 |
-| 2.3 | Simulated error rates match the targets | Gap under 20 % relative on `α` and `β` |
-| 2.4 | The `(a,b)` pair of Fitts's law (B06) is estimated stably | Inter-session coefficient of variation under 15 % |
-| 2.5 | Every alert produces a readable natural-language explanation | Review of 20 real alerts |
+| 2.1 | Two replays of the same trace give a bit-identical result | Automated test |
+| 2.2 | The scaled Manhattan baseline on CMU reproduces the published EER (about 0.096) | Within 0.01 |
+| 2.3 | Run-length metrics are computed from a labelled trace | Test on a synthetic trace with a known change point |
 
 ---
 
-## WP 3 - Calibration
+## WP 3 - Humanity channel and overlay
+
+First end-to-end result: no enrolment needed, so the whole chain can be demonstrated within days of the recorder running.
 
 **Content**
-- Four life-cycle phases, automatic transitions.
-- Criteria C1 to C4, progress display.
-- Performance versus volume curve, estimate of the `X` specific to the machine.
-- Temporal cross-validation, bootstrap, confidence intervals.
-- Calibration of the parameters of [03-DECISION-ENGINE.md](03-DECISION-ENGINE.md) section 8, by measurement.
-- Measurement of the real discriminating power of each signal, and removal of the null ones.
-- Anti-poisoning protection (admission filter, bounded rate, frozen anchor, signal F06).
-
-**Acceptance criteria**
-
-| # | Criterion | Measure |
-|---|---|---|
-| 3.1 | The performance versus volume curve is produced and reproducible by replay | Two identical runs |
-| 3.2 | The empirical `X` of the machine is published with its confidence interval | Recorded in `research/` |
-| 3.3 | AC-1 met: EER under 5 % over a 60 s window against a human impostor | Evaluation protocol |
-| 3.4 | AC-4 met: fewer than one false alarm per 8 h of legitimate use | Measured over 7 days |
-| 3.5 | The table of real discriminating power replaces the hypotheses of the catalogue | [04-SIGNAL-CATALOGUE.md](04-SIGNAL-CATALOGUE.md) updated |
-| 3.6 | Scenario M10: an impostor active 2 h a day for 7 days does not drift the template beyond the threshold | Attack test |
-
----
-
-## WP 4 - Multiple profiles
-
-**Content**
-- Session vector, clustering with an unbounded number of components.
-- Identity / mode hierarchy, temporal interleaving criterion (F04).
-- Revision by merge and split, with statistical justification.
-- Permanent revision history.
-- Number of profiles with uncertainty.
-- Signals C01 to C08, D01 to D05, F01 to F03.
-- Console: Profiles view.
-
-**Acceptance criteria**
-
-| # | Criterion | Measure |
-|---|---|---|
-| 4.1 | AC-5 met: on a controlled trace with 2 or 3 people, the count is exact after 5 days | Evaluation protocol |
-| 4.2 | The same person on two distinct devices remains a single profile, with two modes | Dedicated scenario |
-| 4.3 | At least one retrospective merge is observed and readably justified | Timeline in the console |
-| 4.4 | The number of profiles is always presented with its credible interval | Interface review |
-
----
-
-## WP 5 - Complete Humanity channel
-
-**Content**: signals E02, E04, E06, E07, E09 to E18, and F05. Dedicated attack bench.
+- Signals E01 to E14, E17 to E19, with the virtual-device allowlist (FR-38).
+- Deterministic indicators (FR-37): remote session active, phantom activity, hot-plug then typing.
+- CUSUM on the Humanity channel, threshold set from a false alarm budget of one per 30 days.
+- GNOME Shell extension: application category and remote-session state over D-Bus, and the overlay.
+- Red square at the top right, `research` and `silent` modes, clearing on lock and idle events.
 
 **Attack bench** (reproducible, scripted):
-1. `ydotool` and local automation.
-2. Hardware HID injection (Rubber Ducky type key).
+1. Local automation through `uinput`.
+2. Hardware HID injection.
 3. Clipboard replay through an IP KVM.
-4. Remote session, RDP then VNC.
-5. **AI agent driving the machine** (perceive / act loop on keyboard and mouse).
-6. Statistical forgery: generator trained on the aggregates of the template (threat M8).
-7. Adaptive adversary: automaton that slows down and randomises its delays to get around E03 and E05.
+4. Remote-desktop session.
+5. Agent driving the desktop through the portal.
+6. Adaptive adversary that slows down and randomises its delays.
 
 **Acceptance criteria**
 
 | # | Criterion | Measure |
 |---|---|---|
-| 5.1 | AC-3 met: scenarios 1 to 3 detected in under 10 s with no enrolment | Attack bench |
-| 5.2 | Scenarios 4 and 5 detected in under 60 s | Attack bench |
-| 5.3 | Scenario 7 (adaptive adversary) is detected by non-temporal signals (E01, E07, E10, E13) | Attack bench |
-| 5.4 | Zero false alarms from the Humanity channel over 7 days of normal human use | Measurement |
-| 5.5 | Scenario 6 is documented with its success rate, including if it defeats the system | Honest publication in `research/` |
+| 3.1 | AC-3: scenarios 1 to 3 detected in under 10 s with no enrolment | Attack bench |
+| 3.2 | Scenarios 4 and 5 raised by a deterministic indicator, not by timing statistics | Attack bench |
+| 3.3 | Scenario 6 detected by non-temporal signals | Attack bench |
+| 3.4 | Zero false alarms from the Humanity channel over 7 days of normal use, with a key remapper running | Measurement |
+| 3.5 | The overlay never steals focus, intercepts no click, and clears on lock | Documented manual test |
+| 3.6 | The extension never exposes a window title or an executable name over D-Bus | D-Bus inspection |
+| 3.7 | Without the extension the agent runs, and the console lists what it can no longer see (INS-25) | Test |
 
 ---
 
-## WP 6 - GNOME Shell extension and on-screen feedback
+## WP 4 - Signal study
 
 **Content**
-- GNOME Shell extension: application context by category over D-Bus, and overlay.
-- Red square at the top right, threshold `P > 0.50`, percentage displayed, hysteresis.
-- `research` and `silent` modes.
-- Health and privacy view in the console.
+- Every candidate of the [signal catalogue](04-SIGNAL-CATALOGUE.md), implemented **in Python**, on recorded traces and on the public corpora.
+- Log-scale latency models; robust statistics.
+- Measured discriminating power, stability across sessions, and sensitivity to hardware for each signal.
+- Greedy forward selection on fused performance: about fifteen signals retained.
 
 **Acceptance criteria**
 
 | # | Criterion | Measure |
 |---|---|---|
-| 6.1 | The square appears in under 500 ms after the threshold is crossed | Measurement |
-| 6.2 | The overlay never steals focus and intercepts no click | Documented manual test |
-| 6.3 | No more than one display transition per guard period | Measured over 24 h |
-| 6.4 | The extension never exposes a window title or an executable name over D-Bus | D-Bus inspection |
-| 6.5 | `silent` mode displays nothing | Check |
-| 6.6 | INS-25: with no extension installed, the agent starts and works in degraded mode, and installation does not fail | Test with no extension |
+| 4.1 | The catalogue's "Disc." hypotheses are replaced by measured values, failures included | Catalogue updated, results in `research/` |
+| 4.2 | Biomechanical digraph classes are compared with true digraphs on a public corpus | Loss of discriminating power quantified; the default of ADR-0008 confirmed or reopened |
+| 4.3 | Signals that mostly encode hardware are identified and barred from identity evidence | List published |
+| 4.4 | The `(a,b)` pair of Fitts's law is stable across sessions | Coefficient of variation under 15 % |
 
 ---
 
-## WP 7 - Research bench
+## WP 5 - Fusion, CUSUM, explainability and console
 
 **Content**
-- `fidus-lab`: deterministic replay, evaluation bench (FAR, FRR, EER, ANIA, ANGA, TTD), DET and ROC curves.
-- Documented, versioned trace format.
-- Ingestion of the CMU, Balabit and SapiMouse corpora.
-- First results report compared with the state of the art.
+- Expert calibration, reliability diagrams.
+- Logistic-regression fusion over expert LLRs.
+- CUSUM on the Identity channel, threshold set from run lengths measured by replay.
+- Console: Live, Explanation, Model, Health and privacy views; annotation of alerts (FR-46); browser-side protections (SR-9, SR-10).
 
 **Acceptance criteria**
 
 | # | Criterion | Measure |
 |---|---|---|
-| 7.1 | Two replays of the same trace give a bit-identical result | Automated test |
-| 7.2 | At least one result comparable with the state of the art is published on a public corpus | Report in `research/` |
-| 7.3 | AC-6 verified over 7 consecutive days | Health log |
-| 7.4 | The report also publishes the non-discriminating signals and the failures | Review |
+| 5.1 | The sum of displayed contributions equals the fused evidence | Gap under 0.01 dB |
+| 5.2 | Experts are calibrated | Expected calibration error under 0.05 |
+| 5.3 | The level table of 03 is recomputed from the formula by a test | Automated test |
+| 5.4 | AC-1 on public corpora | Evaluation protocol |
+| 5.5 | Rebinding and cross-site requests against the console are refused | Scripted test |
 
 ---
 
-## WP 8 - Porting
+## WP 6 - Enrolment
 
-Windows (Raw Input, `LLKHF_INJECTED` flag), macOS (`CGEventTap`), Linux X11. Only the `Source` stage is rewritten.
+**Content**
+- Four life-cycle phases, criteria C1 to C4, held-out false alarm curve.
+- Modes, and re-assurance through system authentication (FR-45).
+- Anti-poisoning: admission filter, bounded rate, frozen anchor.
 
-**Acceptance criterion**: on each platform, criteria 1.1 to 1.5 of WP 1 are met, and a trace captured on one platform can be replayed by `fidus-lab` without adaptation.
+**Acceptance criteria**
+
+| # | Criterion | Measure |
+|---|---|---|
+| 6.1 | The convergence curve is produced and reproducible by replay | Two identical runs |
+| 6.2 | AC-4: fewer than one false alarm per 8 h of legitimate use | 7 days, annotated |
+| 6.3 | AC-1b: every same-machine impostor session detected | Per-session delays published |
+| 6.4 | `legit-shift` scenario: new keyboard, re-assurance, a mode is created and alerts stop | Scenario |
+| 6.5 | Threat M10: an impostor active 2 h a day for 7 days does not drift the template beyond the threshold | Attack test |
 
 ---
 
-## WP 9 - Mobile
+## WP 7 - Port to the agent
+
+**Content**: the retained signals, the fusion and the CUSUM ported to Rust; encrypted aggregate storage; release build with no trace-writing code; both installation modes, including the capture helper; uninstaller.
+
+**Acceptance criteria**
+
+| # | Criterion | Measure |
+|---|---|---|
+| 7.1 | The agent and the lab produce identical decisions on the same trace | Replay comparison, any divergence is a defect |
+| 7.2 | AC-6: NFR-1 to NFR-4 met over 7 consecutive days | Health log |
+| 7.3 | INS-20 to INS-28, in both installation modes | Tests on a blank machine |
+| 7.4 | In hardened mode the user is not in the `input` group and the agent still works | Test |
+
+---
+
+## WP 8 - Multiple profiles
+
+**Content**: session vectors, clustering with an unbounded number of components, identity versus mode with the temporal interleaving criterion, merge and split with logged statistical justification, Profiles view.
+
+**Acceptance criteria**
+
+| # | Criterion | Measure |
+|---|---|---|
+| 8.1 | AC-5: exact count after 5 days on a controlled trace with 2 or 3 people | Evaluation protocol |
+| 8.2 | The same person on two devices remains one profile with two modes | Scenario |
+| 8.3 | At least one retrospective merge is observed and readably justified | Console timeline |
+| 8.4 | The number of profiles is always shown with its credible interval | Interface review |
+
+---
+
+## WP 9 - Porting
+
+Windows, macOS, Linux X11, and other Wayland compositors (layer-shell and foreign-toplevel replace the GNOME extension where available). Only the capture stage is rewritten.
+
+**Acceptance criterion**: on each platform the criteria of WP 1 are met, and a trace captured there replays in `fidus-lab` without adaptation.
+
+---
+
+## WP 10 - Mobile
 
 SDK embeddable in an application, modalities G01 to G10. Scope limited to the inside of the host application (cf. 00-ANALYSIS T6).
 
-**Acceptance criterion**: EER under 10 % over a 60 s session of touch interaction, with the same fusion engine and the same trace format as the desktop.
+**Acceptance criterion**: AC-1 on a public touch corpus, with the same fusion engine and the same trace format as the desktop.
 
 ---
+
+## Recurring costs to budget
+
+- **GNOME Shell extension**: a major GNOME version every six months regularly breaks extensions. The extension stays minimal, supported Shell versions are pinned, and each GNOME release gets a check.
 
 ## What is not planned
 

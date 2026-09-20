@@ -1,7 +1,6 @@
 # Rust
 /target/
 **/*.rs.bk
-Cargo.lock.bak
 
 # Python (fidus-lab)
 __pycache__/
@@ -12,28 +11,34 @@ venv/
 .ruff_cache/
 .mypy_cache/
 
-# Données locales : ne doivent JAMAIS être versionnées
+# Local data: must NEVER be versioned
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
 *.db
 /data/
 /traces/
+*.fidustr
 research/datasets/*
 !research/datasets/.gitkeep
-!research/datasets/README.md
 research/results/*
 !research/results/.gitkeep
 
-# Secrets et configuration locale
+# Secrets and local config
 .env
 *.key
 *.pem
 config.local.toml
 
-# Outils
+# Tools
 .DS_Store
 .idea/
 .vscode/
 node_modules/
 dist/
+
+# The shared trace fixture is committed on purpose (CI lab test).
+!research/fixtures/sample.fidustr
+
+# Local build cache (cargo home + target used by the Docker workflow)
+/.cache/

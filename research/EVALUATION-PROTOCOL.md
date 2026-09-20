@@ -64,6 +64,8 @@ Mean and 95th percentile CPU, resident memory, storage growth per day, decision 
 
 The corpora are not redistributed in the repository: `fidus-lab` provides ingestion scripts and the access conditions.
 
+**Public corpora are used for within-corpus experiments only.** They were recorded on other keyboards, mice and capture stacks, and hardware differences dominate differences between people. Using them as an impostor population against my own machine would measure "my keyboard versus theirs" and yield an excellent, meaningless figure.
+
 ### 2.2 Own collection
 
 | Trace | Content | Use |
@@ -73,12 +75,14 @@ The corpora are not redistributed in the repository: `fidus-lab` provides ingest
 | `impostor-naive` | Consenting third party using the machine with no instruction | Threat M6 |
 | `impostor-trained` | Consenting third party who has observed the user and tries to imitate them | Threat M7 |
 | `modes` | Same person, different devices and contexts | Validation of the mode / identity distinction |
-| `attack-bench` | Seven scripted attack scenarios (see WP 5) | Humanity channel |
+| `attack-bench` | Six scripted attack scenarios (see WP 3) | Humanity channel |
+| `legit-shift` | The legitimate user changing: new keyboard, other hand, late-night fatigue | Modes, re-assurance, false alarms |
 
 Any trace involving a third party requires their prior written consent, in line with [docs/05-PRIVACY.md](../docs/05-PRIVACY.md) section 4.3.
 
 ## 3. Methodological rules
 
+0. **Two tiers of evidence, never mixed.** *Statistical claims* (EER, DET curves, confidence intervals) come from public corpora, where the number of subjects supports them. *My own machine is a case study*: per-session detection delays, false alarm counts from annotated alerts, run lengths. With two or three recruited impostors, a bootstrap over subjects spans tens of points, so no EER is claimed from it.
 1. **Temporal cross-validation only.** Training on the first `k` sessions, test on the next. Random cross-validation would mix past and future and produce optimistic, false figures.
 2. **No leakage of the impostor population.** Profiles used as the impostor reference during training are never those of the test.
 3. **Confidence intervals are mandatory.** 95 % bootstrap, over subjects and not over windows (the windows of one subject are not independent). **An EER quoted without a confidence interval is rejected.**
@@ -109,11 +113,12 @@ Reminder of the overall acceptance criteria of the [requirements](../docs/01-REQ
 
 | ID | Target |
 |---|---|
-| AC-1 | EER under 5 % over a 60 s window, uninformed human impostor |
+| AC-1 | Public corpora: fused EER per window within 2 points of the published state of the art, with confidence interval |
+| AC-1b | My machine: every same-machine impostor session detected, delay reported per session, no EER claimed |
 | AC-2 | Median TTD under 90 s for a human impostor |
 | AC-3 | TTD under 10 s for automated input, with no enrolment |
 | AC-4 | Fewer than one false alarm per 8 h of legitimate use |
 | AC-5 | Exact user count after 5 days, on a controlled trace |
 | AC-6 | Resource budgets met 100 % of the time over 7 days |
 
-These targets are **working hypotheses** drawn from the state of the art. They will be revised after work package 3 with real measurements, and every revision will be justified, dated and kept.
+These targets are **working hypotheses** drawn from the state of the art. They will be revised with real measurements, and every revision will be justified, dated and kept.

@@ -1,6 +1,6 @@
 # ADR-0004 - Log-likelihood fusion and Wald sequential decision
 
-- **Status**: accepted
+- **Status**: accepted; the sequential-decision part (SPRT with forgetting) and the global damping factor are **superseded by [ADR-0007](0007-cusum-and-logistic-fusion.md)**. The choice of additive log-likelihood fusion stands
 - **Date**: 2024-11, decision taken 2020-02 and 2020-06
 
 ## Context

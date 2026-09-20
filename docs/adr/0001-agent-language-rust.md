@@ -1,6 +1,6 @@
 # ADR-0001 - Rust for the agent, Python for the offline lab
 
-- **Status**: accepted
+- **Status**: accepted, **amended by [ADR-0010](0010-recorder-first.md)**: the agent starts as a recorder only
 - **Date**: 2024-11
 
 ## Context

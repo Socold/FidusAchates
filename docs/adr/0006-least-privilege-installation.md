@@ -1,6 +1,6 @@
 # ADR-0006 - Least privilege, rootless installation, event-driven execution
 
-- **Status**: accepted
+- **Status**: accepted, **amended by [ADR-0009](0009-capture-helper-install-modes.md)**: option 3 was dismissed here with a wrong argument, and network isolation is now self-applied
 - **Date**: 2026-05
 
 ## Context

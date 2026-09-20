@@ -47,15 +47,18 @@ Legal frame for the project in its current phase: strictly personal use on a tes
 
 The best keyboard discriminants are **per-digraph** latencies (`t-h`, `e-r`): they presuppose knowing *which* keys were pressed. But capturing the identity of keys is a keylogger.
 
-**Decision: three levels of granularity, P1 by default.**
+**Decision: four levels of granularity, P1 by default.**
 
 | Level | What is kept | Discriminating power | Text reconstruction |
 |---|---|---|---|
 | **P0** (paranoid) | Key class only (letter / digit / space / correction / modifier / navigation) plus timings | Good | Impossible |
-| **P1** (default) | **Hashed** digraph: `HMAC(volatile_salt, keycode_1 ‖ keycode_2)` truncated to 32 bits, aggregated online | Very good | Impossible without the salt, which is never persisted and rotates every session |
+| **P1** (default) | Key class plus **biomechanical digraph class**: same finger, same hand adjacent fingers, same hand distant, alternating hands, row change, modifier involved | To be measured against true digraphs | Impossible: fifteen to twenty motor classes carry essentially no information about content |
+| **P1h** (opt-in) | **Hashed** digraph, keyed with a per-installation secret held in the keyring | Very good | No sequence is stored, so no text; but the table is open to frequency analysis, and the most frequent digraphs of a language can be identified by rank |
 | **P2** (research) | Keycodes in clear | Reference | Possible: **reserved for dedicated test corpora, never in real use** |
 
-Salted hashing keeps the ability to compute a mean and a deviation per digraph (which is what the model needs) while making the reverse dictionary useless from one session to the next. A rotating salt forces the statistics to be re-anchored: the agent therefore keeps a lookup table in volatile memory only, and persists aggregates alone.
+What makes a digraph latency personal is the **motor pattern**, not the letters. `evdev` key codes are positional, so the class of a key pair can be computed in memory at capture time, and nothing about key identity ever needs to be written. It needs no salt and has no continuity problem across sessions.
+
+My first design hashed digraphs with a salt regenerated at every start. It could not work: a hash that changes every session cannot accumulate statistics across sessions, and a stable one makes the rotation pointless. See [ADR-0008](adr/0008-biomechanical-digraph-classes.md).
 
 **Additional safeguards**: no ordered sequence longer than 2 keys is persisted, online aggregation (Welford's algorithm) without keeping raw events beyond a ring buffer of a few seconds, and capture stops on an application blocklist (password manager, private browsing, terminal if desired).
 
@@ -75,7 +78,9 @@ Verified on the target machine (Fedora, GNOME, Wayland session, user in the `inp
 - **Active window / foreground application**: not reachable from an ordinary process under GNOME Wayland. It needs a **GNOME Shell extension** exposing the category of the focused application over D-Bus.
 - **On-screen overlay (the red square)**: `gtk-layer-shell` is not supported by Mutter. The overlay therefore also has to go through the GNOME Shell extension.
 
-So the GNOME Shell extension is not a convenience: it is a required component, for two functions.
+There is a third, less obvious consequence. Under Wayland, **remote-desktop input and agents driving the desktop through the portal inject into the compositor and never pass through `/dev/input`**. An `evdev` reader does not see them at all. What can be seen is the reverse: window activity reported by the shell with no hardware input behind it, and the compositor's own report that a remote session is active.
+
+So the GNOME Shell extension is not a convenience: it is a required component, for three functions. The agent can run without it, but it is then blind to remote takeover.
 
 **Security consequence to own**: reading `/dev/input` grants the same capabilities as a keylogger. That requires the code to be auditable (hence publishing the sources), the binary to be reproducible, and the no-exfiltration guarantees to be verifiable (no network dependency whatsoever in the agent, tested in CI).
 
@@ -138,7 +143,9 @@ This is the most directly "security" part, and the most cost-effective.
 - Continuous authentication systems classically use a **dynamic trust model**: a trust score that rises when behaviour conforms and falls otherwise.
 - Sequential implementations compute a **log-likelihood ratio (LLR)** per interaction turn, accumulate it and compare it to two thresholds derived from **Wald's sequential probability ratio test (SPRT)**.
 
-**This is the direct answer to the requirement "able to say very quickly that it is not him".** Under its assumptions, the SPRT is the procedure that minimises the number of observations needed to reach target error rates. I retain it as the core of the decision engine. A decisive side benefit: the LLR is **additive**, so the contribution of each signal to the decision can be decomposed exactly. **Explainability (Q4) becomes a property of the model and not an after-the-fact approximation.**
+The SPRT decides between two hypotheses that have held since a known start. My problem is different: the legitimate user is present, and at some **unknown moment** someone else takes over. That is change detection, and its optimal procedure is **CUSUM** (Page): shortest detection delay for a given false alarm rate. Its thresholds are set from average run lengths, which are exactly the ANGA and ANIA metrics of continuous authentication. I retain it as the core of the decision engine, in place of the SPRT I first chose.
+
+**This is the direct answer to "able to say very quickly that it is not him".** A decisive side benefit of working with LLRs: they are **additive**, so the contribution of each signal to the decision can be decomposed exactly. **Explainability (Q4) becomes a property of the model and not an after-the-fact approximation.**
 
 ### 3.6 Estimating the number of users
 
@@ -182,10 +189,10 @@ What the tool tries to detect, by increasing difficulty:
 | # | Scenario | Expected signals | Difficulty |
 |---|---|---|---|
 | M1 | Machine left unlocked, someone uses it | All modalities diverge at once | Low |
-| M2 | HID injection (BadUSB, Rubber Ducky, IP KVM) | Abnormal regularity, throughput, device provenance | Low |
-| M3 | Local automation (`ydotool`, `xdotool`, test robot) | `uinput` provenance, timestamp quantisation, ideal trajectories | Low |
-| M4 | AI agent driving the machine | As M3, plus no micro-corrections and atypical application sequences | Low to moderate |
-| M5 | Remote takeover (RDP, VNC, RAT) | Bursts aligned on network latency, network jitter, no intermediate mouse events | Moderate |
+| M2 | HID injection (BadUSB, Rubber Ducky, IP KVM) | A keyboard that appears and types at once, abnormal regularity, throughput. Not device provenance: this is real hardware | Low |
+| M3 | Local automation through `uinput` (`ydotool`, test robot) | Virtual device not on the allowlist, timestamp quantisation, ideal trajectories | Low |
+| M4 | AI agent driving the machine | Through `uinput`: as M3. Through the desktop portal: invisible to `evdev`, caught as phantom activity by the shell extension | Low to moderate |
+| M5 | Remote takeover (RDP, VNC, RAT) | Under Wayland the input never reaches `evdev`: remote session reported by the compositor, phantom activity. Timing signatures only where remote input reaches the capture layer | Moderate |
 | M6 | Uninformed human impostor | Progressive multimodal divergence | Moderate |
 | M7 | Human impostor who has observed the victim | Divergence on involuntary signals (Fitts, micro-corrections, rare digraphs) | High |
 | M8 | Synthetic forgery trained on the template statistics | Cross-modal consistency, second-order signals | Very high |
@@ -204,7 +211,7 @@ Threats **against the tool itself**, to be handled in [01-REQUIREMENTS.md](01-RE
 They are explicit because everything else depends on them. If one is false, the requirements must be revised.
 
 - **H1**: the test machine is my personal machine, I am its legitimate user, no third party is observed on it without knowing.
-- **H2**: the target machine runs Fedora / GNOME / Wayland, my account belongs to the `input` group, and that access will remain available.
+- **H2**: the target machine runs Fedora / GNOME / Wayland, and my account already belongs to the `input` group, so simple installation mode costs nothing extra **here**. That is a fact about my machine, not a recommendation.
 - **H3**: phase 1 aims at research and demonstration, not at production deployment nor at a fleet.
 - **H4**: a non-zero false alarm rate is acceptable in the research phase, provided it is measured and displayed.
 - **H5**: I accept running, continuously, a process that reads `/dev/input`, and I understand what that implies.
