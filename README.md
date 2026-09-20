@@ -25,23 +25,74 @@ All of it **without ever recording what is typed**, **with no network access at 
 
 ## Status
 
-**Work package 1 in progress**: the recorder. The design was reviewed critically before any code was written ([design review](docs/07-DESIGN-REVIEW.md)), and the specifications were revised accordingly.
+The decision logic of the whole project is built and tested in Python (the lab),
+the recorder is built in Rust and measured on a real machine, and the two
+interfaces (the GNOME red-square overlay and the local web console) exist. What
+remains is mostly system porting, wiring on real data, and measurements gated on
+real corpora.
 
 | WP | Purpose | Status |
 |---|---|---|
 | 0 | Analysis, specifications, architecture, licence | done |
-| 1 | Recorder: capture, privacy reduction, reduced trace, self-confinement | in progress |
-| 2 | Lab: trace reader, replay, evaluation bench, public corpora | to do |
-| 3 | Humanity channel, GNOME Shell extension, overlay | to do |
-| 4 | Signal study in Python, about fifteen signals retained | to do |
-| 5 | Fusion, CUSUM, explainability, console | to do |
-| 6 | Enrolment, modes, re-assurance | to do |
-| 7 | Port of the retained signals to the agent, installer | to do |
-| 8 | Multiple profiles and revision | to do |
-| 9 | Porting to Windows, macOS, X11, other compositors | to do |
-| 10 | Mobile SDK | to do |
+| 1 | Recorder: capture, privacy reduction, reduced trace, self-confinement | done, measured on the real machine |
+| 2 | Lab: trace reader, replay, evaluation bench, corpus ingestion | done (real-corpus run gated on data) |
+| 3 | Attribution channel, GNOME Shell extension, red overlay | logic and extension done; live wiring and attack bench remain |
+| 4 | Signal study in Python, about fifteen signals retained | machinery done (real ranking gated on data) |
+| 5 | Fusion, CUSUM, explainability, console | done |
+| 6 | Enrolment, convergence criteria, anti-poisoning | done (modes and re-assurance remain) |
+| 7 | Port of the retained signals to the Rust agent | to do (after signals are chosen on real data) |
+| 8 | Multiple profiles and revision (counting users) | done |
+| 9 | Action sensitivity wired into the malice policy | to do |
+| 10 | Porting to Windows, macOS, X11, other compositors | to do |
+| 11 | Mobile SDK | to do |
 
-Detailed roadmap with acceptance criteria: [docs/06-ROADMAP.md](docs/06-ROADMAP.md).
+Detailed roadmap with acceptance criteria and per-package status:
+[docs/06-ROADMAP.md](docs/06-ROADMAP.md).
+
+## Running and testing it
+
+The recorder builds in a container, so Rust is not needed on the host:
+
+```bash
+make docker-test          # build and test the Rust recorder, offline, in Docker
+```
+
+The lab (the decision engine, attribution, enrolment, profiles, console) is pure
+Python, standard library only:
+
+```bash
+cd lab && python3 -m pytest        # the full lab test suite
+```
+
+Analyse a reduced trace end to end (segments, actor labels, decisions, outcomes):
+
+```bash
+python3 -m fidus_lab <trace.fidustr>
+```
+
+Serve the live console, which streams the analysis and drives the red overlay:
+
+```bash
+python3 -m fidus_lab.console_main <trace.fidustr> --open
+```
+
+The red square is a GNOME Shell extension. Install it, then **log out and back
+in** (GNOME does not rescan the extensions directory live on Wayland) and enable
+it:
+
+```bash
+cp -r shell-extension/fidusachates@socold.github.io ~/.local/share/gnome-shell/extensions/
+# log out and back in
+gnome-extensions enable fidusachates@socold.github.io
+# show a 72% red square directly:
+gdbus call --session -d org.fidusachates.Overlay -o /org/fidusachates/Overlay \
+  -m org.fidusachates.Overlay.SetConfidence 72 Identity
+```
+
+A reduced trace is produced by a recorder built with the `research-trace`
+feature: `fidus-agent record --trace out.fidustr`. See
+[shell-extension/README.md](shell-extension/README.md) and
+[research/TRACE-FORMAT.md](research/TRACE-FORMAT.md).
 
 ## Documentation
 
@@ -59,6 +110,16 @@ Detailed roadmap with acceptance criteria: [docs/06-ROADMAP.md](docs/06-ROADMAP.
 | [ADR](docs/adr/) | Architecture decisions and the alternatives ruled out |
 
 Among the decisions, [ADR-0011](docs/adr/0011-attribution-not-malice.md) separates *attribution* (human or automated, sanctioned or not) from the judgment of *malice*.
+
+## Code
+
+| Path | What |
+|---|---|
+| [crates/fidus-core](crates/fidus-core) | Event model, privacy reduction and trace format (Rust, no dependency): the privacy boundary |
+| [crates/fidus-agent](crates/fidus-agent) | The recorder: evdev capture, self-confinement, hot-plug (Rust, libc only) |
+| [lab/fidus_lab](lab/fidus_lab) | Decision engine, attribution, enrolment, profiles, console (Python, offline) |
+| [shell-extension](shell-extension) | GNOME Shell extension: the red overlay and content-free context |
+| [research](research) | Trace format, evaluation protocol, results |
 
 ## Design principles
 

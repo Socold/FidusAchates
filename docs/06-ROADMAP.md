@@ -65,7 +65,7 @@ The only component that ever reads `/dev/input`. It must stay small enough to be
 | 1.7 | A trace written by the Rust recorder is read back identically by the Python reader | Cross-language test |
 | 1.8 | Binary under 8 MB, no run-time dependency beyond libc (INS-21, INS-22) | CI |
 
-**Status**: in progress.
+**Status**: done, and measured on the real machine: 0 % CPU at rest, RSS 2 MB, a 320 KB release binary with no trace code, and end-to-end capture of a virtual keyboard (provenance flagged, classes reduced, read back by the Python lab). The 24 h endurance run and the hardened install mode remain.
 
 ---
 
@@ -127,6 +127,8 @@ First end-to-end result: no enrolment needed, so the whole chain can be demonstr
 ---
 
 ## WP 4 - Signal study
+
+**Status**: the extraction, per-signal discriminating power (d-prime) and greedy selection are built and tested in Python; a synthetic study artifact is committed. The real ranking that turns the catalogue into about fifteen kept signals is gated on real traces and corpora.
 
 **Content**
 - Every candidate of the [signal catalogue](04-SIGNAL-CATALOGUE.md), implemented **in Python**, on recorded traces and on the public corpora.
