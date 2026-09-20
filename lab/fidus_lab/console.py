@@ -1,10 +1,13 @@
 """Local administration console (FR-50 to FR-58, SR-9).
 
-A standard-library HTTP server bound to 127.0.0.1, protected by a per-run token,
-that streams the analysis of a trace over Server-Sent Events and drives the
-GNOME overlay. A local web server is reachable by any page in the browser, so it
-validates Host and Origin (anti-DNS-rebinding, SR-9), keeps its token out of
-CORS, and sends no cross-origin headers.
+A standard-library HTTP server bound to 127.0.0.1 that streams the analysis of
+a trace over Server-Sent Events and drives the GNOME overlay.
+
+A local web server is reachable by any page in the browser, so (SR-9): it
+validates Host and Origin (anti-DNS-rebinding), sends no cross-origin headers,
+and keeps the session in an HttpOnly, SameSite=Strict cookie, never in the URL.
+The only thing that ever travels in a URL is a one-time bootstrap link, consumed
+on first use, so a leak into browser history is harmless.
 
 The pure pieces (SSE framing, the host check, the state snapshot) are unit
 tested; a smoke test binds an ephemeral port and fetches a page.
@@ -23,6 +26,7 @@ from urllib.parse import parse_qs, urlparse
 from .analyze import SegmentReport
 
 ALLOWED_HOSTS = {"127.0.0.1", "localhost"}
+COOKIE_NAME = "fidus_session"
 
 
 def sse(event: str, data: dict) -> bytes:
@@ -118,11 +122,11 @@ class _Queue:
             return self._items.pop(0) if self._items else None
 
 
-def render_page(token: str) -> str:
-    return _PAGE.replace("__TOKEN__", token)
+def render_page() -> str:
+    return _PAGE
 
 
-def make_handler(token: str, state: ConsoleState):
+def make_handler(bootstrap: "Bootstrap", session: str, state: ConsoleState):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):  # quiet
             pass
@@ -133,21 +137,47 @@ def make_handler(token: str, state: ConsoleState):
             self.end_headers()
             self.wfile.write(msg.encode())
 
-        def _authorized(self) -> bool:
+        def _local_and_same_origin(self) -> bool:
             if not host_is_local(self.headers.get("Host")):
                 return False
             origin = self.headers.get("Origin")
             if origin and not host_is_local(urlparse(origin).hostname):
                 return False
-            q = parse_qs(urlparse(self.path).query)
-            return q.get("token", [""])[0] == token
+            return True
+
+        def _has_session(self) -> bool:
+            cookie = self.headers.get("Cookie", "")
+            for part in cookie.split(";"):
+                k, _, v = part.strip().partition("=")
+                if k == COOKIE_NAME and secrets.compare_digest(v, session):
+                    return True
+            return False
 
         def do_GET(self):
-            route = urlparse(self.path).path
-            if not self._authorized():
+            url = urlparse(self.path)
+            route = url.path
+            if not self._local_and_same_origin():
                 return self._reject(403, "forbidden")
+
+            # One-time bootstrap: consumes the link, sets the cookie, redirects.
+            if route == "/login":
+                t = parse_qs(url.query).get("t", [""])[0]
+                if not bootstrap.consume(t):
+                    return self._reject(403, "invalid or already used link")
+                self.send_response(302)
+                self.send_header(
+                    "Set-Cookie",
+                    f"{COOKIE_NAME}={session}; HttpOnly; SameSite=Strict; Path=/",
+                )
+                self.send_header("Location", "/")
+                self.end_headers()
+                return
+
+            if not self._has_session():
+                return self._reject(403, "no session")
+
             if route == "/":
-                body = render_page(token).encode()
+                body = render_page().encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("X-Content-Type-Options", "nosniff")
@@ -182,16 +212,39 @@ def make_handler(token: str, state: ConsoleState):
     return Handler
 
 
+class Bootstrap:
+    """A one-time login token. Valid until consumed exactly once."""
+
+    def __init__(self) -> None:
+        self._token: str | None = secrets.token_urlsafe(24)
+        self._lock = threading.Lock()
+
+    @property
+    def token(self) -> str | None:
+        return self._token
+
+    def consume(self, presented: str) -> bool:
+        with self._lock:
+            if self._token is None or not presented:
+                return False
+            ok = secrets.compare_digest(presented, self._token)
+            if ok:
+                self._token = None
+            return ok
+
+
 @dataclass
 class Console:
     state: ConsoleState
     server: ThreadingHTTPServer
-    token: str
+    bootstrap: Bootstrap
+    session: str
 
     @property
     def url(self) -> str:
+        """The one-time login link. Open it once; it then stops working."""
         host, port = self.server.server_address[:2]
-        return f"http://{host}:{port}/?token={self.token}"
+        return f"http://{host}:{port}/login?t={self.bootstrap.token}"
 
     def serve_forever(self) -> None:
         self.server.serve_forever()
@@ -202,10 +255,11 @@ class Console:
 
 def start(host: str = "127.0.0.1", port: int = 0) -> Console:
     """Start the console on the loopback. Port 0 picks a free port."""
-    token = secrets.token_urlsafe(16)
+    bootstrap = Bootstrap()
+    session = secrets.token_urlsafe(32)
     state = ConsoleState()
-    server = ThreadingHTTPServer((host, port), make_handler(token, state))
-    return Console(state=state, server=server, token=token)
+    server = ThreadingHTTPServer((host, port), make_handler(bootstrap, session, state))
+    return Console(state=state, server=server, bootstrap=bootstrap, session=session)
 
 
 _PAGE = """<!doctype html>
@@ -241,7 +295,6 @@ _PAGE = """<!doctype html>
  </section>
 </main>
 <script>
- const token = "__TOKEN__";
  const gauge = document.getElementById('gauge');
  const rows = document.getElementById('rows');
  const outcomes = document.getElementById('outcomes');
@@ -254,7 +307,7 @@ _PAGE = """<!doctype html>
      `<td>${(s.p_impostor*100).toFixed(0)}%</td>`+
      `<td class="out-${s.outcome}">${s.outcome}</td>`;
    rows.prepend(tr);setGauge(s.p_impostor);}
- const es = new EventSource('/events?token='+token);
+ const es = new EventSource('/events');
  es.addEventListener('hello',e=>{const st=JSON.parse(e.data);
    (st.segments||[]).forEach(addRow);
    document.getElementById('profiles').textContent=st.profile_count||0;});

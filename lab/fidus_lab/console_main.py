@@ -1,6 +1,7 @@
 """`python -m fidus_lab.console <trace>`: serve the console and replay a trace.
 
-Prints the URL (with its token) to open in a browser. Ctrl-C stops it.
+Prints the one-time login link to open in a browser (it sets the session
+cookie and stops working after first use). Ctrl-C stops it.
 """
 
 from __future__ import annotations

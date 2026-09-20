@@ -58,27 +58,62 @@ def test_state_publishes_to_subscribers():
     assert item and b"event: segment" in item
 
 
-def test_page_embeds_the_token_not_a_secret_leak():
-    page = render_page("TESTTOKEN")
-    assert "TESTTOKEN" in page and "EventSource" in page
+def test_page_carries_no_secret():
+    page = render_page()
+    assert "EventSource('/events')" in page
+    assert "token" not in page.lower()
 
 
-def test_server_serves_only_with_token():
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *a, **k):
+        return None
+
+
+def _get(url, headers=None):
+    opener = urllib.request.build_opener(_NoRedirect)
+    req = urllib.request.Request(url, headers=headers or {})
+    try:
+        r = opener.open(req, timeout=3)
+        return r.status, dict(r.headers), r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, dict(e.headers), b""
+
+
+def test_session_is_a_cookie_and_bootstrap_is_one_time():
     console = start()
     t = threading.Thread(target=console.serve_forever, daemon=True)
     t.start()
     try:
         host, port = console.server.server_address[:2]
         base = f"http://{host}:{port}"
-        # With the token: 200.
-        with urllib.request.urlopen(console.url, timeout=3) as r:
-            assert r.status == 200
-            assert b"FidusAchates" in r.read()
-        # Without the token: 403.
-        try:
-            urllib.request.urlopen(f"{base}/", timeout=3)
-            assert False, "expected 403 without token"
-        except urllib.error.HTTPError as e:
-            assert e.code == 403
+
+        # No session: forbidden.
+        code, _, _ = _get(f"{base}/")
+        assert code == 403
+
+        # The one-time link sets the cookie and redirects, without the
+        # session ever appearing in a URL.
+        code, headers, _ = _get(console.url)
+        assert code == 302
+        set_cookie = headers.get("Set-Cookie", "")
+        assert "fidus_session=" in set_cookie
+        assert "HttpOnly" in set_cookie and "SameSite=Strict" in set_cookie
+        assert headers.get("Location") == "/"
+        cookie = set_cookie.split(";")[0]
+
+        # Same link again: consumed, refused.
+        code, _, _ = _get(console.url)
+        assert code == 403
+
+        # With the cookie: the page and the API work.
+        code, _, body = _get(f"{base}/", {"Cookie": cookie})
+        assert code == 200 and b"FidusAchates" in body
+        code, _, body = _get(f"{base}/api/state", {"Cookie": cookie})
+        assert code == 200 and b"segments" in body
+
+        # A foreign Host header (DNS rebinding) is refused even with the cookie.
+        code, _, _ = _get(f"{base}/api/state",
+                          {"Cookie": cookie, "Host": "evil.example.com"})
+        assert code == 403
     finally:
         console.shutdown()
