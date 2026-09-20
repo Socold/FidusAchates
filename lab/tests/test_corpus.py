@@ -7,7 +7,7 @@ the real CSV is dropped in, the EER number is trustworthy.
 
 import random
 
-from fidus_lab.corpus import CmuSample, ScaledManhattan, load_cmu
+from fidus_lab.corpus import ScaledManhattan, load_cmu
 from fidus_lab.metrics import eer
 
 

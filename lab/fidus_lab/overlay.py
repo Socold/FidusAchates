@@ -69,7 +69,65 @@ class GdbusOverlay(OverlayClient):
         self._call("Clear")
 
 
+class GioOverlay(OverlayClient):
+    """Calls the extension through PyGObject's Gio D-Bus proxy: no subprocess
+    per call, which the gdbus CLI client needed. Silent if the extension is
+    not on the bus."""
+
+    def __init__(self) -> None:
+        import gi  # imported here: optional dependency
+
+        gi.require_version("Gio", "2.0")
+        gi.require_version("GLib", "2.0")
+        from gi.repository import Gio
+
+        self._gio = Gio
+        self._proxy = Gio.DBusProxy.new_for_bus_sync(
+            Gio.BusType.SESSION, Gio.DBusProxyFlags.NONE, None,
+            BUS, PATH, BUS, None,
+        )
+
+    def _call(self, method: str, variant) -> None:
+        try:
+            self._proxy.call_sync(method, variant, self._gio.DBusCallFlags.NONE, 500, None)
+        except Exception:  # noqa: BLE001  best-effort: the overlay never breaks the pipeline
+            pass
+
+    def set_confidence(self, percent: int, channel: str = "Identity") -> None:
+        from gi.repository import GLib
+
+        self._call("SetConfidence", GLib.Variant("(us)", (int(percent), channel)))
+
+    def clear(self) -> None:
+        self._call("Clear", None)
+
+
+@dataclass
+class ChangeOnly(OverlayClient):
+    """Forward a call to the inner client only when the state changes, so a
+    steady stream of segments does not hammer the bus (NFR budgets)."""
+
+    inner: OverlayClient
+    _last: tuple | None = None
+
+    def set_confidence(self, percent: int, channel: str = "Identity") -> None:
+        state = ("set", int(percent), channel)
+        if state != self._last:
+            self.inner.set_confidence(percent, channel)
+            self._last = state
+
+    def clear(self) -> None:
+        if self._last != ("clear",):
+            self.inner.clear()
+            self._last = ("clear",)
+
+
 def best_overlay() -> OverlayClient:
-    """A gdbus-backed overlay if gdbus exists, else a null one."""
+    """Gio proxy if PyGObject is present, else the gdbus CLI, else null; always
+    wrapped so only state changes reach the bus."""
+    try:
+        return ChangeOnly(GioOverlay())
+    except Exception:  # noqa: BLE001  no PyGObject or no session bus
+        pass
     g = GdbusOverlay()
-    return g if g.available() else NullOverlay()
+    return ChangeOnly(g if g.available() else NullOverlay())

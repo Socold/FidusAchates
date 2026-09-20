@@ -56,7 +56,6 @@ def test_impostor_is_detected_within_a_bound():
 
 
 def test_evidence_points_the_right_way():
-    eng = build_engine()
     # A genuine segment should give non-positive evidence on average.
     g = segments_from(GENUINE, 1, seed_start=900)[0]
     imp = segments_from(IMPOSTOR, 1, seed_start=901)[0]

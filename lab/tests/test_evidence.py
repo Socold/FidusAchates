@@ -1,4 +1,3 @@
-import math
 
 from fidus_lab.evidence import (
     Cusum,

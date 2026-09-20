@@ -15,7 +15,6 @@ from dataclasses import dataclass, field
 
 from .divergence import template_stability
 from .experts import KeystrokeTemplate
-from .segment import Segment
 
 
 @dataclass

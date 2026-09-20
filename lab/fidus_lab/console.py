@@ -18,7 +18,6 @@ from __future__ import annotations
 import json
 import secrets
 import threading
-import time
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse

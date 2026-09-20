@@ -1,4 +1,4 @@
-from fidus_lab import Record, Segment, segment_trace
+from fidus_lab import Record, segment_trace
 from fidus_lab.trace import Event, EventKind
 
 

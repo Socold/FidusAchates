@@ -1,5 +1,5 @@
 from fidus_lab.divergence import gaussian_js, template_stability
-from fidus_lab.enrolment import CriteriaParams, Phase, assess, rolling_stability
+from fidus_lab.enrolment import Phase, assess
 from fidus_lab.experts import KeystrokeTemplate
 from fidus_lab.segment import segment_trace
 from fidus_lab.synth import Typist
