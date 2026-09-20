@@ -47,4 +47,4 @@ live on Wayland), and enable it:
     gdbus call --session -d org.fidusachates.Overlay \
       -o /org/fidusachates/Overlay -m org.fidusachates.Overlay.Clear
 
-The console (`python -m fidus_lab.console`) drives `SetConfidence` automatically.
+The console (`python -m fidus_lab.console_main <trace> --open`) drives `SetConfidence` automatically.

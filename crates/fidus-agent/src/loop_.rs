@@ -25,6 +25,10 @@ struct Source {
     reducer: Reducer,
     device_index: u16,
     provenance: Provenance,
+    path: PathBuf,
+    /// Set when the device went away; the slot is kept so epoll tags stay
+    /// stable, but it is never read again.
+    gone: bool,
 }
 
 pub fn run(args: Vec<String>) -> io::Result<()> {
@@ -97,13 +101,23 @@ pub fn run(args: Vec<String>) -> io::Result<()> {
                 continue;
             }
             let src = &mut sources[tag as usize];
+            if src.gone {
+                continue;
+            }
             loop {
                 let input = match src.reader.next_event() {
                     Ok(Some(e)) => e,
                     Ok(None) => break,
-                    // The device was unplugged mid-read: stop reading it, do
-                    // not fail the whole recorder. epoll drops it with the fd.
-                    Err(e) if e.raw_os_error() == Some(libc::ENODEV) => break,
+                    // The device was unplugged mid-read: retire it without
+                    // failing the recorder, and forget its path so the same
+                    // device can be captured again when it is plugged back.
+                    // Closing the fd removes it from epoll.
+                    Err(e) if e.raw_os_error() == Some(libc::ENODEV) => {
+                        src.gone = true;
+                        open_paths.remove(&src.path);
+                        src.reader.close();
+                        break;
+                    }
                     Err(e) => return Err(e),
                 };
                 if let Some(_rec) = src.reducer.reduce(
@@ -148,6 +162,8 @@ fn add_source(
                 reducer: Reducer::new(),
                 device_index: d.index,
                 provenance: d.provenance,
+                path: d.path.clone(),
+                gone: false,
             });
             Ok(())
         }

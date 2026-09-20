@@ -29,7 +29,7 @@ const EVENT_SIZE: usize = 24;
 const _: () = assert!(std::mem::size_of::<libc::c_long>() == 8);
 
 pub struct EvdevReader {
-    file: File,
+    file: Option<File>,
     buf: [u8; EVENT_SIZE * 64],
     filled: usize,
     cursor: usize,
@@ -44,7 +44,7 @@ impl EvdevReader {
         // Ask the kernel to timestamp with CLOCK_MONOTONIC.
         set_clock_monotonic(file.as_raw_fd())?;
         Ok(Self {
-            file,
+            file: Some(file),
             buf: [0u8; EVENT_SIZE * 64],
             filled: 0,
             cursor: 0,
@@ -52,7 +52,15 @@ impl EvdevReader {
     }
 
     pub fn raw_fd(&self) -> RawFd {
-        self.file.as_raw_fd()
+        self.file.as_ref().map(|f| f.as_raw_fd()).unwrap_or(-1)
+    }
+
+    /// Close the device. Dropping the fd also removes it from any epoll set.
+    /// Reading afterwards yields no events.
+    pub fn close(&mut self) {
+        self.file = None;
+        self.filled = 0;
+        self.cursor = 0;
     }
 
     /// Read one event, or `None` when the fd has no more data ready (EAGAIN).
@@ -71,7 +79,10 @@ impl EvdevReader {
     fn refill(&mut self) -> io::Result<()> {
         self.cursor = 0;
         self.filled = 0;
-        match self.file.read(&mut self.buf) {
+        let Some(file) = self.file.as_mut() else {
+            return Ok(());
+        };
+        match file.read(&mut self.buf) {
             Ok(n) => {
                 // The kernel only ever returns whole events.
                 self.filled = n - (n % EVENT_SIZE);

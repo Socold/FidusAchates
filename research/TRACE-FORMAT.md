@@ -15,7 +15,7 @@ records: N * 16 bytes
 ```
 
 No header beyond the magic, no index, no trailer: the file is a flat stream of
-fixed records, append-only, so a crash loses at most the last record.
+fixed records, append-only. Records are buffered before they reach the disk (a few kilobytes, a few hundred records), so a crash loses the unflushed tail, never the middle of the file; a clean stop flushes everything.
 
 ## Record (16 bytes, little-endian)
 
