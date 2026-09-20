@@ -1,5 +1,8 @@
 """The offline half of FidusAchates: trace reading, replay, attribution."""
 
+from .overlay import NullOverlay, OverlayClient, best_overlay
+from .console import Console, ConsoleState, start
+from .live import drive, drive_trace
 from .analyze import AnalysisReport, SegmentReport, analyze_segments, analyze_trace
 from .profiles import Mode, Profile, ProfileSet, RevisionEvent, temporal_interleaving
 from .divergence import gaussian_js, template_stability
@@ -50,4 +53,7 @@ __all__ = [
     "AnchorWatch", "admits", "bounded_update",
     "Mode", "Profile", "ProfileSet", "RevisionEvent", "temporal_interleaving",
     "AnalysisReport", "SegmentReport", "analyze_segments", "analyze_trace",
+    "NullOverlay", "OverlayClient", "best_overlay",
+    "Console", "ConsoleState", "start",
+    "drive", "drive_trace",
 ]
