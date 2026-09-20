@@ -59,33 +59,92 @@ impl Inotify {
             if n <= 0 {
                 break;
             }
-            let mut off = 0usize;
-            let n = n as usize;
-            while off + std::mem::size_of::<libc::inotify_event>() <= n {
-                // Safety: off is within the bytes just read and aligned to the
-                // event stream produced by the kernel.
-                let ev = unsafe { &*(self.buf.as_ptr().add(off) as *const libc::inotify_event) };
-                let len = ev.len as usize;
-                let name_start = off + std::mem::size_of::<libc::inotify_event>();
-                if len > 0 && name_start + len <= n {
-                    let raw = &self.buf[name_start..name_start + len];
-                    let end = raw.iter().position(|&b| b == 0).unwrap_or(len);
-                    if let Ok(name) = std::str::from_utf8(&raw[..end]) {
-                        if name.starts_with("event") {
-                            names.push(name.to_string());
-                        }
-                    }
-                }
-                off = name_start + len;
-            }
+            names.extend(parse_event_names(&self.buf[..n as usize]));
         }
         Ok(names)
     }
+}
+
+/// Walk a buffer of `struct inotify_event` records and return the names that
+/// look like `/dev/input/eventN` nodes. Pure, so it can be tested with a
+/// hand-built buffer; the layout is: wd i32, mask u32, cookie u32, len u32,
+/// then `len` bytes of NUL-padded name.
+pub fn parse_event_names(buf: &[u8]) -> Vec<String> {
+    const HEADER: usize = 16;
+    let mut names = Vec::new();
+    let mut off = 0usize;
+    while off + HEADER <= buf.len() {
+        let len = u32::from_ne_bytes(buf[off + 12..off + 16].try_into().unwrap()) as usize;
+        let name_start = off + HEADER;
+        let name_end = name_start.saturating_add(len);
+        if name_end > buf.len() {
+            break; // truncated record: stop rather than read past the buffer
+        }
+        if len > 0 {
+            let raw = &buf[name_start..name_end];
+            let end = raw.iter().position(|&b| b == 0).unwrap_or(len);
+            if let Ok(name) = std::str::from_utf8(&raw[..end]) {
+                if name.starts_with("event") {
+                    names.push(name.to_string());
+                }
+            }
+        }
+        off = name_end;
+    }
+    names
 }
 
 impl Drop for Inotify {
     fn drop(&mut self) {
         // Safety: fd owned by self, closed once.
         unsafe { libc::close(self.fd) };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_event_names;
+
+    fn record(name: &str) -> Vec<u8> {
+        // Names are NUL-padded to a multiple of 16 in real streams; emulate.
+        let mut padded = name.as_bytes().to_vec();
+        padded.push(0);
+        while !padded.len().is_multiple_of(16) {
+            padded.push(0);
+        }
+        let mut v = Vec::new();
+        v.extend_from_slice(&1i32.to_ne_bytes()); // wd
+        v.extend_from_slice(&0x100u32.to_ne_bytes()); // mask IN_CREATE
+        v.extend_from_slice(&0u32.to_ne_bytes()); // cookie
+        v.extend_from_slice(&(padded.len() as u32).to_ne_bytes());
+        v.extend_from_slice(&padded);
+        v
+    }
+
+    #[test]
+    fn parses_several_records_and_keeps_only_event_nodes() {
+        let mut buf = record("event30");
+        buf.extend(record("mouse2")); // not an eventN node
+        buf.extend(record("event7"));
+        assert_eq!(parse_event_names(&buf), vec!["event30", "event7"]);
+    }
+
+    #[test]
+    fn empty_and_zero_length_names_are_ignored() {
+        assert!(parse_event_names(&[]).is_empty());
+        let mut v = Vec::new();
+        v.extend_from_slice(&1i32.to_ne_bytes());
+        v.extend_from_slice(&0u32.to_ne_bytes());
+        v.extend_from_slice(&0u32.to_ne_bytes());
+        v.extend_from_slice(&0u32.to_ne_bytes()); // len 0
+        assert!(parse_event_names(&v).is_empty());
+    }
+
+    #[test]
+    fn truncated_record_does_not_read_past_the_buffer() {
+        let mut buf = record("event3");
+        buf.truncate(buf.len() - 4); // cut inside the name
+                                     // Must not panic, and must not invent a name from partial bytes.
+        let _ = parse_event_names(&buf);
     }
 }

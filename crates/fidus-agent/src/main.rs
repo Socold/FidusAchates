@@ -22,6 +22,27 @@ fn main() -> ExitCode {
 
     // Self-confinement comes first, before any device is opened, so that a bug
     // in capture cannot precede the network lockdown (SR-3, INS-14).
+    // `selftest` exists for the integration test: exit 0 if the lockdown is
+    // effective, 2 if the filter cannot be installed here (a container that
+    // forbids seccomp), 1 if installed but ineffective.
+    if command == "selftest" {
+        return match confine::lock_down() {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e)
+                if e.raw_os_error() == Some(libc::EPERM)
+                    || e.raw_os_error() == Some(libc::EACCES)
+                    || e.raw_os_error() == Some(libc::ENOSYS) =>
+            {
+                eprintln!("fidus-agent: seccomp unavailable here: {e}");
+                ExitCode::from(2)
+            }
+            Err(e) => {
+                eprintln!("fidus-agent: lockdown ineffective: {e}");
+                ExitCode::FAILURE
+            }
+        };
+    }
+
     if matches!(command.as_str(), "record" | "devices" | "doctor") {
         if let Err(e) = confine::lock_down() {
             eprintln!("fidus-agent: could not confine the process: {e}");
