@@ -87,6 +87,8 @@ The only component that ever reads `/dev/input`. It must stay small enough to be
 | 2.2 | The scaled Manhattan baseline on CMU reproduces the published EER (about 0.096) | Within 0.01 |
 | 2.3 | Run-length metrics are computed from a labelled trace | Test on a synthetic trace with a known change point |
 
+**Measured on 2026-10-21** (`research/results/2026-10-21-public-corpora/`): 2.2 is met, scaled Manhattan on CMU gives a mean EER of 0.0960 against the published 0.096.
+
 ---
 
 ## WP 3 - Attribution channel and overlay
@@ -145,6 +147,8 @@ First end-to-end result: no enrolment needed, so the whole chain can be demonstr
 | 4.2 | Biomechanical digraph classes are compared with true digraphs on a public corpus | Loss of discriminating power quantified; the default of ADR-0008 confirmed or reopened |
 | 4.3 | Signals that mostly encode hardware are identified and barred from identity evidence | List published |
 | 4.4 | The `(a,b)` pair of Fitts's law is stable across sessions | Coefficient of variation under 15 % |
+
+**Measured on 2026-10-21** (same artifact): for 4.2, digraph classes cost about 2 points of EER on CMU (keystroke expert 0.197 with true digraphs, 0.219 with classes); the default of ADR-0008 stands, on a narrow fixed-text slice. The pointer expert gets its first real number on Balabit: mean EER 0.38 per segment, 0.29 per session, which is weak.
 
 ---
 

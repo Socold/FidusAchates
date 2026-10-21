@@ -54,6 +54,30 @@ def eer(genuine: list[float], impostor: list[float], steps: int = 400) -> float:
     return best
 
 
+def eer_exact(genuine: list[float], impostor: list[float]) -> float:
+    """Equal error rate over every distinct score as a threshold, read where
+    FAR and FRR cross: the mean of the two at the threshold that brings them
+    closest. This is the reading of the published CMU figure; the fixed grid
+    of `eer` can miss the crossing when a few extreme scores stretch the range.
+    """
+    if not genuine or not impostor:
+        return float("nan")
+    g = sorted(genuine)
+    i = sorted(impostor)
+    ng, ni = len(g), len(i)
+    best_gap, best = 2.0, 1.0
+    gi = ii = 0  # counts of genuine / impostor scores below the threshold
+    for t in sorted(set(g) | set(i)) + [max(g[-1], i[-1]) + 1.0]:
+        while gi < ng and g[gi] < t:
+            gi += 1
+        while ii < ni and i[ii] < t:
+            ii += 1
+        far, frr = ii / ni, (ng - gi) / ng
+        if abs(far - frr) < best_gap:
+            best_gap, best = abs(far - frr), (far + frr) / 2
+    return best
+
+
 def det_points(
     genuine: list[float], impostor: list[float], steps: int = 200
 ) -> list[tuple[float, float]]:
