@@ -66,7 +66,7 @@ The only component that ever reads `/dev/input`. It must stay small enough to be
 | 1.7 | A trace written by the Rust recorder is read back identically by the Python reader | Cross-language test |
 | 1.8 | Binary under 8 MB, no run-time dependency beyond libc (INS-21, INS-22) | CI |
 
-**Status**: done, and measured on the real machine: 0 % CPU at rest, RSS 2 MB, a 320 KB release binary with no trace code, and end-to-end capture of a virtual keyboard (provenance flagged, classes reduced, read back by the Python lab). The 24 h endurance run and the hardened install mode remain.
+**Status**: done, and measured on the real machine: 0 % CPU at rest, RSS 2 MB, a 320 KB release binary with no trace code, and end-to-end capture of a virtual keyboard (provenance flagged, classes reduced, read back by the Python lab). Since then it can stream the trace to stdout for the live daemon (`--trace -`, flushed per batch) and records shortcut classes for a given keyboard layout (`--layout`, ADR-0012). The 24 h endurance run and the hardened install mode remain.
 
 ---
 
@@ -77,7 +77,7 @@ The only component that ever reads `/dev/input`. It must stay small enough to be
 - Ingestion of the CMU, Balabit and SapiMouse corpora into the same event model.
 - Result directory format of the evaluation protocol.
 
-**Status**: reader, segmentation/replay, evaluation bench (FAR/EER/ANIA/ANGA/TTD) and CMU ingestion done and tested; a first synthetic-validation result is committed. Real-corpus run (2.2) gated on data.
+**Status**: reader, segmentation/replay, evaluation bench (FAR/EER/ANIA/ANGA/TTD) and CMU ingestion done and tested; a first synthetic-validation result is committed. Real-corpus run (2.2) gated on data. Since ADR-0013 the lab also runs **live** (`fidus_lab.daemon`): the recorder streams to it through a pipe, it keeps one trace per day for 30 days, and it computes **learning curves** on my own data (`fidus_lab.learning`): for growing amounts of enrolled activity, the time to recognise me, the false alarms per hour on me, and the share of someone else caught and how fast. Guest sessions, with logged consent, supply real impostors; until there are any, impostors are simulated from my held-out data and labelled as such.
 
 **Acceptance criteria**
 
@@ -91,7 +91,7 @@ The only component that ever reads `/dev/input`. It must stay small enough to be
 
 ## WP 3 - Attribution channel and overlay
 
-**Status**: the attribution logic (WP3 brain) is in the lab; the GNOME Shell extension (`shell-extension/`) is written and installed, drawing the red square over D-Bus and exposing the focused application category and an activity tick. It needs a session relogin to activate (GNOME does not rescan live on Wayland). The deterministic indicators, the full E-signal set and the attack bench remain.
+**Status**: the attribution logic (WP3 brain) is in the lab and runs live on every window. The GNOME Shell extension (`shell-extension/`) is now a top-bar indicator placed right after the clock, with four states (off, learning, recognised, alert with its percentage) and a menu that opens the console; the floating red square is gone. It still exposes the focused application category and an activity tick, which the live daemon now consumes (signals C02, C03). The deterministic indicators, the full E-signal set and the attack bench remain.
 
 First end-to-end result: no enrolment needed, so the whole chain can be demonstrated within days of the recorder running.
 
@@ -129,7 +129,7 @@ First end-to-end result: no enrolment needed, so the whole chain can be demonstr
 
 ## WP 4 - Signal study
 
-**Status**: the extraction, per-signal discriminating power (d-prime) and greedy selection are built and tested in Python; a synthetic study artifact is committed. The real ranking that turns the catalogue into about fifteen kept signals is gated on real traces and corpora.
+**Status**: the extraction, per-signal discriminating power (d-prime) and greedy selection are built and tested in Python; a synthetic study artifact is committed. The real ranking that turns the catalogue into about fifteen kept signals is gated on real traces and corpora. Habit signals are now extracted and scored as well (`experts/habits.py`): pointing time for distance (B06, without the target width), overshoot (B07), final micro-corrections (B08), approach direction (B15), departure direction after a pause (B25, new), shortcut classes (A16, ADR-0012), application transitions (C02) and opening sequence (C03).
 
 **Content**
 - Every candidate of the [signal catalogue](04-SIGNAL-CATALOGUE.md), implemented **in Python**, on recorded traces and on the public corpora.
@@ -150,7 +150,7 @@ First end-to-end result: no enrolment needed, so the whole chain can be demonstr
 
 ## WP 5 - Fusion, CUSUM, explainability and console
 
-**Status**: the web console (`fidus_lab.console`) is built and tested: a loopback HTTP server with a cookie session set by a one-time link, Host/Origin validation (anti-rebinding), an SSE stream, and it drives the red overlay; a live runner replays a trace through it. The engine now fuses a keystroke and a pointer expert with per-signal contributions, models bimodal signals with a two-component mixture, and resets the CUSUM at L4. The engine core (decibans, CUSUM, logistic fusion, a first keystroke expert, the Identity decision) is built in Python and validated end to end; explainability output and the console remain.
+**Status**: the web console (`fidus_lab.console`) is built and tested: a loopback HTTP server with a cookie session set by a one-time link, Host/Origin validation (anti-rebinding), an SSE stream, and it drives the red overlay; a live runner replays a trace through it. The engine now fuses a keystroke and a pointer expert with per-signal contributions, models bimodal signals with a two-component mixture, and resets the CUSUM at L4. The engine core (decibans, CUSUM, logistic fusion, the keystroke, pointer and habit experts, the Identity decision) is built in Python and validated end to end. The console now runs inside the live daemon with three views: the current session (probability per window, summed evidence, reasons), the learning curves, and guest sessions; the indicator opens it through a one-time link re-armed after each use.
 
 **Content**
 - Expert calibration, reliability diagrams.

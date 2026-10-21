@@ -27,18 +27,20 @@ All of it **without ever recording what is typed**, **with no network access at 
 
 The decision logic of the whole project is built and tested in Python (the lab),
 the recorder is built in Rust and measured on a real machine, and the two
-interfaces (the GNOME red-square overlay and the local web console) exist. What
-remains is mostly system porting, wiring on real data, and measurements gated on
-real corpora.
+interfaces (the GNOME top-bar indicator and the local web console) exist. The
+research build now runs live while I work (ADR-0013): it learns from my own
+activity and shows, in the console, how long it needs to know me and how fast it
+catches someone else. What remains is mostly the Rust port, system porting, and
+measurements on real data.
 
 | WP | Purpose | Status |
 |---|---|---|
 | 0 | Analysis, specifications, architecture, licence | done |
 | 1 | Recorder: capture, privacy reduction, reduced trace, self-confinement | done, measured on the real machine |
 | 2 | Lab: trace reader, replay, evaluation bench, corpus ingestion | done (real-corpus run gated on data) |
-| 3 | Attribution channel, GNOME Shell extension, red overlay | logic and extension done; live wiring and attack bench remain |
+| 3 | Attribution channel, GNOME Shell extension, top-bar indicator | logic, extension and live wiring done; attack bench remains |
 | 4 | Signal study in Python, about fifteen signals retained | machinery done (real ranking gated on data) |
-| 5 | Fusion, CUSUM, explainability, console | done (bimodal mixtures, per-signal explanation) |
+| 5 | Fusion, CUSUM, explainability, console | done (bimodal mixtures, per-signal explanation, live console with learning curves) |
 | 6 | Enrolment, convergence criteria, anti-poisoning, modes | done (re-assurance remains) |
 | 7 | Port of the retained signals to the Rust agent | to do (after signals are chosen on real data) |
 | 8 | Multiple profiles and revision (counting users) | done |
@@ -71,13 +73,13 @@ Analyse a reduced trace end to end (segments, actor labels, decisions, outcomes)
 python3 -m fidus_lab <trace.fidustr>
 ```
 
-Serve the live console, which streams the analysis and drives the red overlay:
+Replay a trace through the console, which streams the analysis and drives the indicator:
 
 ```bash
 python3 -m fidus_lab.console_main <trace.fidustr> --open
 ```
 
-The red square is a GNOME Shell extension. Install it, then **log out and back
+The indicator is a GNOME Shell extension. Install it, then **log out and back
 in** (GNOME does not rescan the extensions directory live on Wayland) and enable
 it:
 
@@ -85,13 +87,35 @@ it:
 cp -r shell-extension/fidusachates@socold.github.io ~/.local/share/gnome-shell/extensions/
 # log out and back in
 gnome-extensions enable fidusachates@socold.github.io
-# show a 72% red square directly:
+# turn the indicator red at 72% directly:
 gdbus call --session -d org.fidusachates.Overlay -o /org/fidusachates/Overlay \
   -m org.fidusachates.Overlay.SetConfidence 72 Identity
 ```
 
 A reduced trace is produced by a recorder built with the `research-trace`
-feature: `fidus-agent record --trace out.fidustr`. See
+feature: `fidus-agent record --trace out.fidustr --layout azerty` (`--trace -`
+streams it to stdout).
+
+### Running it live
+
+One script installs the recorder, the extension and a systemd user service that
+starts the live daemon with my graphical session (membership of the `input`
+group is the only prerequisite, no root):
+
+```bash
+scripts/install-user.sh
+# log out and back in once, so GNOME loads the extension
+systemctl --user status fidusachates      # the daemon
+systemctl --user disable --now fidusachates   # stop everything
+```
+
+The indicator sits right after the clock: grey with a percentage while it is
+learning, green once the enrolment criteria are met, red with the probability
+when someone else is likely at the keyboard. Its menu opens the console, which
+shows the current session, the learning curves, and the guest sessions: hand the
+computer to someone who agrees to it for ten minutes, and their activity becomes
+the impostor population and the real detection numbers. Everything is kept 30
+days in `~/.local/share/fidusachates/`, then deleted. See
 [shell-extension/README.md](shell-extension/README.md) and
 [research/TRACE-FORMAT.md](research/TRACE-FORMAT.md).
 

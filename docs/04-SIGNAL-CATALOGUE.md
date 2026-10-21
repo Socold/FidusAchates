@@ -30,7 +30,7 @@
 | A13 | Shift preference | Left Shift versus right Shift for the same letter | L | Very high | 4 | 4 |
 | A14 | Caps Lock versus Shift | Strategy for consecutive capitals | L | Medium | 3 | 4 |
 | A15 | Modifier use | Frequency and combinations of Ctrl, Alt, Super, AltGr | L | Medium | 2 | 4 |
-| A16 | Shortcut repertoire | Set of shortcuts used and their relative frequency | L | High | 3 | 4 |
+| A16 | Shortcut repertoire | Set of shortcuts used and their relative frequency, recorded as one of 27 shortcut classes, never as keys (ADR-0012) | L | High | 3 | 4 |
 | A17 | Keyboard versus mouse | Share of actions done by keyboard rather than mouse for the same function | L | High | 3 | 4 |
 | A18 | Double letters | Cadence of consecutive repeated letters | L | Medium | 3 | 4 |
 | A19 | Numeric keypad | Use of the keypad versus the digit row | L | High | 3 | 4 |
@@ -69,6 +69,7 @@
 | B22 | Trackpad gestures | Number of fingers, swipe speed, pinch | M | High | 3 | 4 |
 | B23 | Right-click / left-click ratio | And use of the context menu | L | Medium | 3 | 4 |
 | B24 | Selection precision | Length and stability of drag selections | M | Medium | 3 | 4 |
+| B25 | Departure direction after a pause | Which way the hand first moves the pointer after resting at least a second, in eight directions. Gives away hand position and screen habits | L | High | 3 | 4 |
 
 ## Family C - Application context
 
