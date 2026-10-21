@@ -1,6 +1,33 @@
-/* The overlay styling is set inline in extension.js so the square renders even
-   if the stylesheet fails to load; this file is kept for future theming. */
-.fidus-overlay-label {
-    color: white;
+/* Top bar indicator. One class per state on the panel button. */
+.fidus-indicator-box {
+    spacing: 4px;
+}
+
+.fidus-indicator-label {
     font-weight: bold;
+}
+
+.fidus-state-off .fidus-indicator-icon {
+    color: rgba(160, 160, 160, 0.5);
+}
+
+.fidus-state-learning .fidus-indicator-icon,
+.fidus-state-learning .fidus-indicator-label {
+    color: #a0a0a0;
+}
+
+.fidus-state-recognized .fidus-indicator-icon {
+    color: #33cc55;
+}
+
+.fidus-state-alert .fidus-indicator-box {
+    background-color: rgba(200, 0, 0, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    border-radius: 6px;
+    padding: 0 6px;
+}
+
+.fidus-state-alert .fidus-indicator-icon,
+.fidus-state-alert .fidus-indicator-label {
+    color: white;
 }
