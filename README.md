@@ -17,7 +17,7 @@ All of it **without ever recording what is typed**, **with no network access at 
 
 **This tool reads `/dev/input`. It therefore technically has the capabilities of a keylogger.** The project is designed never to use them that way, and that constraint is verified by blocking tests in continuous integration, but the power exists. Install it only if you are prepared to read the code, or to trust someone who has.
 
-**Known limit, which cannot be worked around under Wayland:** there is no reliable way to detect that an input field is a password field. Protection rests on an application blocklist, immediate manual suspension, and the fact that in the default configuration no key code is kept in clear. See [docs/05-PRIVACY.md](docs/05-PRIVACY.md).
+**Known limit, which cannot be worked around under Wayland:** there is no reliable way to detect that an input field is a password field. Protection rests on an application blocklist, immediate manual suspension (the Monitoring switch of the indicator), and the fact that no key code is ever kept. The live daemon also drops every key event typed at the lock screen and into the prompt that follows `sudo`, `passwd` or `ssh-keygen`, since even key classes would give a password's length and shape. See [docs/05-PRIVACY.md](docs/05-PRIVACY.md) section 5.
 
 **Never observe another person without their explicit prior consent.** A behavioural template is biometric data in the sense of the GDPR (art. 4-14), falling under article 9. The conditions to meet before any use involving a third party are listed in [docs/05-PRIVACY.md](docs/05-PRIVACY.md) section 4.3.
 
@@ -30,21 +30,24 @@ the recorder is built in Rust and measured on a real machine, and the two
 interfaces (the GNOME top-bar indicator and the local web console) exist. The
 research build now runs live while I work (ADR-0013): it learns from my own
 activity and shows, in the console, how long it needs to know me and how fast it
-catches someone else. What remains is mostly the Rust port, system porting, and
-measurements on real data.
+catches someone else. It judges each window in the usage it was typed in
+(playing, writing, browsing...), with its own templates per usage. It has been
+measured on two public corpora (CMU keystroke, Balabit mouse). What remains is
+mostly the Rust port, a stronger pointer expert, system porting, and
+measurements on my own data.
 
 | WP | Purpose | Status |
 |---|---|---|
 | 0 | Analysis, specifications, architecture, licence | done |
 | 1 | Recorder: capture, privacy reduction, reduced trace, self-confinement | done, measured on the real machine |
-| 2 | Lab: trace reader, replay, evaluation bench, corpus ingestion | done (real-corpus run gated on data) |
+| 2 | Lab: trace reader, replay, evaluation bench, corpus ingestion | done; CMU baseline reproduced (EER 0.0960 against 0.096), Balabit ingested |
 | 3 | Attribution channel, GNOME Shell extension, top-bar indicator | logic, extension and live wiring done; attack bench remains |
-| 4 | Signal study in Python, about fifteen signals retained | machinery done (real ranking gated on data) |
-| 5 | Fusion, CUSUM, explainability, console | done (bimodal mixtures, per-signal explanation, live console with learning curves) |
+| 4 | Signal study in Python, about fifteen signals retained | machinery done; digraph classes measured on CMU (about 1.5 points of EER); real ranking gated on my data |
+| 5 | Fusion, CUSUM, explainability, console | done (bimodal mixtures, per-signal explanation, usage-aware templates, recognition meter, live console with learning curves) |
 | 6 | Enrolment, convergence criteria, anti-poisoning, modes | done (re-assurance remains) |
 | 7 | Port of the retained signals to the Rust agent | to do (after signals are chosen on real data) |
 | 8 | Multiple profiles and revision (counting users) | done |
-| 9 | Action sensitivity wired into the malice policy | to do |
+| 9 | Action sensitivity wired into the malice policy | wired live through a shell hook that sends classes only (ADR-0014); attack bench remains |
 | 10 | Porting to Windows, macOS, X11, other compositors | to do |
 | 11 | Mobile SDK | to do |
 | 12 | Doubt resolution: challenge or session lock (long-term vision) | not planned yet |
@@ -109,13 +112,26 @@ systemctl --user status fidusachates      # the daemon
 systemctl --user disable --now fidusachates   # stop everything
 ```
 
-The indicator sits right after the clock: grey with a percentage while it is
-learning, green once the enrolment criteria are met, red with the probability
-when someone else is likely at the keyboard. Its menu opens the console, which
+The indicator sits right after the clock: grey while it is learning, with the
+learning progress and how sure it is that I am the one typing (`33% · 91%`),
+green with that confidence once the enrolment criteria are met, red with the
+probability when someone else is likely at the keyboard. Its menu has a
+**Monitoring** switch (it stops the service for the session; it starts again at
+the next login) and opens the console, which
 shows the current session, the learning curves, and the guest sessions: hand the
 computer to someone who agrees to it for ten minutes, and their activity becomes
 the impostor population and the real detection numbers. Everything is kept 30
-days in `~/.local/share/fidusachates/`, then deleted. See
+days in `~/.local/share/fidusachates/`, then deleted.
+
+For action sensitivity (work package 9), add the line the install script prints
+to `~/.bashrc`: each command I run in an interactive bash is reduced to a class
+(read, network, elevation, destructive...) inside the shell, and only the class
+reaches the daemon (ADR-0014). Commands run by tools in non-interactive shells
+are not seen.
+
+Measurements so far are in [research/results](research/results): the
+synthetic validations, the usage-aware comparison, and the public corpora
+(`python3 -m fidus_lab.public_eval`, data kept out of the repository). See
 [shell-extension/README.md](shell-extension/README.md) and
 [research/TRACE-FORMAT.md](research/TRACE-FORMAT.md).
 
@@ -144,7 +160,8 @@ Among the decisions, [ADR-0011](docs/adr/0011-attribution-not-malice.md) separat
 | [crates/fidus-core](crates/fidus-core) | Event model, privacy reduction and trace format (Rust, no dependency): the privacy boundary |
 | [crates/fidus-agent](crates/fidus-agent) | The recorder: evdev capture, self-confinement, hot-plug (Rust, libc only) |
 | [lab/fidus_lab](lab/fidus_lab) | Decision engine, attribution, enrolment, profiles, console (Python, offline) |
-| [shell-extension](shell-extension) | GNOME Shell extension: the red overlay and content-free context |
+| [shell-extension](shell-extension) | GNOME Shell extension: the top-bar indicator, its Monitoring switch, and content-free context |
+| [contrib](contrib) | systemd user unit and the bash action-class hook |
 | [research](research) | Trace format, evaluation protocol, results |
 
 ## Design principles
