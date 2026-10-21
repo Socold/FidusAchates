@@ -40,6 +40,7 @@ from .explain import explain
 from .learning import Enrolled, Population, learning_curve
 from .overlay import best_overlay
 from .policy import decide
+from .privacy import SecretInputFilter
 from .registry import SanctionRegistry
 from .segment import LiveSegmenter, Segment
 from .sensitivity import ActionLog, actions_path, follow
@@ -101,7 +102,8 @@ class Daemon:
         self.registry = SanctionRegistry()
         self.segmenter = LiveSegmenter()
         self.context = ContextTracker()
-        self.actions = ActionLog()
+        self.secrets = SecretInputFilter()
+        self.actions = ActionLog(on_add=self._on_action)
         self._pending_context: list[ContextEvent] = []
         self._records: queue.Queue = queue.Queue(maxsize=100_000)
         self._lock = threading.Lock()
@@ -178,6 +180,17 @@ class Daemon:
             print(f"fidus-daemon: bad stream from the recorder: {e}", file=sys.stderr)
         self._records.put(None)
 
+    def _on_action(self, ev) -> None:
+        # A prompt for a password usually follows: keep its keys out.
+        if ev.action in ("elevation", "credentials"):
+            self.secrets.arm(ev.time_us)
+
+    def on_lock(self, active: bool) -> None:
+        """Called from the D-Bus thread when the screen locks or unlocks."""
+        self.secrets.lock_changed(active, now_us())
+        print(f"fidus-daemon: screen {'locked' if active else 'unlocked'}; "
+              f"{self.secrets.dropped} key events withheld so far", file=sys.stderr)
+
     def on_activity(self, category: str) -> None:
         """Called from the D-Bus thread on every focus change."""
         ev = self.context.tick(now_us(), category)
@@ -189,6 +202,17 @@ class Daemon:
                 self._guest.write_context([ev])
             else:
                 self.store.write_context([ev])
+
+    def _take(self, r: Record) -> None:
+        """One record past the secret-input filter: stored and segmented."""
+        if (self._last_record_us is not None
+                and r.time_us - self._last_record_us > NEW_SESSION_IDLE_US):
+            self._new_session()
+        self._last_record_us = r.time_us
+        self._write(r)
+        closed = self.segmenter.feed(r)
+        if closed is not None:
+            self._close(closed)
 
     def _write(self, r: Record) -> None:
         with self._lock:
@@ -340,7 +364,7 @@ class Daemon:
         threading.Thread(target=self._heartbeat, daemon=True).start()
         threading.Thread(target=follow, args=(actions_path(), self.actions, self._stop, now_us),
                          daemon=True).start()
-        start_activity_listener(self.on_activity)
+        start_activity_listener(self.on_activity, self.on_lock)
         self._new_session()
         self.overlay.set_status("learning", 0)
         last_flush = time.time()
@@ -354,14 +378,10 @@ class Daemon:
                     print("fidus-daemon: the recorder stopped", file=sys.stderr)
                     return proc.wait() or 1
                 if r:
-                    if (self._last_record_us is not None
-                            and r.time_us - self._last_record_us > NEW_SESSION_IDLE_US):
-                        self._new_session()
-                    self._last_record_us = r.time_us
-                    self._write(r)
-                    closed = self.segmenter.feed(r)
-                else:
-                    closed = self.segmenter.tick(now_us())
+                    self.secrets.push(r)
+                for rr in self.secrets.release(now_us()):
+                    self._take(rr)
+                closed = self.segmenter.tick(now_us() - self.secrets.delay_us)
                 if closed is not None:
                     self._close(closed)
                 if time.time() - last_flush > 2:
@@ -374,6 +394,8 @@ class Daemon:
             return 0
         finally:
             self._stop.set()
+            for rr in self.secrets.release(now_us(), flush=True):
+                self._take(rr)
             proc.terminate()
             with self._lock:
                 self.store.flush()
@@ -382,9 +404,10 @@ class Daemon:
             self.overlay.set_status("off", 0, force=True)
 
 
-def start_activity_listener(callback) -> bool:
-    """Subscribe to the extension's ActivityTick on a GLib loop in its own
-    thread. Without PyGObject or the extension, context simply stays empty."""
+def start_activity_listener(callback, on_lock=None) -> bool:
+    """Subscribe to the extension's ActivityTick, and to GNOME's screen lock
+    for `on_lock`, on a GLib loop in its own thread. Without PyGObject or the
+    extension, context simply stays empty."""
     try:
         import gi
 
@@ -404,6 +427,18 @@ def start_activity_listener(callback) -> bool:
         bus.signal_subscribe(None, "org.fidusachates.Overlay", "ActivityTick",
                              "/org/fidusachates/Overlay", None,
                              Gio.DBusSignalFlags.NONE, on_signal)
+        if on_lock is not None:
+            bus.signal_subscribe(None, "org.gnome.ScreenSaver", "ActiveChanged",
+                                 "/org/gnome/ScreenSaver", None,
+                                 Gio.DBusSignalFlags.NONE,
+                                 lambda *a: on_lock(bool(a[-1].unpack()[0])))
+            try:
+                active = bus.call_sync("org.gnome.ScreenSaver", "/org/gnome/ScreenSaver",
+                                       "org.gnome.ScreenSaver", "GetActive", None, None,
+                                       Gio.DBusCallFlags.NONE, 1000, None).unpack()[0]
+                on_lock(bool(active))
+            except Exception:  # noqa: BLE001  no screensaver service: nothing to track
+                pass
         GLib.MainLoop().run()
 
     threading.Thread(target=loop, daemon=True).start()

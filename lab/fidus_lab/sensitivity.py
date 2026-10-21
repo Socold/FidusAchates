@@ -86,11 +86,15 @@ def parse_line(line: str, now_real: float, now_mono_us: int) -> ActionEvent | No
 class ActionLog:
     """Recent actions, and the sensitivity of a segment from those inside it."""
 
-    def __init__(self) -> None:
+    def __init__(self, on_add=None) -> None:
         self._events: deque[ActionEvent] = deque()
         self._lock = threading.Lock()
+        # Told of every action as it arrives (the secret-input filter).
+        self._on_add = on_add
 
     def add(self, ev: ActionEvent) -> None:
+        if self._on_add is not None:
+            self._on_add(ev)
         with self._lock:
             self._events.append(ev)
             while self._events and self._events[0].time_us < ev.time_us - KEEP_US:

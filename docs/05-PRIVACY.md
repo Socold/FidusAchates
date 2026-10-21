@@ -107,6 +107,13 @@ These conditions are repeated in the README so that they are seen before install
 
 **Under Wayland there is no reliable way to detect that an input field is a password field.** At the default level this matters less than it sounds: what is kept about a password is its typing rhythm and motor classes, never its characters. The rhythm of a frequently typed password is nonetheless distinctive, so the application blocklist (FR-6) and manual suspension (FR-7) remain.
 
+The sequence of key classes says more than the rhythm: for a password, it gives its **length and shape** (how many letters, digits and punctuation, in which order), which narrows a guess. Two moments are known to be password entry without reading anything, and the live daemon drops every key event in them before it writes or scores anything (`fidus_lab.privacy`, pointer events are kept):
+
+- the **lock screen**: GNOME signals the lock through `org.gnome.ScreenSaver`, and whatever is typed until the unlock is the session password;
+- the **prompt after an elevation or credentials command** (`sudo`, `passwd`, `ssh-keygen`..., from the action hook of ADR-0014): keys are dropped from the command up to the next Enter, or for at most a minute. When no prompt comes (a cached `sudo` ticket), the next line I type is dropped instead.
+
+Records wait 1.5 s before release so that the hook's notice always lands first. The first key after a dropped span also loses its digraph class, which relates it to the last secret key. Password fields in a browser or an application remain uncovered, as stated above; the Monitoring switch of the indicator is the manual suspension.
+
 This limit appears in the README, above the installation instructions, and not in a footnote.
 
 ## 6. Granularity levels
