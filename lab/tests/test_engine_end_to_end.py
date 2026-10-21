@@ -97,3 +97,17 @@ def test_wide_fallback_still_separates_without_a_population():
     eg = IdentityEngine(genuine=tpl, reference=None).step(g).evidence_db
     ei = IdentityEngine(genuine=tpl, reference=None).step(i).evidence_db
     assert ei > eg
+
+
+def test_confidence_rises_past_the_prior_then_turns_on_a_takeover():
+    eng = build_engine()
+    for s in segments_from(GENUINE, n_segments=10, seed_start=1100):
+        d = eng.step(s)
+    # Not floored at the prior's 91 %, which 1 - p_impostor is.
+    assert d.confidence > 0.99
+    turned_at = None
+    for i, s in enumerate(segments_from(IMPOSTOR, n_segments=10, seed_start=1300), start=1):
+        if eng.step(s).confidence < 0.5:
+            turned_at = i
+            break
+    assert turned_at is not None and turned_at <= 5, turned_at

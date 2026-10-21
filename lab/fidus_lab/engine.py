@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .evidence import Cusum, LogisticFusion, probability_from_evidence
+from .evidence import Cusum, LogisticFusion, RecognitionMeter, probability_from_evidence
 from .experts import (
     HabitExpert,
     HabitTemplate,
@@ -52,9 +52,12 @@ class IdentityEngine:
     habit_expert: HabitExpert = field(default_factory=HabitExpert)
     fusion: LogisticFusion = field(default_factory=LogisticFusion)
     min_quality: int = 4
+    # Bound of the recognition meter on each side, in decibans.
+    recognition_bound_db: float = 20.0
 
     def __post_init__(self) -> None:
         self._cusum = Cusum(h=self.cusum_h)
+        self._recognition = RecognitionMeter(bound_db=self.recognition_bound_db)
         if self.reference is not None and self.reference is self.genuine:
             raise ValueError(
                 "reference must not be the genuine template: evidence would be "
@@ -105,10 +108,12 @@ class IdentityEngine:
         if n < self.min_quality:
             return Decision(seg, evidence_db=0.0, cumulative=self._cusum.s,
                             p_impostor=self._p(self._cusum.s), alarmed=False,
-                            quality=n, contributions={})
+                            quality=n, contributions={},
+                            confidence=self._confidence())
         weighted = self.fusion.contributions(contributions)
         fused = self.fusion.fuse(contributions)
         alarmed = self._cusum.update(fused)
+        self._recognition.update(fused)
         # The statistic at the moment of decision, before any reset, is what
         # the decision reports and what the probability is derived from.
         s_at_decision = self._cusum.s
@@ -119,13 +124,19 @@ class IdentityEngine:
             self._cusum.reset()
         return Decision(seg, evidence_db=fused, cumulative=s_at_decision,
                         p_impostor=self._p(s_at_decision), alarmed=alarmed,
-                        quality=n, contributions=weighted)
+                        quality=n, contributions=weighted,
+                        confidence=self._confidence())
 
     def _p(self, s: float) -> float:
         return probability_from_evidence(s, self.prior_db)
 
+    def _confidence(self) -> float:
+        """P(the enrolled user) from the recognition meter and the prior."""
+        return 1.0 - probability_from_evidence(self._recognition.r, self.prior_db)
+
     def reset(self) -> None:
         self._cusum.reset()
+        self._recognition.reset()
 
 
 @dataclass(frozen=True)
@@ -139,3 +150,7 @@ class Decision:
     # Weighted per-signal contributions; they sum to evidence_db minus the
     # fusion bias. This is what the explanation renders.
     contributions: dict[str, float] = field(default_factory=dict)
+    # How sure the engine is that this is the enrolled user, from the
+    # two-sided recognition meter; unlike 1 - p_impostor it is not floored at
+    # the prior.
+    confidence: float = 0.0

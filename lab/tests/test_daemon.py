@@ -25,10 +25,10 @@ def test_panel_state_never_alerts_while_learning():
     assert panel_state(True, 1.0, None) == ("recognized", 0)
 
 
-def test_identity_confidence_is_the_complement_of_p_impostor():
+def test_identity_confidence_in_percent_never_reads_100():
     assert identity_confidence(None) is None
-    assert identity_confidence(0.09) == 91
-    assert identity_confidence(0.72) == 28
+    assert identity_confidence(0.912) == 91
+    assert identity_confidence(0.9999) == 99
 
 
 def test_store_round_trips_days_and_splits_reboots(tmp_path):

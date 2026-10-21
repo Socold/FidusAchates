@@ -63,6 +63,8 @@ where `S` is the accumulated evidence of section 4. The initial prior is **-10 d
 
 The displayed probability is an **aid to reading**. Alarms are not triggered by it but by the run-length thresholds of section 4; the two are specified separately on purpose.
 
+Because the CUSUM stops at zero, `1 - P(impostor)` can never exceed the prior's 91 %, however strongly I am recognised. The confidence shown next to the learning progress therefore comes from a second, two-sided sum, the **recognition meter**: `R = clamp(R + E, -20 dB, +20 dB)`, read through the same prior as `1 - P`. It reaches 99.9 % when I am clearly recognised, and since it is bounded it needs at most 20 dB of contrary evidence to turn when someone else takes over. It resets with the session and never raises an alarm.
+
 ## 3. Reference densities
 
 Each signal needs two densities: under the genuine hypothesis and under the impostor hypothesis.

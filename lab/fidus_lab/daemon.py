@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import queue
+import signal
 import subprocess
 import sys
 import threading
@@ -71,12 +72,13 @@ def panel_state(ready: bool, progress: float, p_impostor: float | None) -> tuple
     return "recognized", 0
 
 
-def identity_confidence(p_impostor: float | None) -> int | None:
+def identity_confidence(confidence: float | None) -> int | None:
     """How sure the engine is that the person at the keyboard is me, in
-    percent, shown next to the learning progress; None before any score."""
-    if p_impostor is None:
+    percent, shown next to the learning progress; None before any score.
+    Rounded down, so the bar never reads 100 %."""
+    if confidence is None:
         return None
-    return int(round((1.0 - p_impostor) * 100))
+    return min(99, max(0, int(confidence * 100)))
 
 
 @dataclass
@@ -111,6 +113,7 @@ class Daemon:
         self._session_t = 0.0
         self._session_sum = 0.0
         self._last_p: float | None = None
+        self._last_confidence: float | None = None
         self._status: dict = {"phase": "starting", "progress": 0.0, "ready": False}
         self._index = 0
         self._register_actions()
@@ -210,6 +213,7 @@ class Daemon:
         self._session_t += max(seg.duration_us, 0) / 1e6
         self._session_sum += d.evidence_db
         self._last_p = d.p_impostor
+        self._last_confidence = d.confidence
         report = SegmentReport(
             index=self._index, n_events=seg.n_events, segment=seg, attribution=a,
             identity_p_impostor=d.p_impostor, identity_alarmed=d.alarmed,
@@ -221,6 +225,7 @@ class Daemon:
         self.console.state.publish(report, extra={
             "t": round(self._session_t, 1),
             "evidence_db": round(d.evidence_db, 1),
+            "confidence": round(d.confidence, 3),
             "session_db": round(self._session_sum, 1),
             "guest": guest,
             "at": dt.datetime.now().strftime("%H:%M:%S"),
@@ -230,7 +235,8 @@ class Daemon:
     def _push_panel(self, force: bool = False) -> None:
         st = self._status
         state, pct = panel_state(st.get("ready", False), st.get("progress", 0.0), self._last_p)
-        self.overlay.set_status(state, pct, identity_confidence(self._last_p), force=force)
+        self.overlay.set_status(state, pct, identity_confidence(self._last_confidence),
+                                force=force)
 
     def _publish_status(self) -> None:
         with self._lock:
@@ -402,7 +408,15 @@ def main(argv: list[str]) -> int:
     threading.Thread(target=console.serve_forever, daemon=True).start()
     print(f"fidus-daemon: console link in {link}", file=sys.stderr)
     cmd = [args.agent, "record", "--trace", "-", "--layout", args.layout]
+    # systemd stops the service with SIGTERM (the Monitoring switch, logout):
+    # take the same way out as Ctrl-C, so the trace is flushed and the
+    # indicator turns off at once instead of after its heartbeat.
+    signal.signal(signal.SIGTERM, _terminate)
     return Daemon(store, cmd, console).run()
+
+
+def _terminate(_signum, _frame) -> None:
+    raise KeyboardInterrupt
 
 
 if __name__ == "__main__":

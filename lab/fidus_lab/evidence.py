@@ -71,6 +71,26 @@ class Cusum:
 
 
 @dataclass
+class RecognitionMeter:
+    """How sure the engine is, right now, that the person is the enrolled
+    user. Separate from the CUSUM, which only looks for a change and so stops
+    at zero: this one sums evidence both ways, bounded on each side, so it can
+    say "recognised" with more than the prior's confidence yet still turn
+    within a few windows when someone else takes over. It never alarms.
+    """
+
+    bound_db: float = 20.0
+    r: float = 0.0
+
+    def update(self, evidence_db: float) -> float:
+        self.r = min(self.bound_db, max(-self.bound_db, self.r + evidence_db))
+        return self.r
+
+    def reset(self) -> None:
+        self.r = 0.0
+
+
+@dataclass
 class LogisticFusion:
     """Linear fusion of expert LLRs: E = b + sum(w_i * e_i).
 

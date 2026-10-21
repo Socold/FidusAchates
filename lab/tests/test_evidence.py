@@ -2,6 +2,7 @@
 from fidus_lab.evidence import (
     Cusum,
     LogisticFusion,
+    RecognitionMeter,
     deciban,
     probability_from_evidence,
 )
@@ -47,3 +48,15 @@ def test_pooled_bounds_a_talkative_signal_but_keeps_its_direction():
     assert pooled([1.0, 2.0], 20) == 3.0              # few: the plain sum
     assert pooled([-3.0] * 300, 20) == -60.0           # many: mean x 20
     assert pooled([2.0] * 10 + [-2.0] * 290, 20) < 0   # direction kept
+
+
+def test_recognition_meter_is_bounded_both_ways():
+    m = RecognitionMeter(bound_db=20.0)
+    for _ in range(50):
+        m.update(-30.0)
+    assert m.r == -20.0
+    # A takeover only has to climb back over the bound, not over the history.
+    m.update(25.0)
+    assert m.r == 5.0
+    m.reset()
+    assert m.r == 0.0
