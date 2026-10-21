@@ -18,7 +18,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-from ..evidence import deciban_from_logpdf
+from ..evidence import deciban_from_logpdf, pooled
 from ..segment import Segment
 from ..stats import Distribution, fit_best, wide_reference
 from ..trace import EventKind
@@ -93,6 +93,9 @@ class PointerTemplate:
 class PointerExpert:
     name: str = "pointer"
     clamp_db: float = 6.0
+    # At most this many observations' worth per signal and segment (see
+    # evidence.pooled): pointer motion gives hundreds of correlated ones.
+    n_eff_max: int = 20
 
     def evidence(
         self,
@@ -100,7 +103,7 @@ class PointerExpert:
         genuine: PointerTemplate,
         reference: PointerTemplate,
     ) -> tuple[dict[str, float], int]:
-        out: dict[str, float] = {}
+        per: dict[str, list[float]] = {}
         n = 0
         for name, fn in _SIGNALS.items():
             g = genuine.models.get(name)
@@ -112,9 +115,9 @@ class PointerExpert:
                 logp_r = r.logpdf(x) if r is not None else self._wide(x, g)
                 e = deciban_from_logpdf(logp_r, logp_g)
                 e = max(-self.clamp_db, min(self.clamp_db, e))
-                out[name] = out.get(name, 0.0) + e
+                per.setdefault(name, []).append(e)
                 n += 1
-        return out, n
+        return {k: pooled(v, self.n_eff_max) for k, v in per.items()}, n
 
     @staticmethod
     def _wide(x: float, g: Distribution) -> float:

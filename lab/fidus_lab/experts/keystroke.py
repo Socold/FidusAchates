@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ..evidence import deciban_from_logpdf
+from ..evidence import deciban_from_logpdf, pooled
 from ..segment import Segment
 from ..stats import Distribution, fit_best, wide_reference
 from ..trace import EventKind, KeyClass, has_digraph
@@ -78,6 +78,8 @@ class KeystrokeExpert:
     # Per-observation evidence is clamped so one weird keystroke cannot swamp
     # the segment (robustness against outliers and model tails).
     clamp_db: float = 6.0
+    # At most this many observations' worth per signal and segment.
+    n_eff_max: int = 20
 
     def evidence(
         self,
@@ -91,19 +93,19 @@ class KeystrokeExpert:
         "A05_digraph_5"), so the fusion can weight them and the explanation
         can show them as separate bars, not one opaque number.
         """
-        out: dict[str, float] = {}
+        per: dict[str, list[float]] = {}
         n = 0
         for kc, dt in _hold_times(seg):
             e = self._one(dt, genuine.hold.get(int(kc)), reference.hold.get(int(kc)))
             key = f"A01_hold_{KeyClass(kc).name.lower()}"
-            out[key] = out.get(key, 0.0) + e
+            per.setdefault(key, []).append(e)
             n += 1
         for dc, dt in _digraph_latencies(seg):
             e = self._one(dt, genuine.digraph.get(dc), reference.digraph.get(dc))
             key = f"A05_digraph_{dc}"
-            out[key] = out.get(key, 0.0) + e
+            per.setdefault(key, []).append(e)
             n += 1
-        return out, n
+        return {k: pooled(v, self.n_eff_max) for k, v in per.items()}, n
 
     def _one(self, x: float, g: Distribution | None, r: Distribution | None) -> float:
         # Need the genuine model; without an impostor model, fall back to a wide

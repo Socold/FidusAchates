@@ -79,3 +79,18 @@ def test_curve_without_guests_says_simulated():
 def test_too_little_data_is_said_not_guessed():
     curve = learning_curve(person(OWNER_KEYS, {}, 3, seed=8))
     assert curve.points == [] and curve.note
+
+
+def test_a_different_typist_is_caught_despite_my_own_pointer():
+    """Regression: pointer velocity has one observation per motion event, and
+    summed as if independent it outweighed every keystroke signal, so a
+    different typist using the pointer like me went unseen for minutes or
+    for good. Pooled evidence (evidence.pooled) bounds it."""
+    owner = person(OWNER_KEYS, {}, 60, seed=6)
+    eng = Enrolled.fit(owner)
+    caught = [replay(eng.engine(), person(GUEST_KEYS, {}, 10, seed=s)).first_alarm_after_s
+              for s in range(20, 26)]
+    assert all(c is not None and c < 60 for c in caught)
+    mine = [replay(eng.engine(), person(OWNER_KEYS, {}, 10, seed=s + 100)).alarms
+            for s in range(20, 26)]
+    assert sum(mine) == 0

@@ -24,6 +24,21 @@ def deciban_from_logpdf(logp_impostor: float, logp_genuine: float) -> float:
     return 10.0 / math.log(10.0) * (logp_impostor - logp_genuine)
 
 
+def pooled(values: list[float], n_eff_max: int) -> float:
+    """Total evidence of one signal over one segment, counting at most
+    `n_eff_max` observations' worth. Up to that many, the plain sum; beyond,
+    the mean per observation times `n_eff_max`. Observations of one signal in
+    one segment are not independent (successive pointer motion events are one
+    gesture), so summing hundreds of them let the most talkative signal drown
+    every other. The mean keeps the direction and strength of the signal; the
+    cap bounds how many independent votes it gets."""
+    if not values:
+        return 0.0
+    if len(values) <= n_eff_max:
+        return sum(values)
+    return sum(values) / len(values) * n_eff_max
+
+
 def probability_from_evidence(cumulative_db: float, prior_db: float = -10.0) -> float:
     """P(impostor) from cumulative evidence and a prior, both in decibans."""
     posterior = prior_db + cumulative_db

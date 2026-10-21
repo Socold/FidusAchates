@@ -38,3 +38,12 @@ def test_fusion_contributions_sum_to_total():
     total = f.fuse(ev)
     contribs = f.contributions(ev)
     assert abs(sum(contribs.values()) + f.bias - total) < 1e-9
+
+
+def test_pooled_bounds_a_talkative_signal_but_keeps_its_direction():
+    from fidus_lab.evidence import pooled
+
+    assert pooled([], 20) == 0.0
+    assert pooled([1.0, 2.0], 20) == 3.0              # few: the plain sum
+    assert pooled([-3.0] * 300, 20) == -60.0           # many: mean x 20
+    assert pooled([2.0] * 10 + [-2.0] * 290, 20) < 0   # direction kept

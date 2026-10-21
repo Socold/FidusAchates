@@ -46,6 +46,8 @@ E = b + Σ_i  w_i · q_i · e_i
 - `b`: offset learned at the same time; together with the weights it calibrates the fused score.
 - `q_i`: **quality** of the current observation, in `[0, 1]` (enough observations, acceptable estimator variance). Zero if the evidence is too thin (FR-11): the signal then does not vote at all.
 
+**Within** a signal, the per-observation evidence of one window is not a plain sum. Each observation is clamped (6 dB), and a signal counts at most `n_eff_max` observations' worth: up to that, the sum; beyond, the mean per observation times `n_eff_max`. Observations of one signal in one window are strongly correlated (successive pointer motion events belong to one gesture), and the plain sum treated them as independent: pointer velocity, with one observation per motion event, reached hundreds of decibans per window and drowned every other signal, so a different typist who handled the pointer like me went unseen. The mean keeps the direction and strength of a signal; the cap bounds how many independent votes it gets. Measured on synthetic data (a different typist, same pointer): detected 8 times out of 8 in a median 26 s, against 7 out of 8 in 104 s before, with no false alarm on me either way. The cost, also measured: someone with my exact typing and pointer speed who differs only by habits (directions, overshoot, shortcuts) is no longer caught on habits alone (0 out of 8, against 4 out of 8), because the keystroke signals now outvote them. Results committed before 2026-10-21 were computed with plain sums.
+
 The fusion is linear, so the contribution `w_i · q_i · e_i` of each signal is **exact**. That is the property the whole explainability argument rests on (ADR-0004), and it is untouched.
 
 ### 2.2 Displayed probability
@@ -284,6 +286,8 @@ All values below are **starting hypotheses to be calibrated**, not justified con
 | `cusum_h_identity` | 25 dB, then set from `ARL0` = 8 h of use | WP 5 |
 | `cusum_h_humanity` | set from `ARL0` = 30 days of use | WP 3 |
 | `fusion_weights` | learned by logistic regression | WP 5 |
+| `n_eff_max` | 20 observations per signal and window | WP 4 |
+| `observation_clamp` | 6 dB | WP 4 |
 | `overlay_threshold` | P = 0.50, i.e. `S` = 10 dB at the initial prior | Fixed by the need |
 | `hysteresis` | 3 dB | WP 3 |
 | `idle_reset` | 10 min | WP 3 |

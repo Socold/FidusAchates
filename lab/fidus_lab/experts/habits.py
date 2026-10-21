@@ -27,7 +27,7 @@ import math
 from dataclasses import dataclass, field
 
 from ..context import CATEGORIES, OPENING_LENGTH
-from ..evidence import deciban_from_logpdf
+from ..evidence import deciban_from_logpdf, pooled
 from ..segment import Segment
 from ..stats import Categorical
 from ..trace import EventKind, ShortcutClass
@@ -269,6 +269,8 @@ class HabitExpert:
     clamp_db: float = 6.0
     # The no-population reference for the law is this many times as wide.
     wide_factor: float = 3.0
+    # At most this many observations' worth per signal and segment.
+    n_eff_max: int = 20
 
     def evidence(
         self,
@@ -276,7 +278,7 @@ class HabitExpert:
         genuine: HabitTemplate,
         reference: HabitTemplate | None = None,
     ) -> tuple[dict[str, float], int]:
-        out: dict[str, float] = {}
+        per: dict[str, list[float]] = {}
         n = 0
         gs = gestures(seg)
         for name, (fn, k) in _CATEGORICAL.items():
@@ -286,7 +288,7 @@ class HabitExpert:
             r = (reference.categorical.get(name) if reference else None) or Categorical.uniform(k)
             for v in fn(seg, gs):
                 e = deciban_from_logpdf(r.logpmf(v), g.logpmf(v))
-                out[name] = out.get(name, 0.0) + self._clamp(e)
+                per.setdefault(name, []).append(self._clamp(e))
                 n += 1
         if genuine.law is not None:
             ref_law = reference.law if reference and reference.law else None
@@ -296,10 +298,10 @@ class HabitExpert:
                     continue
                 lg = genuine.law.logpdf(*p)
                 lr = ref_law.logpdf(*p) if ref_law else genuine.law.logpdf(*p, widen=self.wide_factor)
-                out["B06_pointing_time"] = out.get("B06_pointing_time", 0.0) + self._clamp(
-                    deciban_from_logpdf(lr, lg))
+                per.setdefault("B06_pointing_time", []).append(
+                    self._clamp(deciban_from_logpdf(lr, lg)))
                 n += 1
-        return out, n
+        return {k: pooled(v, self.n_eff_max) for k, v in per.items()}, n
 
     def _clamp(self, e: float) -> float:
         return max(-self.clamp_db, min(self.clamp_db, e))
