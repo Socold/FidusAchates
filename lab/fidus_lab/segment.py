@@ -27,6 +27,9 @@ class Segment:
     records: list[Record] = field(default_factory=list)
     # Focus changes that happened during the segment (attached by the daemon).
     context: list[ContextEvent] = field(default_factory=list)
+    # The application category in focus when the segment ended, None when
+    # unknown: what kind of usage the segment is judged in.
+    category: int | None = None
 
     @property
     def duration_us(self) -> int:

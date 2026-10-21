@@ -1,0 +1,70 @@
+{
+  "note": "synthetic typists; alarmed_fraction is a false alarm rate for 'me_*' and a detection rate otherwise",
+  "sessions": 30,
+  "segments_per_session": 15,
+  "modes_in_global_model": 2,
+  "usage_modes": {
+    "office": 1,
+    "game": 2
+  },
+  "me_writing": {
+    "global": {
+      "alarmed_fraction": 0.0,
+      "median_delay_segments": null
+    },
+    "usage_aware": {
+      "alarmed_fraction": 0.0,
+      "median_delay_segments": null
+    }
+  },
+  "me_playing": {
+    "global": {
+      "alarmed_fraction": 0.0,
+      "median_delay_segments": null
+    },
+    "usage_aware": {
+      "alarmed_fraction": 0.0,
+      "median_delay_segments": null
+    }
+  },
+  "impostor_with_my_playing_rhythm_writing": {
+    "global": {
+      "alarmed_fraction": 0.0,
+      "median_delay_segments": null
+    },
+    "usage_aware": {
+      "alarmed_fraction": 1.0,
+      "median_delay_segments": 1.0
+    }
+  },
+  "me_chatting_in_a_game": {
+    "global": {
+      "alarmed_fraction": 0.0,
+      "median_delay_segments": null
+    },
+    "usage_aware": {
+      "alarmed_fraction": 0.0,
+      "median_delay_segments": null
+    }
+  },
+  "impostor_between_my_usages_writing": {
+    "global": {
+      "alarmed_fraction": 1.0,
+      "median_delay_segments": 1.0
+    },
+    "usage_aware": {
+      "alarmed_fraction": 1.0,
+      "median_delay_segments": 1.0
+    }
+  },
+  "impostor_cross_writing": {
+    "global": {
+      "alarmed_fraction": 0.033,
+      "median_delay_segments": 6
+    },
+    "usage_aware": {
+      "alarmed_fraction": 1.0,
+      "median_delay_segments": 1.0
+    }
+  }
+}

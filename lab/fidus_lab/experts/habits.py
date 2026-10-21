@@ -11,8 +11,11 @@ shapes, each from the content-free trace (or the content-free focus category):
 - B15 approach direction: the direction of the last stretch before a click.
 - B25 departure direction after a pause: which way the hand moves first.
 - A16 shortcut repertoire: which shortcut classes I use, and how often.
+- C01 application repertoire: which categories I switch to, and how often.
 - C02 application transitions: which category of application follows which.
 - C03 opening sequence: the first applications of a session, in order.
+- C04 dwell time: how long I stay in each category before leaving it.
+- C05 switching cadence: how long I stay anywhere before switching.
 
 Choices are categorical, scored against a smoothed categorical model; the
 time-distance law is a regression with Gaussian residuals. Without an impostor
@@ -47,6 +50,9 @@ N_OVERSHOOT = 3   # none, small, large
 N_MICRO = 4       # 0, 1, 2, 3 or more reversals
 N_SHORTCUTS = len(ShortcutClass)
 N_CATEGORIES = len(CATEGORIES)
+# Dwell time bins, upper bounds in us: 5 s, 30 s, 2 min, 10 min, then more.
+DWELL_BOUNDS_US = (5_000_000, 30_000_000, 120_000_000, 600_000_000)
+N_DWELL = len(DWELL_BOUNDS_US) + 1
 
 
 @dataclass
@@ -181,6 +187,26 @@ def openings(seg: Segment, _gs: list[Gesture] | None = None) -> list[int]:
             if e.opening_rank is not None and e.opening_rank < OPENING_LENGTH]
 
 
+def dwell_bin(dwell_us: int) -> int:
+    for i, bound in enumerate(DWELL_BOUNDS_US):
+        if dwell_us < bound:
+            return i
+    return N_DWELL - 1
+
+
+def repertoire(seg: Segment, _gs: list[Gesture] | None = None) -> list[int]:
+    return [e.category for e in seg.context]
+
+
+def dwells(seg: Segment, _gs: list[Gesture] | None = None) -> list[int]:
+    return [e.previous * N_DWELL + dwell_bin(e.dwell_us) for e in seg.context
+            if e.previous is not None and e.dwell_us is not None]
+
+
+def switch_intervals(seg: Segment, _gs: list[Gesture] | None = None) -> list[int]:
+    return [dwell_bin(e.dwell_us) for e in seg.context if e.dwell_us is not None]
+
+
 def _per_gesture(fn):
     # Extractors take the segment's gestures precomputed: cutting gestures is
     # the costly part, and five signals read the same ones.
@@ -197,8 +223,11 @@ _CATEGORICAL = {
     "B15_approach": (_per_gesture(approach_direction), N_OCTANTS),
     "B25_departure": (_per_gesture(departure_direction), N_OCTANTS),
     "A16_shortcut": (shortcuts, N_SHORTCUTS),
+    "C01_repertoire": (repertoire, N_CATEGORIES),
     "C02_transition": (transitions, N_CATEGORIES * N_CATEGORIES),
     "C03_opening": (openings, OPENING_LENGTH * N_CATEGORIES),
+    "C04_dwell": (dwells, N_CATEGORIES * N_DWELL),
+    "C05_switch_interval": (switch_intervals, N_DWELL),
 }
 
 

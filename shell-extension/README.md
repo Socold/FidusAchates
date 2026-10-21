@@ -22,7 +22,7 @@ Two jobs, and nothing else (architecture section 2.2):
    for this session; the service is still enabled, so it starts again at the
    next login.
 2. **Context, content-free.** Exposes the *category* of the focused application
-   (browser, terminal, development, office, communication, media, other) and a
+   (browser, terminal, development, office, communication, media, game, other) and a
    bare activity tick on focus change, so the agent can notice window activity
    that has no hardware input behind it (phantom activity, E20). Never a window
    title, never an executable name (FR-5).

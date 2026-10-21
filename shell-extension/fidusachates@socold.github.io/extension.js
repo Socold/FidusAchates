@@ -369,8 +369,16 @@ export default class FidusOverlayExtension extends Extension {
 
     _focusedCategory() {
         const app = this._tracker?.focus_app;
-        // app.get_id() is the .desktop id, not the window title.
-        return app ? categorize(app.get_id()) : 'other';
+        if (!app)
+            return 'other';
+        // app.get_id() is the .desktop id, not the window title. A window
+        // with no .desktop file (most games under Proton) gets a "window:N"
+        // id; its wm class is then the only usable name. Either is reduced to
+        // a category here and never leaves the extension.
+        const id = app.get_id();
+        if (id.startsWith('window:'))
+            return categorize(global.display.focus_window?.get_wm_class() ?? '');
+        return categorize(id);
     }
 
     _remoteActive() {

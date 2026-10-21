@@ -36,7 +36,7 @@ The most important point in this list is the following: the absence of network i
 | Biomechanical digraph classes | Motor class of a key pair (same finger, alternating hands, row change...), about twenty values | Signal A05 | Operation | Aggregated only | Encrypted SQLite |
 | Hashed digraphs (opt-in P1h) | Hash of a key pair with a per-installation secret held in the keyring | Signal A05h | Operation, opt-in | Aggregated only | Encrypted SQLite |
 | **Reduced event trace** (`research-trace` builds only) | Timestamp, event kind, key class, biomechanical class, shortcut class (ADR-0012), pointer deltas, device index. Never a keycode | Replay, signal study, live scoring and learning curves (ADR-0013) | Research, on my machine | 30 days, purged daily by the live daemon | One file per day, `~/.local/share/fidusachates/traces/`, mode 0600, not encrypted beyond the disk |
-| Live focus context (live daemon) | Monotonic time, category (7 values), previous category, rank in the opening sequence | Signals C02, C03 | Research, on my machine | 30 days | `context/`, one JSON-lines file per day, mode 0600 |
+| Live focus context (live daemon) | Monotonic time, category (8 values), previous category, rank in the opening sequence, time spent in the previous category | Signals C01 to C05, usage-aware templates | Research, on my machine | 30 days | `context/`, one JSON-lines file per day, mode 0600 |
 | **Guest sessions** (live daemon) | Same as the reduced trace and focus context, for someone else using my machine, with a label, the day, and their consent and its time | Impostor population, real detection numbers | **Explicit consent (art. 9-2-a), logged before collection** | 30 days, or at once on request from the console | `guests/`, mode 0600 |
 | Flagged windows | Day and monotonic span of a window the engine alarmed on | Anti-poisoning: never enrol it (threat M10) | Operation | Life of the traces | `excluded.jsonl` |
 | Action classes (live daemon, shell hook, ADR-0014) | Wall-clock time and one of ten classes per command I run in an interactive bash. Never the command, its arguments or its paths | Action sensitivity, signals C09, C10 (FR-47) | Operation | Read once by the daemon, kept in memory one hour; the file is truncated past 1 MB | `$XDG_RUNTIME_DIR/fidusachates/actions`, mode 0600, in RAM |
@@ -46,7 +46,7 @@ The most important point in this list is the following: the absence of network i
 | Templates | Statistical parameters per profile | Decision | Operation | Life of the profile | Encrypted SQLite |
 | Decisions | Timestamp, level, contributions | Explainability, audit | Operation | 90 days | Encrypted SQLite |
 | Profile revisions | Merges, splits, justifications | Traceability | Operation | Permanent | Encrypted SQLite |
-| Application context | Category (7 values) and opaque identifier | Signals C | Operation | 7 days | Encrypted SQLite |
+| Application context | Category (8 values) and opaque identifier | Signals C | Operation | 7 days | Encrypted SQLite |
 | Health | CPU, memory, throughput | NFR compliance | Operation | 7 days | Encrypted SQLite |
 
 No other data is written to disk. Any line added to this table must be added in the same commit as the code that produces it.

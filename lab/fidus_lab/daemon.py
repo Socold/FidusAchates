@@ -201,6 +201,10 @@ class Daemon:
         with self._lock:
             seg.context = [e for e in self._pending_context
                            if seg.start_us <= e.time_us <= seg.end_us]
+            # The category in focus when the segment ended: the last change
+            # at or before its end, or the one in focus before any change.
+            seg.category = (seg.context[-1].category if seg.context
+                            else self._focus_at_close(seg.end_us))
             self._pending_context = [e for e in self._pending_context
                                      if e.time_us > seg.end_us]
             guest = self._guest.id if self._guest else None
@@ -235,6 +239,14 @@ class Daemon:
             "at": dt.datetime.now().strftime("%H:%M:%S"),
         })
         self._push_panel()
+
+    def _focus_at_close(self, end_us: int) -> int | None:
+        # Pending events are those after the segment's start; the earliest
+        # one past its end tells what was focused before it.
+        later = [e for e in self._pending_context if e.time_us > end_us]
+        if later:
+            return min(later, key=lambda e: e.time_us).previous
+        return self.context.current
 
     def _push_panel(self, force: bool = False) -> None:
         st = self._status

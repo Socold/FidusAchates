@@ -31,6 +31,11 @@ from .trace import EventKind, Record, ShortcutClass
 # The genuine evidence must sum to this, from a fresh session, for the owner to
 # count as recognised: 20 dB is odds of 100 to 1 on top of the prior.
 RECOGNISED_DB = -20.0
+# A usage gets its own templates once it holds this much of my activity;
+# below, its segments are judged by the global ones.
+CONTEXT_MIN_SEGMENTS = 30
+CONTEXT_MIN_KEYS = 1500
+CONTEXT_MIN_MOTIONS = 3000
 DEFAULT_BUDGETS_MIN = (2, 5, 10, 20, 40, 80, 160, 320, 640, 1280)
 # Readiness targets: what "ready" means on the curve.
 TARGET_DETECTION = 0.9
@@ -77,6 +82,8 @@ class Enrolled:
     modes: list[KeystrokeTemplate]
     pointer: PointerTemplate | None
     habits: HabitTemplate | None
+    context_keystroke: dict[int, list[KeystrokeTemplate]] = field(default_factory=dict)
+    context_pointer: dict[int, PointerTemplate] = field(default_factory=dict)
 
     @classmethod
     def fit(cls, segments: list[Segment], max_segments: int = 600) -> "Enrolled":
@@ -89,8 +96,10 @@ class Enrolled:
         modes = fit_modes(segments, chunk=chunk) if segments else [KeystrokeTemplate()]
         ptr = PointerTemplate.fit(segments)
         hab = HabitTemplate.fit(segments)
+        ck, cp = fit_contexts(segments)
         return cls(modes=modes, pointer=ptr if ptr.models else None,
-                   habits=None if hab.empty else hab)
+                   habits=None if hab.empty else hab,
+                   context_keystroke=ck, context_pointer=cp)
 
     def engine(self, population: Population | None = None) -> IdentityEngine:
         pop = population or Population()
@@ -102,7 +111,35 @@ class Enrolled:
             modes=self.modes if len(self.modes) > 1 else None,
             habits=self.habits,
             habits_reference=pop.habits if self.habits else None,
+            context_keystroke=self.context_keystroke,
+            context_pointer=self.context_pointer,
         )
+
+
+def fit_contexts(segments: list[Segment]) -> tuple[dict[int, list[KeystrokeTemplate]],
+                                                  dict[int, PointerTemplate]]:
+    """Keystroke modes and a pointer template per usage that has enough of my
+    data."""
+    by_cat: dict[int, list[Segment]] = {}
+    for s in segments:
+        if s.category is not None:
+            by_cat.setdefault(s.category, []).append(s)
+    keys: dict[int, list[KeystrokeTemplate]] = {}
+    pointers: dict[int, PointerTemplate] = {}
+    for cat, segs in by_cat.items():
+        if len(segs) < CONTEXT_MIN_SEGMENTS:
+            continue
+        kinds = [r.event.kind for s in segs for r in s.records]
+        if kinds.count(EventKind.KEY_DOWN) >= CONTEXT_MIN_KEYS:
+            modes = [k for k in fit_modes(segs, chunk=max(1, len(segs) // 40))
+                     if k.hold or k.digraph]
+            if modes:
+                keys[cat] = modes
+        if kinds.count(EventKind.MOTION) >= CONTEXT_MIN_MOTIONS:
+            p = PointerTemplate.fit(segs)
+            if p.models:
+                pointers[cat] = p
+    return keys, pointers
 
 
 @dataclass

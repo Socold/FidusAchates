@@ -45,6 +45,14 @@ class IdentityEngine:
     # the pointer, with its own population reference when one is enrolled.
     habits: HabitTemplate | None = None
     habits_reference: HabitTemplate | None = None
+    # Per usage (application category, context.CATEGORIES index): how I type
+    # and point when I play, write, browse... A segment whose category has its
+    # own templates is scored against those only, so an impostor cannot
+    # borrow my gaming rhythm while writing; a category without them falls
+    # back to the global templates above. Keystrokes get modes within a usage
+    # too: chatting in a game is still me, typing as I write.
+    context_keystroke: dict[int, list[KeystrokeTemplate]] = field(default_factory=dict)
+    context_pointer: dict[int, PointerTemplate] = field(default_factory=dict)
     cusum_h: float = 25.0
     prior_db: float = -10.0
     keystroke_expert: KeystrokeExpert = field(default_factory=KeystrokeExpert)
@@ -77,7 +85,8 @@ class IdentityEngine:
         with the least total evidence for the impostor hypothesis. Its
         per-signal contributions are what gets explained."""
         ref = self.reference or KeystrokeTemplate()
-        candidates = self.modes or [self.genuine]
+        ctx = self.context_keystroke.get(seg.category) if seg.category is not None else None
+        candidates = ctx or self.modes or [self.genuine]
         best: tuple[dict[str, float], int] | None = None
         best_total = None
         for tpl in candidates:
@@ -90,9 +99,12 @@ class IdentityEngine:
     def _collect(self, seg: Segment) -> tuple[dict[str, float], int]:
         """Per-signal evidence from every enrolled expert, and total quality."""
         ev, n = self._keystroke_evidence(seg)
-        if self.pointer is not None:
+        pointer = self.pointer
+        if seg.category is not None and seg.category in self.context_pointer:
+            pointer = self.context_pointer[seg.category]
+        if pointer is not None:
             pev, pn = self.pointer_expert.evidence(
-                seg, self.pointer, self.pointer_reference or PointerTemplate()
+                seg, pointer, self.pointer_reference or PointerTemplate()
             )
             ev.update(pev)
             n += pn

@@ -75,6 +75,8 @@
 
 Reminder: categories and opaque identifiers only, never a title nor an executable name (FR-5).
 
+Implemented in the habits expert: C01 (category of each focus change), C02, C03, C04 (time spent in the category just left, in five bins from under 5 s to over 10 min, per category) and C05 (the same bins, all categories together). C04 and C05 share their measurement, so they are not independent; the signal study decides which one stays. The category also selects usage-aware templates (decision engine 6.1).
+
 | ID | Signal | Definition | Cost | Disc. | Forge | WP |
 |---|---|---|---|---|---|---|
 | C01 | Application repertoire | Set of categories used and their frequency | L | High | 2 | 4 |
