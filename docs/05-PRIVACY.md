@@ -35,7 +35,11 @@ The most important point in this list is the following: the absence of network i
 | Input timings | Monotonic timestamps, key classes, buttons | Signals A, B, E | Operation | 10 s memory buffer, not persisted | RAM |
 | Biomechanical digraph classes | Motor class of a key pair (same finger, alternating hands, row change...), about twenty values | Signal A05 | Operation | Aggregated only | Encrypted SQLite |
 | Hashed digraphs (opt-in P1h) | Hash of a key pair with a per-installation secret held in the keyring | Signal A05h | Operation, opt-in | Aggregated only | Encrypted SQLite |
-| **Reduced event trace** (`research-trace` builds only) | Timestamp, event kind, key class, biomechanical class, pointer deltas, device index. Never a keycode | Replay, signal study | Research, on my machine | Until the study is published, then deleted | Trace files in the data directory |
+| **Reduced event trace** (`research-trace` builds only) | Timestamp, event kind, key class, biomechanical class, shortcut class (ADR-0012), pointer deltas, device index. Never a keycode | Replay, signal study, live scoring and learning curves (ADR-0013) | Research, on my machine | 30 days, purged daily by the live daemon | One file per day, `~/.local/share/fidusachates/traces/`, mode 0600, not encrypted beyond the disk |
+| Live focus context (live daemon) | Monotonic time, category (7 values), previous category, rank in the opening sequence | Signals C02, C03 | Research, on my machine | 30 days | `context/`, one JSON-lines file per day, mode 0600 |
+| **Guest sessions** (live daemon) | Same as the reduced trace and focus context, for someone else using my machine, with a label, the day, and their consent and its time | Impostor population, real detection numbers | **Explicit consent (art. 9-2-a), logged before collection** | 30 days, or at once on request from the console | `guests/`, mode 0600 |
+| Flagged windows | Day and monotonic span of a window the engine alarmed on | Anti-poisoning: never enrol it (threat M10) | Operation | Life of the traces | `excluded.jsonl` |
+| Console link | A one-time login URL, replaced after each use | Opening the console from the indicator | Operation | Session | `$XDG_RUNTIME_DIR/fidusachates/console-link`, mode 0600, in RAM |
 | Window vectors | Signal values per activity window | Decision, clustering | Operation | 7 days | Encrypted SQLite |
 | Aggregates | n, mean, M2, quantiles per signal, profile, mode | Templates | Operation | 90 days | Encrypted SQLite |
 | Templates | Statistical parameters per profile | Decision | Operation | Life of the profile | Encrypted SQLite |
@@ -45,6 +49,8 @@ The most important point in this list is the following: the absence of network i
 | Health | CPU, memory, throughput | NFR compliance | Operation | 7 days | Encrypted SQLite |
 
 No other data is written to disk. Any line added to this table must be added in the same commit as the code that produces it.
+
+Since ADR-0013 the research build also runs live, so the reduced trace is no longer a one-off recording: it accumulates for 30 days on a rolling basis. A **guest session** observes a third party, which ends the household exemption for that data (4.2): the console refuses to start one until I confirm the person's explicit agreement, logs that consent with the session, and deletes the session on request or after the same 30 days (4.3, conditions 1, 3 and 4).
 
 The reduced event trace deserves a word. Release builds persist no event at all, and do not even contain the code to do so. But evaluating a **new** signal by replay needs events, not window vectors, and a research project that cannot replay cannot measure. The trace is therefore a build-time feature, off by default. What it records is pointer movement and the **rhythm** of typing with motor classes; it cannot give back a single typed character. Pointer deltas are a behavioural signal in their own right and are covered by the same biometric qualification as the templates.
 

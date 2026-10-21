@@ -1,0 +1,16 @@
+# FidusAchates live daemon (research build). Installed by scripts/install-user.sh,
+# which fills in the lab path and the keyboard layout.
+[Unit]
+Description=FidusAchates live daemon: recorder, engine, console and top-bar indicator
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Environment=PYTHONPATH=@LAB@
+ExecStart=/usr/bin/python3 -m fidus_lab.daemon --agent %h/.local/bin/fidus-agent --layout @LAYOUT@ --retention-days 30
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=graphical-session.target

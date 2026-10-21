@@ -1,13 +1,17 @@
 """Local administration console (FR-50 to FR-58, SR-9).
 
 A standard-library HTTP server bound to 127.0.0.1 that streams the analysis of
-a trace over Server-Sent Events and drives the GNOME overlay.
+a trace (or of the live daemon) over Server-Sent Events: the decisions as they
+come, the enrolment status, and the learning curves.
 
 A local web server is reachable by any page in the browser, so (SR-9): it
 validates Host and Origin (anti-DNS-rebinding), sends no cross-origin headers,
 and keeps the session in an HttpOnly, SameSite=Strict cookie, never in the URL.
 The only thing that ever travels in a URL is a one-time bootstrap link, consumed
-on first use, so a leak into browser history is harmless.
+on first use, so a leak into browser history is harmless. The daemon re-arms a
+fresh link after each use and leaves it in a 0600 file in the runtime directory,
+where the shell indicator reads it. State-changing requests are POSTs that must
+carry a loopback Origin as well as the session cookie.
 
 The pure pieces (SSE framing, the host check, the state snapshot) are unit
 tested; a smoke test binds an ephemeral port and fetches a page.
@@ -16,10 +20,13 @@ tested; a smoke test binds an ephemeral port and fetches a page.
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import threading
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Callable
 from urllib.parse import parse_qs, urlparse
 
 from .analyze import SegmentReport
@@ -42,8 +49,8 @@ def host_is_local(host_header: str | None) -> bool:
     return host in ALLOWED_HOSTS
 
 
-def segment_snapshot(r: SegmentReport) -> dict:
-    return {
+def segment_snapshot(r: SegmentReport, extra: dict | None = None) -> dict:
+    return (extra or {}) | {
         "index": r.index,
         "events": r.n_events,
         "actor": r.attribution.label.value,
@@ -63,13 +70,21 @@ class ConsoleState:
     max_p_impostor: float = 0.0
     outcomes: dict[str, int] = field(default_factory=dict)
     profile_count: int = 0
+    # Live daemon only: enrolment status, learning curve, guest sessions.
+    status: dict = field(default_factory=dict)
+    learning: dict | None = None
+    guests: list = field(default_factory=list)
+    # Actions the console may trigger, registered by the daemon.
+    actions: dict[str, Callable[[dict], dict]] = field(default_factory=dict)
+    max_segments: int = 600
     _subscribers: list["_Queue"] = field(default_factory=list)
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
-    def publish(self, report: SegmentReport) -> None:
-        snap = segment_snapshot(report)
+    def publish(self, report: SegmentReport, extra: dict | None = None) -> None:
+        snap = segment_snapshot(report, extra)
         with self._lock:
             self.segments.append(snap)
+            del self.segments[:-self.max_segments]
             self.max_p_impostor = max(self.max_p_impostor, snap["p_impostor"])
             self.outcomes[snap["outcome"]] = self.outcomes.get(snap["outcome"], 0) + 1
             subs = list(self._subscribers)
@@ -83,6 +98,27 @@ class ConsoleState:
         for q in subs:
             q.put(sse("profiles", {"count": n}))
 
+    def _broadcast(self, event: str, data: dict) -> None:
+        with self._lock:
+            subs = list(self._subscribers)
+        for q in subs:
+            q.put(sse(event, data))
+
+    def set_status(self, status: dict) -> None:
+        with self._lock:
+            self.status = dict(status)
+        self._broadcast("status", status)
+
+    def set_learning(self, learning: dict | None) -> None:
+        with self._lock:
+            self.learning = learning
+        self._broadcast("learning", learning or {})
+
+    def set_guests(self, guests: list) -> None:
+        with self._lock:
+            self.guests = list(guests)
+        self._broadcast("guests", {"guests": guests})
+
     def snapshot(self) -> dict:
         with self._lock:
             return {
@@ -90,6 +126,9 @@ class ConsoleState:
                 "max_p_impostor": self.max_p_impostor,
                 "outcomes": dict(self.outcomes),
                 "profile_count": self.profile_count,
+                "status": dict(self.status),
+                "learning": self.learning,
+                "guests": list(self.guests),
             }
 
     def subscribe(self) -> "_Queue":
@@ -121,8 +160,12 @@ class _Queue:
             return self._items.pop(0) if self._items else None
 
 
-def render_page() -> str:
-    return _PAGE
+def render_page(initial: dict | None = None) -> str:
+    """The page, with the current state inlined so it paints at once instead
+    of waiting for the event stream. `</` is escaped so no value can close the
+    script element."""
+    blob = json.dumps(initial or {}).replace("</", "<\\/")
+    return _PAGE.replace("/*INITIAL*/{}", blob)
 
 
 def make_handler(bootstrap: "Bootstrap", session: str, state: ConsoleState):
@@ -176,7 +219,7 @@ def make_handler(bootstrap: "Bootstrap", session: str, state: ConsoleState):
                 return self._reject(403, "no session")
 
             if route == "/":
-                body = render_page().encode()
+                body = render_page(state.snapshot()).encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("X-Content-Type-Options", "nosniff")
@@ -208,15 +251,47 @@ def make_handler(bootstrap: "Bootstrap", session: str, state: ConsoleState):
             else:
                 self._reject(404, "not found")
 
+        def do_POST(self):
+            # A state change needs all three: loopback Host, a loopback Origin
+            # (a browser always sends one on a POST, so a missing one is not a
+            # browser we trust), and the session cookie.
+            if not self._local_and_same_origin() or not self.headers.get("Origin"):
+                return self._reject(403, "forbidden")
+            if not self._has_session():
+                return self._reject(403, "no session")
+            route = urlparse(self.path).path
+            name = route.removeprefix("/api/action/")
+            action = state.actions.get(name) if route.startswith("/api/action/") else None
+            if action is None:
+                return self._reject(404, "not found")
+            try:
+                length = min(int(self.headers.get("Content-Length") or 0), 4096)
+                body = json.loads(self.rfile.read(length) or b"{}")
+                if not isinstance(body, dict):
+                    raise ValueError("body must be an object")
+                result = action(body)
+            except (ValueError, KeyError) as e:
+                return self._reject(400, str(e))
+            out = json.dumps(result or {}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(out)
+
     return Handler
 
 
 class Bootstrap:
-    """A one-time login token. Valid until consumed exactly once."""
+    """A one-time login token. Valid until consumed exactly once. With
+    `rearm`, a fresh token replaces it on use and `on_new` is told, so the
+    indicator always has a link to open and no link ever works twice."""
 
-    def __init__(self) -> None:
+    def __init__(self, rearm: bool = False,
+                 on_new: Callable[[str], None] | None = None) -> None:
         self._token: str | None = secrets.token_urlsafe(24)
         self._lock = threading.Lock()
+        self._rearm = rearm
+        self.on_new = on_new
 
     @property
     def token(self) -> str | None:
@@ -228,7 +303,9 @@ class Bootstrap:
                 return False
             ok = secrets.compare_digest(presented, self._token)
             if ok:
-                self._token = None
+                self._token = secrets.token_urlsafe(24) if self._rearm else None
+                if self._token and self.on_new:
+                    self.on_new(self._token)
             return ok
 
 
@@ -252,65 +329,342 @@ class Console:
         self.server.shutdown()
 
 
-def start(host: str = "127.0.0.1", port: int = 0) -> Console:
+def start(host: str = "127.0.0.1", port: int = 0, rearm: bool = False) -> Console:
     """Start the console on the loopback. Port 0 picks a free port."""
-    bootstrap = Bootstrap()
+    bootstrap = Bootstrap(rearm=rearm)
     session = secrets.token_urlsafe(32)
     state = ConsoleState()
     server = ThreadingHTTPServer((host, port), make_handler(bootstrap, session, state))
     return Console(state=state, server=server, bootstrap=bootstrap, session=session)
 
 
+def link_file() -> Path:
+    runtime = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+    return Path(runtime) / "fidusachates" / "console-link"
+
+
+def publish_link(console: Console, path: Path | None = None) -> Path:
+    """Write the current one-time link where the shell indicator reads it,
+    readable by me only, and keep it current as links are used."""
+    path = path or link_file()
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+
+    def write(_token: str | None = None) -> None:
+        tmp = path.with_suffix(".tmp")
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as fh:
+            fh.write(console.url + "\n")
+        os.replace(tmp, path)
+
+    console.bootstrap.on_new = write
+    write()
+    return path
+
+
 _PAGE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>FidusAchates console</title>
 <style>
- :root{color-scheme:dark}
- body{font:14px/1.5 system-ui,sans-serif;margin:0;background:#111;color:#eee}
- header{padding:12px 20px;background:#1a1a1a;border-bottom:1px solid #333}
+ :root{color-scheme:dark;
+  --surface-0:#111110;--surface-1:#1a1a19;--border:#2e2e2c;
+  --text-primary:#f0efec;--text-secondary:#c3c2b7;--text-muted:#8d8c83;
+  --grid:#2a2a28;--series-1:#3987e5;--series-2:#d95926;--series-3:#199e70;
+  --good:#3fb950;--critical:#e5534b;--warning:#d29922;--neutral:#8d8c83}
+ *{box-sizing:border-box}
+ body{font:14px/1.5 system-ui,sans-serif;margin:0;background:var(--surface-0);color:var(--text-primary)}
+ header{padding:12px 20px;background:var(--surface-1);border-bottom:1px solid var(--border);
+  display:flex;gap:20px;align-items:center;flex-wrap:wrap}
  h1{font-size:16px;margin:0}
- main{padding:20px;display:grid;gap:20px;grid-template-columns:1fr 2fr}
- .card{background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:16px}
- .gauge{font-size:40px;font-weight:bold}
- .bad{color:#e33}.ok{color:#3c3}
+ h2{font-size:14px;margin:0 0 4px}
+ nav button{background:none;border:0;color:var(--text-secondary);font:inherit;padding:6px 10px;
+  border-radius:6px;cursor:pointer}
+ nav button.on{background:var(--border);color:var(--text-primary)}
+ main{padding:20px;max-width:1200px;margin:0 auto}
+ .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+ .card{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:16px;min-width:0}
+ .sub{color:var(--text-muted);font-size:12px;margin:0 0 8px}
+ .hero{font-size:32px;font-weight:600;margin:4px 0}
+ .pill{display:inline-flex;gap:6px;align-items:center;padding:2px 10px;border-radius:999px;
+  border:1px solid var(--border);font-size:12px;color:var(--text-secondary)}
+ .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+ .bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin:4px 0 10px}
+ .bar > i{display:block;height:100%;background:var(--series-1);border-radius:3px}
  table{width:100%;border-collapse:collapse;font-size:13px}
- td,th{padding:4px 8px;border-bottom:1px solid #262626;text-align:left}
- .tag-automation_unsanctioned{color:#e90}
- .tag-automation_sanctioned{color:#6ad}
- .tag-human{color:#9c9}
- .out-alert{color:#e33;font-weight:bold}.out-tag{color:#e90}.out-none{color:#7a7}
+ td,th{padding:4px 8px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+ th{color:var(--text-muted);font-weight:500}
+ .scroll{overflow-x:auto}
+ .note{color:var(--warning);font-size:13px}
+ .muted{color:var(--text-muted)}
+ svg text{fill:var(--text-muted);font-size:11px}
+ .tip{position:fixed;pointer-events:none;background:#000d;border:1px solid var(--border);
+  padding:6px 8px;border-radius:6px;font-size:12px;display:none;z-index:9;white-space:pre}
+ .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary);margin-top:6px}
+ .legend span{display:inline-flex;align-items:center;gap:6px}
+ .legend i{width:14px;height:2px;display:inline-block}
+ button.act{background:var(--series-1);color:#fff;border:0;border-radius:6px;padding:6px 12px;
+  font:inherit;cursor:pointer}
+ button.act.stop{background:var(--critical)}
+ button.link{background:none;border:0;color:var(--text-muted);cursor:pointer;font:inherit;text-decoration:underline}
+ input{background:var(--surface-0);border:1px solid var(--border);color:var(--text-primary);
+  border-radius:6px;padding:6px 8px;font:inherit}
+ .hidden{display:none}
+ td.reasons{white-space:normal;min-width:280px}
+ .out-alert{color:var(--critical);font-weight:600}.out-tag{color:var(--warning)}
 </style></head><body>
-<header><h1>FidusAchates &mdash; local console</h1></header>
+<header><h1>FidusAchates</h1>
+ <nav><button data-tab="now" class="on">Now</button><button data-tab="learning">Learning</button>
+ <button data-tab="guests">Guests</button></nav>
+ <span id="state-pill" class="pill"><i class="dot" style="background:var(--neutral)"></i>waiting</span>
+</header>
 <main>
- <section class="card">
-  <div>Identity confidence (max)</div>
-  <div id="gauge" class="gauge ok">9%</div>
-  <div style="margin-top:12px">Distinct profiles: <b id="profiles">0</b></div>
-  <div id="outcomes" style="margin-top:8px;color:#aaa"></div>
- </section>
- <section class="card">
-  <table><thead><tr><th>#</th><th>events</th><th>actor</th><th>P(impostor)</th><th>outcome</th></tr></thead>
-  <tbody id="rows"></tbody></table>
- </section>
+<section id="tab-now">
+ <div id="guest-banner" class="card hidden" style="border-color:var(--warning);margin-bottom:16px">
+  Guest session running: <b id="guest-name"></b>. This activity is recorded as someone else and never
+  enrols. <button class="act stop" onclick="act('guest_stop')">Stop guest session</button></div>
+ <div class="grid">
+  <div class="card"><h2>Status</h2><p class="sub" id="phase-line">waiting for the first fit</p>
+   <div class="hero" id="hero-state">-</div>
+   <div id="criteria"></div></div>
+  <div class="card"><h2>Someone else? This session</h2>
+   <p class="sub">Probability that the person at the keyboard is not me, per window, over active time</p>
+   <div id="ch-p"></div></div>
+  <div class="card"><h2>Recognition, this session</h2>
+   <p class="sub">Evidence summed since the session started; below -20 dB counts as recognised</p>
+   <div id="ch-e"></div></div>
+ </div>
+ <div class="card" style="margin-top:16px"><h2>Recent windows</h2>
+  <div class="scroll"><table><thead><tr><th>time</th><th>events</th><th>actor</th>
+  <th>P(someone else)</th><th>evidence</th><th>outcome</th><th>main reasons</th></tr></thead>
+  <tbody id="rows"></tbody></table></div></div>
+</section>
+<section id="tab-learning" class="hidden">
+ <div class="grid">
+  <div class="card"><h2>When does it know me?</h2><div class="hero" id="ready-hero">-</div>
+   <p class="sub" id="ready-sub"></p><p class="note" id="curve-note"></p>
+   <button class="act" onclick="act('recompute')">Recompute now</button>
+   <span class="muted" id="curve-time"></span></div>
+  <div class="card"><h2>Enrolment criteria</h2>
+   <p class="sub">Progress of each criterion against the active time enrolled (log scale)</p>
+   <div id="ch-crit"></div></div>
+ </div>
+ <div class="grid" style="margin-top:16px">
+  <div class="card"><h2>Someone else caught</h2>
+   <p class="sub">Share of the other person's sessions detected, by minutes of my activity enrolled</p>
+   <div id="ch-det"></div></div>
+  <div class="card"><h2>Time to catch someone else</h2>
+   <p class="sub">Median seconds of their activity before the alarm</p><div id="ch-ttd"></div></div>
+  <div class="card"><h2>Time to recognise me</h2>
+   <p class="sub">Median seconds of my activity before -20 dB, in a fresh session</p><div id="ch-ttr"></div></div>
+  <div class="card"><h2>False alarms on me</h2>
+   <p class="sub">Alarms per hour of my own held-out activity</p><div id="ch-fa"></div></div>
+ </div>
+ <div class="card" style="margin-top:16px"><h2>Table</h2><div class="scroll"><table>
+  <thead><tr><th>enrolled (min)</th><th>tested on me (min)</th><th>recognised</th><th>time to recognise</th>
+  <th>false alarms / h</th><th>impostors</th><th>caught</th><th>time to catch</th><th>ready</th></tr></thead>
+  <tbody id="curve-rows"></tbody></table></div></div>
+</section>
+<section id="tab-guests" class="hidden">
+ <div class="grid">
+  <div class="card"><h2>Record someone else</h2>
+   <p class="sub">Hand the computer to someone for 10 to 15 minutes of ordinary use. Their activity is kept
+   apart, never enrols as me, and becomes the impostor population: it gives the real detection numbers and
+   a reference that sharpens the model. Ask them first: it is behavioural data about them, deleted after
+   the retention period like mine.</p>
+   <input id="guest-label" placeholder="label, e.g. a first name" maxlength="40">
+   <label style="display:block;margin:8px 0"><input type="checkbox" id="guest-consent">
+    They have agreed, knowing what is recorded, why, for how long, and that they can have it deleted.</label>
+   <button class="act" onclick="startGuest()">Start guest session</button>
+   <button class="act stop" onclick="act('guest_stop')">Stop</button></div>
+  <div class="card"><h2>Recorded guests</h2><table><thead><tr><th>label</th><th>day</th><th>size</th><th></th></tr></thead>
+   <tbody id="guest-rows"></tbody></table></div>
+ </div>
+</section>
 </main>
+<div class="tip" id="tip"></div>
 <script>
- const gauge = document.getElementById('gauge');
- const rows = document.getElementById('rows');
- const outcomes = document.getElementById('outcomes');
- let maxp = 0.09;
- function setGauge(p){maxp=Math.max(maxp,p);const pct=Math.round(maxp*100);
-   gauge.textContent=pct+'%';gauge.className='gauge '+(pct>50?'bad':'ok');}
- function addRow(s){const tr=document.createElement('tr');
-   tr.innerHTML=`<td>${s.index}</td><td>${s.events}</td>`+
-     `<td class="tag-${s.actor}">${s.actor}</td>`+
-     `<td>${(s.p_impostor*100).toFixed(0)}%</td>`+
-     `<td class="out-${s.outcome}">${s.outcome}</td>`;
-   rows.prepend(tr);setGauge(s.p_impostor);}
- const es = new EventSource('/events');
- es.addEventListener('hello',e=>{const st=JSON.parse(e.data);
-   (st.segments||[]).forEach(addRow);
-   document.getElementById('profiles').textContent=st.profile_count||0;});
- es.addEventListener('segment',e=>addRow(JSON.parse(e.data)));
- es.addEventListener('profiles',e=>{
-   document.getElementById('profiles').textContent=JSON.parse(e.data).count;});
+const $ = id => document.getElementById(id);
+const S = {segments: [], status: {}, learning: null, guests: []};
+function showTab(name) {
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x.dataset.tab === name));
+  for (const t of ['now', 'learning', 'guests']) $('tab-' + t).classList.toggle('hidden', t !== name);
+  render();
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  history.replaceState(null, '', '#' + b.dataset.tab); showTab(b.dataset.tab); });
+async function act(name, body) {
+  await fetch('/api/action/' + name, {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body || {})});
+}
+function startGuest() {
+  if (!$('guest-consent').checked) { alert('Their agreement comes first.'); return; }
+  act('guest_start', {label: $('guest-label').value, consent: true});
+  $('guest-consent').checked = false;
+}
+function td(text, cls) { const c = document.createElement('td'); c.textContent = text;
+  if (cls) c.className = cls; return c; }
+const fmtS = s => s == null ? '-' : s < 90 ? Math.round(s) + ' s' : (s / 60).toFixed(1) + ' min';
+const fmtMin = m => m == null ? '-' : m < 90 ? (+m).toFixed(m < 10 ? 1 : 0) + ' min' : (m / 60).toFixed(1) + ' h';
+const pct = v => v == null ? '-' : Math.round(v * 100) + ' %';
+
+// One line chart: one axis, thin lines, markers with a hover tooltip, optional
+// dashed reference lines and a vertical marker.
+function chart(el, o) {
+  const W = el.clientWidth || 340, H = 170, L = 44, R = 10, T = 10, B = 26;
+  const pts = o.series.flatMap(s => s.ys.map((y, i) => [o.xs[i], y])).filter(p => p[1] != null);
+  if (!pts.length) { el.innerHTML = '<p class="muted">No data yet.</p>'; return; }
+  const fx = o.logX ? Math.log10 : (v => v);
+  const xs = o.xs.map(fx), x0 = Math.min(...xs), x1 = Math.max(...xs) === x0 ? x0 + 1 : Math.max(...xs);
+  let y0 = o.yMin ?? 0, y1 = o.yMax ?? Math.max(...pts.map(p => p[1]), ...(o.refs || []).map(r => r.y));
+  if (y1 === y0) y1 = y0 + 1;
+  const X = v => L + (fx(v) - x0) / (x1 - x0) * (W - L - R);
+  const Y = v => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B);
+  let g = '';
+  for (let i = 0; i <= 4; i++) { const v = y0 + (y1 - y0) * i / 4;
+    g += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--grid)"/>` +
+         `<text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end">${o.yFmt(v)}</text>`; }
+  const ticks = o.logX ? [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000].filter(t => fx(t) >= x0 && fx(t) <= x1)
+                       : [0, 1, 2, 3, 4].map(i => (x0 + (x1 - x0) * i / 4));
+  for (const t of ticks) g += `<text x="${X(t)}" y="${H - 6}" text-anchor="middle">${o.xFmt(t)}</text>`;
+  for (const r of (o.refs || [])) g += `<line x1="${L}" x2="${W - R}" y1="${Y(r.y)}" y2="${Y(r.y)}" ` +
+    `stroke="var(--text-muted)" stroke-dasharray="4 4"/><text x="${W - R}" y="${Y(r.y) - 4}" text-anchor="end">${r.label}</text>`;
+  if (o.vline != null) g += `<line x1="${X(o.vline)}" x2="${X(o.vline)}" y1="${T}" y2="${H - B}" ` +
+    `stroke="var(--good)" stroke-dasharray="3 3"/><text x="${X(o.vline) + 4}" y="${T + 10}">ready</text>`;
+  let marks = '';
+  o.series.forEach((s, si) => {
+    let d = '', on = false;
+    s.ys.forEach((y, i) => { if (y == null) { on = false; return; }
+      d += (on ? 'L' : 'M') + X(o.xs[i]).toFixed(1) + ' ' + Y(y).toFixed(1); on = true; });
+    g += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2"/>`;
+    s.ys.forEach((y, i) => { if (y == null) return;
+      const tip = `${s.name}: ${o.yFmt(y)}\\n${o.xLabel}: ${o.xFmt(o.xs[i])}`;
+      marks += `<circle cx="${X(o.xs[i])}" cy="${Y(y)}" r="${o.xs.length > 60 ? 2 : 4}" fill="${s.color}" ` +
+        `stroke="var(--surface-1)" stroke-width="2"/><circle cx="${X(o.xs[i])}" cy="${Y(y)}" r="10" ` +
+        `fill="transparent" data-tip="${tip.replace(/"/g, '')}"/>`; });
+  });
+  el.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" role="img" aria-label="${o.aria}">${g}${marks}</svg>` +
+    (o.series.length > 1 ? '<div class="legend">' + o.series.map(s =>
+      `<span><i style="background:${s.color}"></i>${s.name}</span>`).join('') + '</div>' : '');
+}
+document.addEventListener('mousemove', e => {
+  const t = e.target.dataset && e.target.dataset.tip, tip = $('tip');
+  if (!t) { tip.style.display = 'none'; return; }
+  tip.textContent = t; tip.style.display = 'block';
+  tip.style.left = (e.clientX + 12) + 'px'; tip.style.top = (e.clientY + 12) + 'px';
+});
+
+const STATE_TEXT = {learning: 'Learning', recognized: 'Recognised', alert: 'Someone else?'};
+function renderStatus() {
+  const st = S.status || {}, last = S.segments[S.segments.length - 1];
+  const p = last ? last.p_impostor : null;
+  let state = st.ready ? (p != null && p > 0.5 ? 'alert' : 'recognized') : 'learning';
+  if (!st.phase || st.phase === 'starting') state = 'waiting';
+  const color = {learning: 'var(--neutral)', recognized: 'var(--good)', alert: 'var(--critical)'}[state] || 'var(--neutral)';
+  const label = state === 'learning' ? `Learning ${Math.round((st.progress || 0) * 100)} %` :
+                state === 'alert' ? `Someone else? ${Math.round(p * 100)} %` : (STATE_TEXT[state] || 'waiting');
+  $('state-pill').innerHTML = `<i class="dot" style="background:${color}"></i>`;
+  $('state-pill').append(label);
+  $('hero-state').textContent = label;
+  $('phase-line').textContent = st.phase ? `phase ${st.phase}, ${st.days || 0} day(s), ` +
+    `${(st.owner_keystrokes || 0).toLocaleString()} keystrokes, model fitted ${st.fitted_at || '-'}` +
+    (st.population_reference ? ', guest population in use' : '') : 'waiting for the first fit';
+  const c = st.criteria || {}, names = {volume: 'C1 volume', stability: 'C2 stability',
+    coverage: 'C4 days covered', performance: 'C3 measured performance'};
+  $('criteria').innerHTML = '';
+  for (const k of Object.keys(names)) {
+    const row = document.createElement('div');
+    row.innerHTML = `<div class="muted" style="font-size:12px">${names[k]}: ${Math.round((c[k] || 0) * 100)} %</div>` +
+      `<div class="bar"><i style="width:${Math.round((c[k] || 0) * 100)}%"></i></div>`;
+    $('criteria').append(row);
+  }
+  const g = st.guest;
+  $('guest-banner').classList.toggle('hidden', !g);
+  if (g) $('guest-name').textContent = g.label;
+}
+function renderNow() {
+  const segs = S.segments.slice(-300);
+  const xs = segs.map(s => s.t ?? s.index);
+  chart($('ch-p'), {xs, series: [{name: 'P(someone else)', ys: segs.map(s => s.p_impostor), color: 'var(--series-1)'}],
+    yMin: 0, yMax: 1, yFmt: v => Math.round(v * 100) + '%', xFmt: v => fmtS(v), xLabel: 'active time',
+    refs: [{y: 0.5, label: 'alert above 50 %'}], aria: 'probability of someone else over the session'});
+  const ev = segs.map(s => s.session_db == null ? null : Math.max(-60, Math.min(60, s.session_db)));
+  chart($('ch-e'), {xs, series: [{name: 'summed evidence', ys: ev, color: 'var(--series-3)'}],
+    yMin: -60, yMax: 60, yFmt: v => Math.round(v) + ' dB', xFmt: v => fmtS(v), xLabel: 'active time',
+    refs: [{y: -20, label: 'recognised'}], aria: 'summed evidence over the session'});
+  const rows = $('rows'); rows.innerHTML = '';
+  for (const s of S.segments.slice(-40).reverse()) {
+    const tr = document.createElement('tr');
+    tr.append(td(s.at || s.index), td(s.events), td(s.actor + (s.guest ? ' (guest)' : '')),
+      td(pct(s.p_impostor)), td(s.evidence_db == null ? '-' : s.evidence_db + ' dB'),
+      td(s.outcome, 'out-' + s.outcome));
+    const reasons = (s.explanation || '').split('\\n').slice(1).filter(l => l.includes('- ')).slice(0, 2)
+      .map(l => l.replace(/^\\s*- /, '')).join('; ');
+    tr.append(td(reasons, 'muted reasons'));
+    rows.append(tr);
+  }
+}
+function renderLearning() {
+  const L = S.learning || {}, pts = L.points || [];
+  const ready = L.ready_at_minutes;
+  $('ready-hero').textContent = ready != null ? `after ${fmtMin(ready)} of use` :
+    pts.length ? 'not yet' : 'not enough data yet';
+  $('ready-sub').textContent = `${fmtMin(L.owner_minutes || 0)} of my active use collected. Ready means at least ` +
+    `90 % of the other person's sessions caught and at most 0.2 false alarm per hour on me.`;
+  $('curve-note').textContent = L.note || (L.impostor_kind === 'guest' ?
+    `Impostors: ${pts.length ? pts[0].impostor_sessions : 0} real guest session(s)` +
+    (L.population_reference ? ', tested one out against the others.' : '.') : '');
+  $('curve-time').textContent = L.computed_at ? ' last computed ' + L.computed_at : '';
+  const xs = pts.map(p => Math.max(p.enrol_minutes, 0.1));
+  const base = {xs, logX: true, xFmt: v => fmtMin(v), xLabel: 'enrolled', vline: ready};
+  chart($('ch-crit'), {...base, yMin: 0, yMax: 1, yFmt: v => Math.round(v * 100) + '%', aria: 'enrolment criteria',
+    series: [{name: 'C1 volume', ys: pts.map(p => p.volume), color: 'var(--series-1)'},
+             {name: 'C2 stability', ys: pts.map(p => p.stability), color: 'var(--series-2)'},
+             {name: 'C4 days', ys: pts.map(p => p.coverage), color: 'var(--series-3)'}]});
+  chart($('ch-det'), {...base, yMin: 0, yMax: 1, yFmt: v => Math.round(v * 100) + '%', aria: 'share caught',
+    refs: [{y: 0.9, label: 'target'}], series: [{name: 'caught', ys: pts.map(p => p.detected_share), color: 'var(--series-1)'}]});
+  chart($('ch-ttd'), {...base, yFmt: v => fmtS(v), aria: 'time to catch',
+    series: [{name: 'time to catch', ys: pts.map(p => p.median_time_to_detect_s), color: 'var(--series-1)'}]});
+  chart($('ch-ttr'), {...base, yFmt: v => fmtS(v), aria: 'time to recognise',
+    series: [{name: 'time to recognise', ys: pts.map(p => p.median_time_to_recognise_s), color: 'var(--series-1)'}]});
+  chart($('ch-fa'), {...base, yFmt: v => v.toFixed(1), aria: 'false alarms per hour',
+    refs: [{y: 0.2, label: 'target'}],
+    series: [{name: 'false alarms / h', ys: pts.map(p => p.false_alarms_per_hour), color: 'var(--series-1)'}]});
+  const rows = $('curve-rows'); rows.innerHTML = '';
+  for (const p of pts) { const tr = document.createElement('tr');
+    tr.append(td(p.enrol_minutes), td(p.genuine_minutes_tested), td(pct(p.recognised_share)),
+      td(fmtS(p.median_time_to_recognise_s)),
+      td(p.false_alarms_per_hour == null ? '-' : p.false_alarms_per_hour.toFixed(2)),
+      td(`${p.impostor_sessions} ${p.impostor_kind}`), td(pct(p.detected_share)),
+      td(fmtS(p.median_time_to_detect_s)), td(p.ready ? 'yes' : 'no'));
+    rows.append(tr); }
+}
+function renderGuests() {
+  const rows = $('guest-rows'); rows.innerHTML = '';
+  for (const g of S.guests) { const tr = document.createElement('tr');
+    const del = document.createElement('button'); del.className = 'link'; del.textContent = 'delete';
+    del.onclick = () => { if (confirm('Delete this guest session?')) act('guest_delete', {id: g.id}); };
+    const c = document.createElement('td'); c.append(del);
+    tr.append(td(g.label), td(g.day), td(Math.round((g.bytes || 0) / 1024) + ' KB'), c);
+    rows.append(tr); }
+  if (!S.guests.length) rows.innerHTML = '<tr><td class="muted" colspan="4">none yet</td></tr>';
+}
+let pending = false;
+function render() { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false;
+  renderStatus();
+  if (!$('tab-now').classList.contains('hidden')) renderNow();
+  if (!$('tab-learning').classList.contains('hidden')) renderLearning();
+  if (!$('tab-guests').classList.contains('hidden')) renderGuests(); }); }
+Object.assign(S, /*INITIAL*/{}); S.status = S.status || {}; S.guests = S.guests || [];
+S.segments = S.segments || []; render();
+const es = new EventSource('/events');
+es.addEventListener('hello', e => { Object.assign(S, JSON.parse(e.data)); S.status = S.status || {};
+  S.guests = S.guests || []; render(); });
+es.addEventListener('segment', e => { S.segments.push(JSON.parse(e.data));
+  if (S.segments.length > 600) S.segments.shift(); render(); });
+es.addEventListener('status', e => { S.status = JSON.parse(e.data); render(); });
+es.addEventListener('learning', e => { S.learning = JSON.parse(e.data); render(); });
+es.addEventListener('guests', e => { S.guests = JSON.parse(e.data).guests; render(); });
+window.addEventListener('resize', render);
+// A link ending in #learning opens that tab (the fragment survives the login redirect).
+if (['now', 'learning', 'guests'].includes(location.hash.slice(1))) showTab(location.hash.slice(1));
 </script></body></html>"""

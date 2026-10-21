@@ -17,12 +17,17 @@ PATH = "/org/fidusachates/Overlay"
 
 
 class OverlayClient:
-    """Abstract overlay. `set_confidence` and `clear` are the whole surface."""
+    """Abstract overlay. `set_confidence` and `clear` drive the alert;
+    `set_status` drives the whole top-bar indicator (off, learning,
+    recognized, alert) and doubles as its heartbeat."""
 
     def set_confidence(self, percent: int, channel: str = "Identity") -> None:
         raise NotImplementedError
 
     def clear(self) -> None:
+        raise NotImplementedError
+
+    def set_status(self, state: str, percent: int = 0) -> None:
         raise NotImplementedError
 
 
@@ -41,6 +46,9 @@ class NullOverlay(OverlayClient):
 
     def clear(self) -> None:
         self.calls.append(("clear", 0, ""))
+
+    def set_status(self, state: str, percent: int = 0) -> None:
+        self.calls.append(("status", int(percent), state))
 
 
 class GdbusOverlay(OverlayClient):
@@ -67,6 +75,9 @@ class GdbusOverlay(OverlayClient):
 
     def clear(self) -> None:
         self._call("Clear")
+
+    def set_status(self, state: str, percent: int = 0) -> None:
+        self._call("SetStatus", state, str(int(percent)))
 
 
 class GioOverlay(OverlayClient):
@@ -101,6 +112,11 @@ class GioOverlay(OverlayClient):
     def clear(self) -> None:
         self._call("Clear", None)
 
+    def set_status(self, state: str, percent: int = 0) -> None:
+        from gi.repository import GLib
+
+        self._call("SetStatus", GLib.Variant("(su)", (state, int(percent))))
+
 
 @dataclass
 class ChangeOnly(OverlayClient):
@@ -120,6 +136,13 @@ class ChangeOnly(OverlayClient):
         if self._last != ("clear",):
             self.inner.clear()
             self._last = ("clear",)
+
+    def set_status(self, state: str, percent: int = 0, force: bool = False) -> None:
+        """`force` resends an unchanged state: the indicator's heartbeat."""
+        key = ("status", state, int(percent))
+        if force or key != self._last:
+            self.inner.set_status(state, percent)
+            self._last = key
 
 
 def best_overlay() -> OverlayClient:
