@@ -16,6 +16,7 @@ from fidus_lab.corpus import (
     load_balabit_session,
     load_cmu,
 )
+from fidus_lab.experts.keystroke import _hold_times
 from fidus_lab.metrics import eer_exact
 from fidus_lab.public_eval import (
     balabit_user_eers,
@@ -23,7 +24,6 @@ from fidus_lab.public_eval import (
     cmu_manhattan,
     cmu_same_class_rollover,
     cmu_split,
-    fifo_hold_times,
     run_balabit,
     windows,
 )
@@ -129,7 +129,7 @@ def test_cmu_protocol_split_and_detectors(tmp_path):
                                 n_train=8, n_impostor=2).mean < 0.2
 
 
-def test_rollover_and_fifo_matcher(tmp_path):
+def test_rollover_and_the_expert_hold_matcher(tmp_path):
     path = _cmu_csv(tmp_path)
     cols = cmu_columns(path)
     s = load_cmu(path)[0]
@@ -142,7 +142,7 @@ def test_rollover_and_fifo_matcher(tmp_path):
     assert cmu_same_class_rollover([s], cols) == 1.0
     recs = cmu_records(s, cols)
     seg = Segment(recs[0].time_us, recs[-1].time_us, recs)
-    holds = [h for kc, h in fifo_hold_times(seg) if kc == KeyClass.LETTER]
+    holds = [h for kc, h in _hold_times(seg) if kc == KeyClass.LETTER]
     assert len(holds) == 8 and all(abs(h - 200_000) < 2 for h in holds)
 
 

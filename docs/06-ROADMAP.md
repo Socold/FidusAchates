@@ -148,7 +148,7 @@ First end-to-end result: no enrolment needed, so the whole chain can be demonstr
 | 4.3 | Signals that mostly encode hardware are identified and barred from identity evidence | List published |
 | 4.4 | The `(a,b)` pair of Fitts's law is stable across sessions | Coefficient of variation under 15 % |
 
-**Measured on 2026-10-21** (same artifact): for 4.2, digraph classes cost about 2 points of EER on CMU (keystroke expert 0.197 with true digraphs, 0.219 with classes); the default of ADR-0008 stands, on a narrow fixed-text slice. The pointer expert gets its first real number on Balabit: mean EER 0.38 per segment, 0.29 per session, which is weak.
+**Measured on 2026-10-21** (same artifact): for 4.2, digraph classes cost about 1.5 points of EER on CMU (keystroke expert 0.115 with true digraphs, 0.129 with classes, after fixing the hold matcher, which alone was worth 9 points); the default of ADR-0008 stands, on a narrow fixed-text slice. The pointer expert gets its first real number on Balabit: mean EER 0.38 per segment, 0.29 per session, which is weak.
 
 ---
 

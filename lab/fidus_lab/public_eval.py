@@ -26,7 +26,6 @@ import statistics
 import sys
 from dataclasses import dataclass, field
 from typing import Callable
-from unittest import mock
 
 from .corpus import (
     CmuSample,
@@ -146,22 +145,6 @@ def cmu_same_class_rollover(samples: list[CmuSample], columns: list[str]) -> flo
     return hit / len(samples) if samples else 0.0
 
 
-def fifo_hold_times(seg: Segment) -> list[tuple[KeyClass, float]]:
-    """Diagnostic only: hold times with each key-up matched to the oldest
-    pending key-down of its class, so a rollover between two letters no longer
-    overwrites the first down. Used to measure what the expert's matcher
-    costs; the expert itself is left as it is."""
-    pending: dict[KeyClass, list[int]] = {}
-    out: list[tuple[KeyClass, float]] = []
-    for r in seg.records:
-        kc = r.event.key_class
-        if r.event.kind == EventKind.KEY_DOWN:
-            pending.setdefault(kc, []).append(r.time_us)
-        elif r.event.kind == EventKind.KEY_UP and pending.get(kc):
-            out.append((kc, float(r.time_us - pending[kc].pop(0))))
-    return out
-
-
 def run_cmu(path: str) -> dict:
     samples = load_cmu(path)
     columns = cmu_columns(path)
@@ -171,9 +154,6 @@ def run_cmu(path: str) -> dict:
     classes = cmu_manhattan(samples, lambda s: cmu_class_features(s, columns))
     expert_cls = cmu_keystroke_expert(samples, columns, pair_digraphs=False)
     expert_pair = cmu_keystroke_expert(samples, columns, pair_digraphs=True)
-    with mock.patch("fidus_lab.experts.keystroke._hold_times", fifo_hold_times):
-        fifo_cls = cmu_keystroke_expert(samples, columns, pair_digraphs=False)
-        fifo_pair = cmu_keystroke_expert(samples, columns, pair_digraphs=True)
     return {
         "protocol": "Killourhy-Maxion: first 200 reps train, last 200 genuine, "
                     "first 5 reps of each other subject impostor; exact EER per subject",
@@ -190,10 +170,6 @@ def run_cmu(path: str) -> dict:
         "keystroke_expert_true_digraphs": expert_pair.as_dict(),
         "share_of_reps_with_same_class_rollover": round(
             cmu_same_class_rollover(samples, columns), 4),
-        "diagnostic_fifo_hold_matcher": {
-            "keystroke_expert_digraph_classes": fifo_cls.as_dict(),
-            "keystroke_expert_true_digraphs": fifo_pair.as_dict(),
-        },
     }
 
 

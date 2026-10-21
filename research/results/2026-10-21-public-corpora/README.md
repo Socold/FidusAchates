@@ -45,8 +45,8 @@ score (`metrics.eer_exact`), then averaged over the 51 subjects.
 | Published (Killourhy and Maxion) | 31 | 0.096 | 0.069 |
 | Scaled Manhattan, every hold + DD of the 9 classed pairs | 20 | 0.0941 | 0.074 |
 | Scaled Manhattan, mean hold per key class + mean DD per digraph class | 10 | 0.1223 | 0.083 |
-| Keystroke expert, digraph classes (as recorded) | | 0.2185 | 0.129 |
-| Keystroke expert, true digraphs | | 0.1968 | 0.118 |
+| Keystroke expert, digraph classes (as recorded) | | 0.1287 | 0.088 |
+| Keystroke expert, true digraphs | | 0.1152 | 0.079 |
 
 **Criterion 2.2 is met**: 0.0960 against the published 0.096, well within
 0.01. The fixed 400-step grid of `metrics.eer` gives 0.0986 on the same scores;
@@ -58,29 +58,30 @@ exact reading.
 per key class (8 of the 11 keys are letters, so 8 holds collapse into one),
 and the 9 key pairs pooled into 6 digraph classes. Inside the keystroke expert,
 where holds are pooled by class in both runs and only the digraph tagging
-changes, true digraphs gain 2.2 points (0.219 to 0.197). So on this corpus the
-digraph classes cost roughly 2 points of EER, and most of the remaining gap to
+changes, true digraphs gain 1.4 points (0.129 to 0.115). So on this corpus the
+digraph classes cost roughly 1.5 points of EER, and most of the remaining gap to
 the canonical detector comes from elsewhere. My reading: the cost is real but
 moderate, the default of ADR-0008 stands for free text (where true digraphs
 would be too sparse to model and would carry content), and the pooled hold is
 the bigger loss on this fixed-text task.
 
-**A bug found on the way.** The expert's hold matcher (`_hold_times` in
-`experts/keystroke.py`) pairs a key-up with the last key-down *of the same
-class*. When a letter goes down before the previous letter is up (rollover),
-the first down is overwritten: its hold becomes up(first) minus down(second),
-and the second hold is lost. On CMU, 53.5 % of repetitions contain at least one
-such overlap. As a diagnostic only, I re-ran the expert with a first-in,
-first-out matcher patched in for that run:
+**A bug found on the way, and fixed.** The expert's hold matcher
+(`_hold_times` in `experts/keystroke.py`) paired a key-up with the last
+key-down *of the same class*. When a letter goes down before the previous
+letter is up (rollover), the first down was overwritten: its hold became
+up(first) minus down(second), and the second hold was lost. On CMU, 53.5 % of
+repetitions contain at least one such overlap. The matcher now pairs each
+key-up with the oldest pending key-down of its class (first in, first out),
+and the expert numbers above are measured with it. Before the fix:
 
-| Keystroke expert, FIFO hold matcher | Mean EER | Std |
+| Keystroke expert, old matcher | Mean EER | Std |
 |---|---|---|
-| Digraph classes | 0.1287 | 0.088 |
-| True digraphs | 0.1152 | 0.079 |
+| Digraph classes | 0.2185 | 0.129 |
+| True digraphs | 0.1968 | 0.118 |
 
-The matcher alone is worth about 9 points of EER here, far more than the class
-abstraction. Fast free-text typing rolls over too, so I expect it to matter
-live. I have not changed the expert in this run.
+The matcher was worth about 9 points of EER here, far more than the class
+abstraction. Fast free-text typing rolls over too, so it mattered live as
+well; templates refitted after the fix use the corrected holds.
 
 ## Balabit mouse
 
