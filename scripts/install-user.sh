@@ -31,6 +31,9 @@ DEST="$HOME/.local/share/gnome-shell/extensions/$EXT"
 mkdir -p "$DEST"
 cp shell-extension/$EXT/* "$DEST/"
 
+# The action-class hook (ADR-0014): installed, sourced only if I add it to ~/.bashrc.
+install -D -m 0644 contrib/shell/fidus-actions.bash "$HOME/.local/share/fidusachates/fidus-actions.bash"
+
 UNIT="$HOME/.config/systemd/user/fidusachates.service"
 mkdir -p "$(dirname "$UNIT")"
 sed -e "s|@LAB@|$ROOT/lab|" -e "s|@LAYOUT@|$LAYOUT|" \
@@ -39,5 +42,7 @@ systemctl --user daemon-reload
 systemctl --user enable --now fidusachates.service
 
 echo "installed: recorder, extension, service (layout $LAYOUT)."
+echo "for action sensitivity, add to ~/.bashrc:"
+echo "  [ -f ~/.local/share/fidusachates/fidus-actions.bash ] && . ~/.local/share/fidusachates/fidus-actions.bash"
 echo "a new or updated extension is picked up after logging out and back in on Wayland."
 echo "stop everything with: systemctl --user disable --now fidusachates.service"

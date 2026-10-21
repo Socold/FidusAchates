@@ -4,10 +4,9 @@ Attribution says who acts; this says whether to worry. It is deliberately the
 only place that turns a label into an alarm, so the leap from "automated" to
 "hostile" is explicit and inspectable.
 
-Sensitivity is the future link to command-category signals (FR-47). Until that
-work package lands it is a stub returning LOW, so unsanctioned automation is
-tagged, not alarmed. Wiring the real signal replaces `stub_sensitivity`, nothing
-else.
+Sensitivity comes from command-category signals (FR-47). The live daemon gets
+it from `sensitivity.ActionLog` (work package 9, ADR-0014); the offline replay
+has no actions in its traces and keeps `stub_sensitivity`, which returns LOW.
 """
 
 from __future__ import annotations
@@ -31,7 +30,7 @@ class Outcome(str, Enum):
 
 
 def stub_sensitivity(_segment: Segment) -> Sensitivity:
-    """Placeholder until command-category correlation exists (WP 9)."""
+    """For a replayed trace, which carries no actions: always LOW."""
     return Sensitivity.LOW
 
 

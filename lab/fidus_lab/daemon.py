@@ -39,9 +39,10 @@ from .enrolment import CriteriaParams, EnrolmentTracker
 from .explain import explain
 from .learning import Enrolled, Population, learning_curve
 from .overlay import best_overlay
-from .policy import decide, stub_sensitivity
+from .policy import decide
 from .registry import SanctionRegistry
 from .segment import LiveSegmenter, Segment
+from .sensitivity import ActionLog, actions_path, follow
 from .storage import GuestSession, Store, default_root
 from .trace import Record, read_stream
 
@@ -100,6 +101,7 @@ class Daemon:
         self.registry = SanctionRegistry()
         self.segmenter = LiveSegmenter()
         self.context = ContextTracker()
+        self.actions = ActionLog()
         self._pending_context: list[ContextEvent] = []
         self._records: queue.Queue = queue.Queue(maxsize=100_000)
         self._lock = threading.Lock()
@@ -207,8 +209,8 @@ class Daemon:
             return
         d = engine.step(seg)
         a = attribute(seg, self.registry)
-        outcome = decide(a.label, identity_diverged=d.alarmed,
-                         sensitivity=stub_sensitivity(seg))
+        sensitivity, actions = self.actions.sensitivity(seg)
+        outcome = decide(a.label, identity_diverged=d.alarmed, sensitivity=sensitivity)
         self._index += 1
         self._session_t += max(seg.duration_us, 0) / 1e6
         self._session_sum += d.evidence_db
@@ -226,6 +228,8 @@ class Daemon:
             "t": round(self._session_t, 1),
             "evidence_db": round(d.evidence_db, 1),
             "confidence": round(d.confidence, 3),
+            "sensitivity": sensitivity.name.lower(),
+            "actions": actions,
             "session_db": round(self._session_sum, 1),
             "guest": guest,
             "at": dt.datetime.now().strftime("%H:%M:%S"),
@@ -322,6 +326,8 @@ class Daemon:
         threading.Thread(target=self._reader, args=(proc,), daemon=True).start()
         threading.Thread(target=self._background, daemon=True).start()
         threading.Thread(target=self._heartbeat, daemon=True).start()
+        threading.Thread(target=follow, args=(actions_path(), self.actions, self._stop, now_us),
+                         daemon=True).start()
         start_activity_listener(self.on_activity)
         self._new_session()
         self.overlay.set_status("learning", 0)

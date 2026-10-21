@@ -227,6 +227,8 @@ First end-to-end result: no enrolment needed, so the whole chain can be demonstr
 
 Wire the stubbed sensitivity (FR-47) to the real command-category signals (C09, C10) and destructive-looking sequences, and let the policy lift or keep doubt on `automation_unsanctioned` accordingly (ADR-0011, decision engine 4.4b).
 
+**Status**: wired in the live daemon (ADR-0014). A bash hook sends one class per command, never its content; the daemon attaches the classes to their window and the policy uses them. Scenarios 9.1 and 9.2 pass as tests, and the diff touches the provider only (9.3). The attack bench for 9.2 on real automation remains, as do graphical elevation prompts and shells other than bash.
+
 **Content**
 - Sensitivity derived from command classes, elevation cadence, and mass-destructive patterns, all content-free.
 - Policy: `automation_unsanctioned` in a sensitive context raises the overlay; in a benign context it stays a tag.

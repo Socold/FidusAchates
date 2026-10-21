@@ -599,7 +599,9 @@ function renderNow() {
       td(s.outcome, 'out-' + s.outcome));
     const reasons = (s.explanation || '').split('\\n').slice(1).filter(l => l.includes('- ')).slice(0, 2)
       .map(l => l.replace(/^\\s*- /, '')).join('; ');
-    tr.append(td(reasons, 'muted reasons'));
+    const acted = s.sensitivity && s.sensitivity !== 'low'
+      ? s.sensitivity + ' sensitivity (' + (s.actions || []).join(', ') + ')' : '';
+    tr.append(td([acted, reasons].filter(Boolean).join('; '), 'muted reasons'));
     rows.append(tr);
   }
 }

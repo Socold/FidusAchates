@@ -156,9 +156,9 @@ The Attribution channel is the former "Humanity channel", but its meaning is cor
 
 The overlay's `P(impostor)` is the Identity probability. The Attribution label is shown beside it, and the console always states which channel, and which label, is responsible.
 
-### 4.4b Sensitivity, the future link
+### 4.4b Sensitivity
 
-"Sensitive context" is what turns unsanctioned automation from a tag into a doubt. It is derived from the command-category signals already in the catalogue (C09 command classes, C10 elevation cadence) and from destructive-looking sequences: unsanctioned automation that only reads and navigates is low concern; unsanctioned automation that elevates privileges, rotates credentials or mass-deletes is what should lift or keep doubt.
+"Sensitive context" is what turns unsanctioned automation from a tag into a doubt. It is derived from the command-category signals already in the catalogue (C09 command classes, C10 elevation cadence) and from destructive-looking sequences: unsanctioned automation that only reads and navigates is low concern; unsanctioned automation that elevates privileges, rotates credentials or mass-deletes is what should lift or keep doubt. Since work package 9 the live daemon gets it from a shell hook that sends one class per command and nothing else (ADR-0014): elevation, destructive and credential actions make a window HIGH, network, package and container actions MEDIUM, everything else LOW. Only HIGH turns the tag into an alert.
 
 This correlation is its own work package. Today the engine puts the seam in place, the label, the registry and the policy, so it can be added without reshaping anything. Until then, unsanctioned automation in a sensitive context is tagged and logged, not alarmed.
 
