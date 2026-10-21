@@ -15,7 +15,8 @@ records: N * 16 bytes
 ```
 
 No header beyond the magic, no index, no trailer: the file is a flat stream of
-fixed records, append-only. Records are buffered before they reach the disk (a few kilobytes, a few hundred records), so a crash loses the unflushed tail, never the middle of the file; a clean stop flushes everything.
+fixed records, append-only. `record --trace -` writes the same stream to
+standard output for the live pipeline, flushed after each batch of events. Records are buffered before they reach the disk (a few kilobytes, a few hundred records), so a crash loses the unflushed tail, never the middle of the file; a clean stop flushes everything.
 
 ## Record (16 bytes, little-endian)
 
@@ -31,8 +32,8 @@ fixed records, append-only. Records are buffered before they reach the disk (a f
 
 | Kind | Value | Payload bytes |
 |---|---|---|
-| key down | 1 | `[key_class, digraph_class, 0, 0]` |
-| key up | 2 | `[key_class, 0, 0, 0]` |
+| key down | 1 | `[key_class, digraph_class, shortcut_class, 0]` |
+| key up | 2 | `[key_class, digraph_class (always none), 0, 0]` |
 | motion | 3 | `[dx: i16, dy: i16]` |
 | wheel | 4 | `[dx: i16, dy: i16]` (notches) |
 | button down | 5 | `[button, 0, 0, 0]` |
@@ -44,7 +45,17 @@ keypad, other).
 
 `digraph_class` packs the biomechanical relation (bits 0-2) and the row
 distance (bits 3-4): see `fidus-core::biomech`. It is meaningful on key-down
-only.
+only. "No digraph" (first key, a modifier, a key outside the letter block, and
+every key-up) packs to `0x18` (relation none, row distance not applicable), not
+to 0: a reader must test for that value, not for zero.
+
+`shortcut_class` (key-down only) is the class of the shortcut when a shortcut
+modifier (Ctrl, left Alt, Super; never AltGr) is held, from a fixed list (copy,
+paste, undo, switch window...; see `fidus-core::shortcut`), `27` for any other
+combination, `0` when no shortcut modifier is held. The key itself is never
+written: the recorder's `--layout` only decides which listed class a positional
+key code names. Traces written before this byte existed carry `0` there and
+read as "no shortcut", so the version is unchanged.
 
 `button` is 0 left, 1 right, 2 middle, 3 other.
 

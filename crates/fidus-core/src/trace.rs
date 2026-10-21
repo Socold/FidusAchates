@@ -11,6 +11,7 @@
 use crate::biomech::DigraphClass;
 use crate::keyclass::KeyClass;
 use crate::record::{Button, Event, KeyPhase, Provenance, Record};
+use crate::shortcut::ShortcutClass;
 
 pub const MAGIC: &[u8; 8] = b"FIDUSTR\x01";
 pub const RECORD_LEN: usize = 16;
@@ -38,13 +39,14 @@ pub fn encode(r: &Record) -> [u8; RECORD_LEN] {
             phase,
             class,
             digraph,
+            shortcut,
         } => (
             if phase == KeyPhase::Down {
                 EV_KEY_DOWN
             } else {
                 EV_KEY_UP
             },
-            [class as u8, digraph.to_u8(), 0, 0],
+            [class as u8, digraph.to_u8(), shortcut as u8, 0],
         ),
         Event::Motion { dx, dy } => (EV_MOTION, pack_i16(dx, dy)),
         Event::Wheel { dx, dy } => (EV_WHEEL, pack_i16(dx, dy)),
@@ -88,6 +90,8 @@ pub fn decode(b: &[u8; RECORD_LEN]) -> Option<Record> {
             },
             class: KeyClass::from_u8(payload[0])?,
             digraph: DigraphClass::from_u8(payload[1])?,
+            // 0 in traces written before shortcut classes existed: None.
+            shortcut: ShortcutClass::from_u8(payload[2])?,
         },
         EV_MOTION => {
             let (dx, dy) = unpack_i16(payload);
@@ -168,6 +172,16 @@ mod tests {
                 phase: KeyPhase::Down,
                 class: KeyClass::Letter,
                 digraph: dg,
+                shortcut: ShortcutClass::None,
+            },
+            Provenance::Hardware,
+        );
+        round_trip(
+            Event::Key {
+                phase: KeyPhase::Down,
+                class: KeyClass::Letter,
+                digraph: dg,
+                shortcut: ShortcutClass::TerminalPaste,
             },
             Provenance::Hardware,
         );
@@ -176,6 +190,7 @@ mod tests {
                 phase: KeyPhase::Up,
                 class: KeyClass::Correction,
                 digraph: DigraphClass::NONE,
+                shortcut: ShortcutClass::None,
             },
             Provenance::Virtual,
         );
@@ -208,6 +223,31 @@ mod tests {
             }
             e => panic!("{e:?}"),
         }
+    }
+
+    #[test]
+    fn shortcut_lands_in_payload_byte_two() {
+        let r = Record {
+            time: 0,
+            device: 0,
+            provenance: Provenance::Hardware,
+            event: Event::Key {
+                phase: KeyPhase::Down,
+                class: KeyClass::Letter,
+                digraph: DigraphClass::NONE,
+                shortcut: ShortcutClass::Copy,
+            },
+        };
+        let mut b = encode(&r);
+        assert_eq!(b[13], ShortcutClass::Copy as u8);
+        // A pre-shortcut trace has 0 there and decodes to None.
+        b[13] = 0;
+        match decode(&b).unwrap().event {
+            Event::Key { shortcut, .. } => assert_eq!(shortcut, ShortcutClass::None),
+            e => panic!("{e:?}"),
+        }
+        b[13] = 200;
+        assert!(decode(&b).is_none());
     }
 
     #[test]

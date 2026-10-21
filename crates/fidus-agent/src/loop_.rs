@@ -12,6 +12,7 @@ use crate::hotplug::Inotify;
 use crate::signal;
 use fidus_core::record::Provenance;
 use fidus_core::reduce::Reducer;
+use fidus_core::shortcut::Layout;
 use std::collections::HashSet;
 use std::io;
 use std::os::fd::RawFd;
@@ -33,6 +34,7 @@ struct Source {
 
 pub fn run(args: Vec<String>) -> io::Result<()> {
     let trace_path = parse_trace_arg(&args)?;
+    let layout = parse_layout_arg(&args)?;
 
     #[cfg(not(feature = "research-trace"))]
     if trace_path.is_some() {
@@ -54,7 +56,7 @@ pub fn run(args: Vec<String>) -> io::Result<()> {
     let devices = device::discover()?;
     let epoll = Epoll::new()?;
     for d in &devices {
-        add_source(&epoll, &mut sources, &mut open_paths, d)?;
+        add_source(&epoll, &mut sources, &mut open_paths, d, layout)?;
     }
     if sources.is_empty() {
         return Err(io::Error::other(
@@ -79,6 +81,7 @@ pub fn run(args: Vec<String>) -> io::Result<()> {
     let mut count: u64 = 0;
     let mut events = [libc::epoll_event { events: 0, u64: 0 }; 16];
     while !signal::stop_requested() {
+        let before = count;
         let n = match epoll.wait(&mut events) {
             Ok(n) => n,
             // A signal interrupted the wait: loop back and check the stop flag.
@@ -94,7 +97,7 @@ pub fn run(args: Vec<String>) -> io::Result<()> {
                     // Re-discover so provenance is resolved for the new node.
                     if let Some(d) = device::describe(&path) {
                         if d.readable {
-                            let _ = add_source(&epoll, &mut sources, &mut open_paths, &d);
+                            let _ = add_source(&epoll, &mut sources, &mut open_paths, &d, layout);
                         }
                     }
                 }
@@ -136,6 +139,16 @@ pub fn run(args: Vec<String>) -> io::Result<()> {
                 }
             }
         }
+        // One flush per batch that produced records: a reader on a pipe sees
+        // events as they happen, and an idle recorder still writes nothing.
+        #[cfg(feature = "research-trace")]
+        if count != before {
+            if let Some(w) = sink.as_mut() {
+                w.flush()?;
+            }
+        }
+        #[cfg(not(feature = "research-trace"))]
+        let _ = before;
     }
 
     eprintln!("fidus-agent: stopped, {count} reduced events");
@@ -148,6 +161,7 @@ fn add_source(
     sources: &mut Vec<Source>,
     open_paths: &mut HashSet<PathBuf>,
     d: &Device,
+    layout: Layout,
 ) -> io::Result<()> {
     if !d.readable || open_paths.contains(&d.path) {
         return Ok(());
@@ -159,7 +173,7 @@ fn add_source(
             open_paths.insert(d.path.clone());
             sources.push(Source {
                 reader,
-                reducer: Reducer::new(),
+                reducer: Reducer::with_layout(layout),
                 device_index: d.index,
                 provenance: d.provenance,
                 path: d.path.clone(),
@@ -182,10 +196,24 @@ fn parse_trace_arg(args: &[String]) -> io::Result<Option<String>> {
                 .next()
                 .cloned()
                 .map(Some)
-                .ok_or_else(|| io::Error::other("--trace needs a file path"));
+                .ok_or_else(|| io::Error::other("--trace needs a file path or -"));
         }
     }
     Ok(None)
+}
+
+fn parse_layout_arg(args: &[String]) -> io::Result<Layout> {
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        if a == "--layout" {
+            return match it.next().map(String::as_str) {
+                Some("qwerty") => Ok(Layout::Qwerty),
+                Some("azerty") => Ok(Layout::Azerty),
+                _ => Err(io::Error::other("--layout needs qwerty or azerty")),
+            };
+        }
+    }
+    Ok(Layout::Qwerty)
 }
 
 // A thin epoll wrapper, level-triggered, no timeout.

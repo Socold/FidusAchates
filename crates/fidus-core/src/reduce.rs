@@ -1,25 +1,39 @@
 //! The privacy boundary. A raw key code enters, a [`Record`] leaves.
 //!
 //! [`Reducer`] is the only place in the project that ever holds a key code, and
-//! it holds one only long enough to look up two classes. It keeps the previous
-//! key-down code so it can compute the digraph class of the next one; that one
-//! `u16` is the whole of its memory, it is private, and it never reaches a
-//! [`Record`].
+//! it holds one only long enough to look up three classes. It keeps the
+//! previous key-down code so it can compute the digraph class of the next one,
+//! and which modifiers are held (booleans only) so it can compute the shortcut
+//! class. That one `u16` and those booleans are the whole of its memory, they
+//! are private, and they never reach a [`Record`].
 
 use crate::biomech::{digraph_class, DigraphClass};
 use crate::codes::*;
 use crate::keyclass::{classify, KeyClass};
 use crate::record::{Button, Event, KeyPhase, MicroTime, Provenance, Record};
+use crate::shortcut::{self, Layout, Modifiers, ShortcutClass};
 
 /// Reduces the raw events of one device to [`Record`]s.
 #[derive(Default)]
 pub struct Reducer {
     previous_key_down: Option<u16>,
+    modifiers: Modifiers,
+    layout: Layout,
 }
 
 impl Reducer {
+    /// A reducer for a QWERTY keyboard.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// A reducer for the given layout, which only changes how letter
+    /// shortcuts are named (key codes are positional).
+    pub fn with_layout(layout: Layout) -> Self {
+        Self {
+            layout,
+            ..Self::default()
+        }
     }
 
     /// Feed one raw evdev event. Returns a [`Record`] for the events the model
@@ -65,6 +79,12 @@ impl Reducer {
             1 => {
                 let class = classify(code);
                 let digraph = digraph_class(self.previous_key_down, code);
+                let is_modifier = self.modifiers.update(code, true);
+                let shortcut = if is_modifier {
+                    ShortcutClass::None
+                } else {
+                    shortcut::classify(code, &self.modifiers, self.layout)
+                };
                 // A modifier is not part of the digraph rhythm; keep the
                 // previous real key so that "a", "Shift", "b" still forms a-b.
                 if class != KeyClass::Modifier {
@@ -74,13 +94,18 @@ impl Reducer {
                     phase: KeyPhase::Down,
                     class,
                     digraph,
+                    shortcut,
                 })
             }
-            0 => Some(Event::Key {
-                phase: KeyPhase::Up,
-                class: classify(code),
-                digraph: DigraphClass::NONE,
-            }),
+            0 => {
+                self.modifiers.update(code, false);
+                Some(Event::Key {
+                    phase: KeyPhase::Up,
+                    class: classify(code),
+                    digraph: DigraphClass::NONE,
+                    shortcut: ShortcutClass::None,
+                })
+            }
             // 2 is auto-repeat: a held key, not a new keystroke.
             _ => None,
         }
@@ -158,6 +183,40 @@ mod tests {
             Event::Key { digraph, .. } => assert_eq!(digraph.relation, Relation::AlternatingHands),
             e => panic!("{e:?}"),
         }
+    }
+
+    fn shortcut_of(e: Event) -> ShortcutClass {
+        match e {
+            Event::Key { shortcut, .. } => shortcut,
+            e => panic!("{e:?}"),
+        }
+    }
+
+    fn up(r: &mut Reducer, code: u16) -> Event {
+        r.reduce(0, 0, Provenance::Hardware, EV_KEY, code, 0)
+            .unwrap()
+            .event
+    }
+
+    #[test]
+    fn shortcut_on_down_only() {
+        let mut r = Reducer::with_layout(Layout::Azerty);
+        assert_eq!(shortcut_of(down(&mut r, KEY_LEFTCTRL)), ShortcutClass::None);
+        // AZERTY: the key at QWERTY W carries Z, so Ctrl+it is Undo.
+        assert_eq!(shortcut_of(down(&mut r, KEY_W)), ShortcutClass::Undo);
+        assert_eq!(shortcut_of(up(&mut r, KEY_W)), ShortcutClass::None);
+        up(&mut r, KEY_LEFTCTRL);
+        assert_eq!(shortcut_of(down(&mut r, KEY_W)), ShortcutClass::None);
+    }
+
+    #[test]
+    fn plain_typing_has_no_shortcut() {
+        let mut r = Reducer::new();
+        assert_eq!(
+            shortcut_of(down(&mut r, KEY_LEFTSHIFT)),
+            ShortcutClass::None
+        );
+        assert_eq!(shortcut_of(down(&mut r, KEY_C)), ShortcutClass::None);
     }
 
     #[test]

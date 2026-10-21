@@ -1,12 +1,14 @@
 //! The record: everything the project keeps about one input event.
 //!
 //! This type is the content-free guarantee made structural. It has fields for
-//! a key **class** and a digraph **class**, and **no field able to hold a key
-//! code or a character**. Whatever a reviewer thinks of the rest of the code,
-//! this type cannot carry a typed secret, because there is nowhere to put it.
+//! a key **class**, a digraph **class** and a shortcut **class**, and **no
+//! field able to hold a key code or a character**. Whatever a reviewer thinks
+//! of the rest of the code, this type cannot carry a typed secret, because
+//! there is nowhere to put it.
 
 use crate::biomech::DigraphClass;
 use crate::keyclass::KeyClass;
+use crate::shortcut::ShortcutClass;
 
 /// Monotonic microseconds since an arbitrary origin. Never wall-clock time, so
 /// that a trace cannot be tied to a moment in the day.
@@ -28,6 +30,9 @@ pub enum Event {
         /// Class of the pair (previous key down, this key). Meaningful on
         /// `Down` only; `DigraphClass::NONE` otherwise.
         digraph: DigraphClass,
+        /// Shortcut class when a shortcut modifier is held (A16). Meaningful
+        /// on `Down` only; `ShortcutClass::None` otherwise.
+        shortcut: ShortcutClass,
     },
     /// Relative pointer motion. Deltas are behaviour, not content.
     Motion {

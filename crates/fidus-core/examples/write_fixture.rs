@@ -9,6 +9,7 @@
 use fidus_core::biomech::DigraphClass;
 use fidus_core::keyclass::KeyClass;
 use fidus_core::record::{Button, Event, KeyPhase, Provenance, Record};
+use fidus_core::shortcut::ShortcutClass;
 use fidus_core::trace::{encode, MAGIC};
 use std::io::Write;
 
@@ -20,6 +21,7 @@ fn main() -> std::io::Result<()> {
                 phase: KeyPhase::Down,
                 class: KeyClass::Letter,
                 digraph: DigraphClass::NONE,
+                shortcut: ShortcutClass::None,
             },
         ),
         rec(
@@ -28,6 +30,7 @@ fn main() -> std::io::Result<()> {
                 phase: KeyPhase::Up,
                 class: KeyClass::Letter,
                 digraph: DigraphClass::NONE,
+                shortcut: ShortcutClass::None,
             },
         ),
         rec(2000, Event::Motion { dx: -5, dy: 3 }),

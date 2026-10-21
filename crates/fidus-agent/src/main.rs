@@ -79,7 +79,10 @@ fn print_help() {
         "fidus-agent (recorder)\n\
          \n\
          Commands:\n\
-         \x20 record [--trace FILE]   capture and reduce input events\n\
+         \x20 record [--trace FILE|-] [--layout qwerty|azerty]\n\
+         \x20                         capture and reduce input events; '-' streams\n\
+         \x20                         the trace to stdout; the layout only names\n\
+         \x20                         letter shortcuts (default qwerty)\n\
          \x20 devices                 list readable input devices and provenance\n\
          \x20 doctor                  check prerequisites\n\
          \n\

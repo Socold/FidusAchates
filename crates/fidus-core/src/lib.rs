@@ -14,5 +14,6 @@ pub mod codes;
 pub mod keyclass;
 pub mod record;
 pub mod reduce;
+pub mod shortcut;
 #[cfg(feature = "research-trace")]
 pub mod trace;
