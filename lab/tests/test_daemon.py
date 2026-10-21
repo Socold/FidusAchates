@@ -8,7 +8,7 @@ import urllib.request
 import pytest
 
 from fidus_lab.console import publish_link, start
-from fidus_lab.daemon import panel_state
+from fidus_lab.daemon import identity_confidence, panel_state
 from fidus_lab.segment import Segment
 from fidus_lab.storage import Store, monotonic_runs
 from fidus_lab.synth import Typist
@@ -23,6 +23,12 @@ def test_panel_state_never_alerts_while_learning():
     assert panel_state(True, 1.0, 0.72) == ("alert", 72)
     assert panel_state(True, 1.0, 0.2) == ("recognized", 0)
     assert panel_state(True, 1.0, None) == ("recognized", 0)
+
+
+def test_identity_confidence_is_the_complement_of_p_impostor():
+    assert identity_confidence(None) is None
+    assert identity_confidence(0.09) == 91
+    assert identity_confidence(0.72) == 28
 
 
 def test_store_round_trips_days_and_splits_reboots(tmp_path):

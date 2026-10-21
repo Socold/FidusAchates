@@ -25,3 +25,15 @@ def test_change_only_forwards_only_state_changes():
     o.clear()
     o.clear()              # same state: not forwarded
     assert inner.calls == [("set", 72, "Identity"), ("set", 80, "Identity"), ("clear", 0, "")]
+
+
+def test_change_only_forwards_a_confidence_change():
+    from fidus_lab.overlay import ChangeOnly
+    inner = NullOverlay()
+    o = ChangeOnly(inner)
+    o.set_status("learning", 33, 91)
+    o.set_status("learning", 33, 91)   # unchanged: not forwarded
+    o.set_status("learning", 33, 90)
+    o.set_status("learning", 33, 90, force=True)  # heartbeat
+    assert inner.calls == [("status", 33, "learning", 91), ("status", 33, "learning", 90),
+                           ("status", 33, "learning", 90)]

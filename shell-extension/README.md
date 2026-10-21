@@ -7,13 +7,20 @@ Two jobs, and nothing else (architecture section 2.2):
    layout, since other extensions move it). It is always visible and shows one
    of four states, driven over D-Bus:
    - `off`: the daemon is not running (dim grey icon, no text);
-   - `learning`: enrolment in progress, with its percentage (grey, `34%`);
-   - `recognized`: the current actor matches the enrolled user (green icon);
+   - `learning`: enrolment in progress, with its percentage, then how sure the
+     engine is that I am the one typing once a window has been scored (grey,
+     `34% · 91%`);
+   - `recognized`: the current actor matches the enrolled user (green icon,
+     with the same confidence, `91%`);
    - `alert`: a foreign actor is likely, shown as a red badge with the
      confidence (`72%`) when it exceeds 50 % (FR-60).
 
    It never takes focus and only reacts to a deliberate click (FR-61). The
-   click opens a menu with the status line and **Open console**.
+   click opens a menu with the status line, the confidence line, a
+   **Monitoring** switch and **Open console**. The switch runs
+   `systemctl --user start|stop fidusachates.service`: off stops the recorder
+   for this session; the service is still enabled, so it starts again at the
+   next login.
 2. **Context, content-free.** Exposes the *category* of the focused application
    (browser, terminal, development, office, communication, media, other) and a
    bare activity tick on focus change, so the agent can notice window activity
@@ -26,6 +33,10 @@ Two jobs, and nothing else (architecture section 2.2):
 
 - `SetStatus(s state, u percent)`: set the state (`off`, `learning`,
   `recognized`, `alert`; anything else is treated as `off`) and its percentage.
+- `SetIndicator(s state, u percent, i confidence)`: as `SetStatus`, plus the
+  confidence that the person at the keyboard is me, in percent (`-1`: no
+  score yet). The daemon uses this one and falls back to `SetStatus` when the
+  loaded extension predates it.
 - `SetConfidence(u percent, s channel)`: above 50, switch to `alert` with that
   percentage; at or below 50, return to the last non-alert state. Kept so the
   replay console keeps working unchanged.
@@ -35,8 +46,8 @@ Two jobs, and nothing else (architecture section 2.2):
   for now).
 - signal `ActivityTick(s category)`: emitted on focus change.
 
-**Heartbeat.** The daemon calls `SetStatus` about every 30 s. With no
-`SetStatus` or `SetConfidence` call for 90 s, the indicator falls back to `off`,
+**Heartbeat.** The daemon calls `SetIndicator` about every 30 s. With no
+`SetIndicator`, `SetStatus` or `SetConfidence` call for 90 s, the indicator falls back to `off`,
 so it never keeps claiming a state the daemon is no longer there to back.
 
 **Console link.** **Open console** reads one line from

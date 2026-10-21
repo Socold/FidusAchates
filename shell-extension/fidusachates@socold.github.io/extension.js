@@ -2,7 +2,9 @@
 //
 // Two jobs, and nothing else (architecture 2.2):
 //   1. Show the state of the agent in the top bar, right of the clock, driven
-//      over D-Bus: off, learning, recognised, or a foreign actor alert.
+//      over D-Bus: off, learning, recognised, or a foreign actor alert, with
+//      how sure the engine is that I am the one typing. Its menu also turns
+//      the daemon on and off.
 //   2. Expose the focused application *category* and a bare activity tick, so
 //      the agent can notice window activity that has no hardware input behind
 //      it (phantom activity, E20). Never a title, never an executable name.
@@ -26,6 +28,11 @@ const IFACE = `
     <method name="SetStatus">
       <arg type="s" name="state" direction="in"/>
       <arg type="u" name="percent" direction="in"/>
+    </method>
+    <method name="SetIndicator">
+      <arg type="s" name="state" direction="in"/>
+      <arg type="u" name="percent" direction="in"/>
+      <arg type="i" name="confidence" direction="in"/>
     </method>
     <method name="SetConfidence">
       <arg type="u" name="percent" direction="in"/>
@@ -51,6 +58,9 @@ const HEARTBEAT_S = 90;
 
 const STATES = ['off', 'learning', 'recognized', 'alert'];
 
+// The systemd user unit the on/off switch starts and stops.
+const SERVICE = 'fidusachates.service';
+
 const ICONS = {
     off: 'security-medium-symbolic',
     learning: 'security-medium-symbolic',
@@ -64,6 +74,30 @@ const STATUS_TEXT = {
     recognized: () => 'Recognised',
     alert: p => `Foreign actor likely: ${p} %`,
 };
+
+function confidenceText(c) {
+    return c >= 0 ? `Confidence it is me: ${c} %` : 'Confidence it is me: no score yet';
+}
+
+// Run `systemctl --user <args>` without blocking the shell; `done` gets
+// whether it exited with status 0.
+function systemctl(args, done) {
+    try {
+        const proc = Gio.Subprocess.new(['systemctl', '--user', ...args],
+            Gio.SubprocessFlags.STDOUT_SILENCE | Gio.SubprocessFlags.STDERR_SILENCE);
+        proc.wait_check_async(null, (p, res) => {
+            let ok = false;
+            try {
+                ok = p.wait_check_finish(res);
+            } catch {
+                ok = false;
+            }
+            done?.(ok);
+        });
+    } catch {
+        done?.(false);
+    }
+}
 
 function consoleLinkPath() {
     return GLib.build_filenamev(
@@ -89,6 +123,7 @@ export default class FidusOverlayExtension extends Extension {
     enable() {
         this._state = 'off';
         this._percent = 0;
+        this._confidence = -1;
         this._baseState = 'off';
         this._basePercent = 0;
         this._buildIndicator();
@@ -116,6 +151,8 @@ export default class FidusOverlayExtension extends Extension {
         this._icon = null;
         this._label = null;
         this._statusItem = null;
+        this._confidenceItem = null;
+        this._switchItem = null;
         this._consoleItem = null;
         if (this._nameId) {
             Gio.bus_unown_name(this._nameId);
@@ -155,15 +192,22 @@ export default class FidusOverlayExtension extends Extension {
 
         this._statusItem = new PopupMenu.PopupMenuItem('', {reactive: false});
         this._indicator.menu.addMenuItem(this._statusItem);
+        this._confidenceItem = new PopupMenu.PopupMenuItem('', {reactive: false});
+        this._indicator.menu.addMenuItem(this._confidenceItem);
         this._indicator.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+        this._switchItem = new PopupMenu.PopupSwitchMenuItem('Monitoring', false);
+        this._switchItem.connect('toggled', (_item, on) => this._setRunning(on));
+        this._indicator.menu.addMenuItem(this._switchItem);
         this._consoleItem = new PopupMenu.PopupMenuItem('Open console');
         this._consoleItem.connect('activate', () => this._openConsole());
         this._indicator.menu.addMenuItem(this._consoleItem);
         // Refresh the console item each time the menu opens, since the
         // daemon rewrites the link after every use.
         this._indicator.menu.connect('open-state-changed', (_m, open) => {
-            if (open)
+            if (open) {
                 this._refreshConsoleItem();
+                this._refreshSwitch();
+            }
         });
 
         const [boxName, index] = this._placement();
@@ -199,12 +243,52 @@ export default class FidusOverlayExtension extends Extension {
         for (const s of STATES)
             this._indicator.remove_style_class_name(`fidus-state-${s}`);
         this._indicator.add_style_class_name(`fidus-state-${state}`);
-        if (state === 'learning' || state === 'alert')
+        const conf = this._confidence;
+        if (state === 'learning')
+            this._label.set_text(conf >= 0 ? `${pct}% · ${conf}%` : `${pct}%`);
+        else if (state === 'alert')
             this._label.set_text(`${pct}%`);
+        else if (state === 'recognized' && conf >= 0)
+            this._label.set_text(`${conf}%`);
         else
             this._label.set_text('');
         this._label.visible = this._label.text !== '';
         this._statusItem.label.set_text(STATUS_TEXT[state](pct));
+        this._confidenceItem.label.set_text(confidenceText(conf));
+        this._confidenceItem.visible = state !== 'off';
+    }
+
+    _refreshSwitch() {
+        systemctl(['is-active', '--quiet', SERVICE], active => {
+            this._switchItem?.setToggleState(active);
+        });
+    }
+
+    _setRunning(on) {
+        systemctl([on ? 'start' : 'stop', SERVICE], ok => {
+            if (!ok) {
+                Main.notify('FidusAchates', `Could not ${on ? 'start' : 'stop'} ${SERVICE}`);
+                this._refreshSwitch();
+                return;
+            }
+            if (!on) {
+                // Stopped on purpose: no need to wait for the heartbeat.
+                if (this._heartbeatId) {
+                    GLib.source_remove(this._heartbeatId);
+                    this._heartbeatId = null;
+                }
+                this._goOff();
+            }
+        });
+    }
+
+    _goOff() {
+        this._baseState = 'off';
+        this._basePercent = 0;
+        this._state = 'off';
+        this._percent = 0;
+        this._confidence = -1;
+        this._render();
     }
 
     _refreshConsoleItem() {
@@ -232,11 +316,7 @@ export default class FidusOverlayExtension extends Extension {
         this._heartbeatId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT,
             HEARTBEAT_S, () => {
                 this._heartbeatId = null;
-                this._baseState = 'off';
-                this._basePercent = 0;
-                this._state = 'off';
-                this._percent = 0;
-                this._render();
+                this._goOff();
                 return GLib.SOURCE_REMOVE;
             });
     }
@@ -261,6 +341,13 @@ export default class FidusOverlayExtension extends Extension {
 
     SetStatus(state, percent) {
         this._touch();
+        this._confidence = -1;
+        this._set(STATES.includes(state) ? state : 'off', percent);
+    }
+
+    SetIndicator(state, percent, confidence) {
+        this._touch();
+        this._confidence = confidence >= 0 ? Math.min(100, confidence) : -1;
         this._set(STATES.includes(state) ? state : 'off', percent);
     }
 

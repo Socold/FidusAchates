@@ -71,6 +71,14 @@ def panel_state(ready: bool, progress: float, p_impostor: float | None) -> tuple
     return "recognized", 0
 
 
+def identity_confidence(p_impostor: float | None) -> int | None:
+    """How sure the engine is that the person at the keyboard is me, in
+    percent, shown next to the learning progress; None before any score."""
+    if p_impostor is None:
+        return None
+    return int(round((1.0 - p_impostor) * 100))
+
+
 @dataclass
 class Model:
     enrolled: Enrolled
@@ -222,7 +230,7 @@ class Daemon:
     def _push_panel(self, force: bool = False) -> None:
         st = self._status
         state, pct = panel_state(st.get("ready", False), st.get("progress", 0.0), self._last_p)
-        self.overlay.set_status(state, pct, force=force)
+        self.overlay.set_status(state, pct, identity_confidence(self._last_p), force=force)
 
     def _publish_status(self) -> None:
         with self._lock:

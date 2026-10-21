@@ -19,7 +19,9 @@ PATH = "/org/fidusachates/Overlay"
 class OverlayClient:
     """Abstract overlay. `set_confidence` and `clear` drive the alert;
     `set_status` drives the whole top-bar indicator (off, learning,
-    recognized, alert) and doubles as its heartbeat."""
+    recognized, alert) and doubles as its heartbeat. Its `confidence` is how
+    sure the engine is that the person at the keyboard is me, in percent, or
+    None before the first scored window."""
 
     def set_confidence(self, percent: int, channel: str = "Identity") -> None:
         raise NotImplementedError
@@ -27,7 +29,8 @@ class OverlayClient:
     def clear(self) -> None:
         raise NotImplementedError
 
-    def set_status(self, state: str, percent: int = 0) -> None:
+    def set_status(self, state: str, percent: int = 0,
+                   confidence: int | None = None) -> None:
         raise NotImplementedError
 
 
@@ -35,7 +38,7 @@ class OverlayClient:
 class NullOverlay(OverlayClient):
     """Records calls, drives nothing. The default, and what tests use."""
 
-    calls: list[tuple[str, int, str]] | None = None
+    calls: list[tuple] | None = None
 
     def __post_init__(self) -> None:
         if self.calls is None:
@@ -47,8 +50,9 @@ class NullOverlay(OverlayClient):
     def clear(self) -> None:
         self.calls.append(("clear", 0, ""))
 
-    def set_status(self, state: str, percent: int = 0) -> None:
-        self.calls.append(("status", int(percent), state))
+    def set_status(self, state: str, percent: int = 0,
+                   confidence: int | None = None) -> None:
+        self.calls.append(("status", int(percent), state, confidence))
 
 
 class GdbusOverlay(OverlayClient):
@@ -60,15 +64,16 @@ class GdbusOverlay(OverlayClient):
     def available(self) -> bool:
         return self._gdbus is not None
 
-    def _call(self, method: str, *args: str) -> None:
+    def _call(self, method: str, *args: str) -> bool:
         if not self._gdbus:
-            return
+            return False
         cmd = [self._gdbus, "call", "--session", "-d", BUS, "-o", PATH,
                "-m", f"{BUS}.{method}", *args]
         try:
-            subprocess.run(cmd, capture_output=True, timeout=2, check=False)
+            return subprocess.run(cmd, capture_output=True, timeout=2,
+                                  check=False).returncode == 0
         except (subprocess.SubprocessError, OSError):
-            pass  # the overlay is best-effort; never break the pipeline
+            return False  # the overlay is best-effort; never break the pipeline
 
     def set_confidence(self, percent: int, channel: str = "Identity") -> None:
         self._call("SetConfidence", str(int(percent)), channel)
@@ -76,8 +81,13 @@ class GdbusOverlay(OverlayClient):
     def clear(self) -> None:
         self._call("Clear")
 
-    def set_status(self, state: str, percent: int = 0) -> None:
-        self._call("SetStatus", state, str(int(percent)))
+    def set_status(self, state: str, percent: int = 0,
+                   confidence: int | None = None) -> None:
+        c = -1 if confidence is None else int(confidence)
+        # An extension loaded before SetIndicator existed (Wayland reloads it
+        # only at the next login) still understands SetStatus.
+        if not self._call("SetIndicator", state, str(int(percent)), f"int32 {c}"):
+            self._call("SetStatus", state, str(int(percent)))
 
 
 class GioOverlay(OverlayClient):
@@ -98,11 +108,12 @@ class GioOverlay(OverlayClient):
             BUS, PATH, BUS, None,
         )
 
-    def _call(self, method: str, variant) -> None:
+    def _call(self, method: str, variant) -> bool:
         try:
             self._proxy.call_sync(method, variant, self._gio.DBusCallFlags.NONE, 500, None)
+            return True
         except Exception:  # noqa: BLE001  best-effort: the overlay never breaks the pipeline
-            pass
+            return False
 
     def set_confidence(self, percent: int, channel: str = "Identity") -> None:
         from gi.repository import GLib
@@ -112,10 +123,14 @@ class GioOverlay(OverlayClient):
     def clear(self) -> None:
         self._call("Clear", None)
 
-    def set_status(self, state: str, percent: int = 0) -> None:
+    def set_status(self, state: str, percent: int = 0,
+                   confidence: int | None = None) -> None:
         from gi.repository import GLib
 
-        self._call("SetStatus", GLib.Variant("(su)", (state, int(percent))))
+        c = -1 if confidence is None else int(confidence)
+        # Fallback for an extension loaded before SetIndicator existed.
+        if not self._call("SetIndicator", GLib.Variant("(sui)", (state, int(percent), c))):
+            self._call("SetStatus", GLib.Variant("(su)", (state, int(percent))))
 
 
 @dataclass
@@ -137,11 +152,12 @@ class ChangeOnly(OverlayClient):
             self.inner.clear()
             self._last = ("clear",)
 
-    def set_status(self, state: str, percent: int = 0, force: bool = False) -> None:
+    def set_status(self, state: str, percent: int = 0,
+                   confidence: int | None = None, force: bool = False) -> None:
         """`force` resends an unchanged state: the indicator's heartbeat."""
-        key = ("status", state, int(percent))
+        key = ("status", state, int(percent), confidence)
         if force or key != self._last:
-            self.inner.set_status(state, percent)
+            self.inner.set_status(state, percent, confidence)
             self._last = key
 
 
