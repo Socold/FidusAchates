@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Iterable, Iterator
 
+from .context import ContextEvent
 from .trace import EventKind, Record
 
 # Defaults in microseconds: a 2 s gap starts a new segment, a segment spans at
@@ -24,6 +25,8 @@ class Segment:
     start_us: int
     end_us: int
     records: list[Record] = field(default_factory=list)
+    # Focus changes that happened during the segment (attached by the daemon).
+    context: list[ContextEvent] = field(default_factory=list)
 
     @property
     def duration_us(self) -> int:
@@ -91,3 +94,36 @@ def segment_trace(
             current.end_us = r.time_us
     if current is not None:
         yield current
+
+
+class LiveSegmenter:
+    """The streaming form of `segment_trace`, for the live path: records come
+    in one by one from the recorder's pipe, and a segment must also close when
+    the user simply stops (no next record arrives to reveal the gap), which
+    `tick` handles from the clock."""
+
+    def __init__(self, gap_us: int = DEFAULT_GAP_US, max_us: int = DEFAULT_MAX_US) -> None:
+        self.gap_us = gap_us
+        self.max_us = max_us
+        self._current: Segment | None = None
+
+    def feed(self, r: Record) -> Segment | None:
+        """Add a record; return the segment it closed, if any."""
+        cur = self._current
+        if cur is None:
+            self._current = Segment(start_us=r.time_us, end_us=r.time_us, records=[r])
+            return None
+        if r.time_us - cur.end_us > self.gap_us or r.time_us - cur.start_us > self.max_us:
+            self._current = Segment(start_us=r.time_us, end_us=r.time_us, records=[r])
+            return cur
+        cur.records.append(r)
+        cur.end_us = r.time_us
+        return None
+
+    def tick(self, now_us: int) -> Segment | None:
+        """Close the open segment once the idle gap has passed."""
+        cur = self._current
+        if cur is not None and now_us - cur.end_us > self.gap_us:
+            self._current = None
+            return cur
+        return None

@@ -230,3 +230,43 @@ def wide_reference(g: Distribution, factor: float = 3.0) -> LogNormal:
         pooled = math.sqrt((g.sigmas[0] ** 2 + g.sigmas[1] ** 2) / 2)
         return LogNormal(mu=g.mu, sigma=max(pooled * factor, LogNormal.SIGMA_FLOOR), n=g.n)
     return LogNormal(mu=g.mu, sigma=g.sigma * factor, n=g.n)
+
+
+@dataclass(frozen=True)
+class Categorical:
+    """A distribution over a fixed set of categories, for habits that are a
+    choice rather than a duration: which shortcut, which direction the pointer
+    leaves in, which application comes next. Additive (Laplace) smoothing keeps
+    a category never seen at enrolment possible, only unlikely."""
+
+    counts: tuple[int, ...]
+    alpha: float = 1.0
+
+    @classmethod
+    def fit(cls, values: list[int], k: int, alpha: float = 1.0) -> "Categorical":
+        counts = [0] * k
+        for v in values:
+            if 0 <= v < k:
+                counts[v] += 1
+        return cls(counts=tuple(counts), alpha=alpha)
+
+    @classmethod
+    def uniform(cls, k: int) -> "Categorical":
+        return cls(counts=(0,) * k, alpha=1.0)
+
+    @property
+    def n(self) -> int:
+        return sum(self.counts)
+
+    @property
+    def k(self) -> int:
+        return len(self.counts)
+
+    def logpmf(self, v: int) -> float:
+        if not 0 <= v < self.k:
+            return -math.inf
+        return math.log((self.counts[v] + self.alpha) / (self.n + self.alpha * self.k))
+
+    def probabilities(self) -> list[float]:
+        tot = self.n + self.alpha * self.k
+        return [(c + self.alpha) / tot for c in self.counts]

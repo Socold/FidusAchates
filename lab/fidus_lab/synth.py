@@ -12,7 +12,7 @@ import math
 import random
 from dataclasses import dataclass
 
-from .trace import Event, EventKind, KeyClass, Record
+from .trace import Event, EventKind, KeyClass, Record, ShortcutClass
 
 
 @dataclass
@@ -158,3 +158,86 @@ class ModalTypist:
     def segment(self, index: int, n_keys: int = 40, start_us: int = 0) -> list[Record]:
         params = self.a if index % 2 == 0 else self.b
         return Typist(seed=self.seed + index, **params).type_segment(n_keys, start_us=start_us)
+
+
+@dataclass
+class HabitualUser:
+    """A synthetic person with habits, for testing the habits expert: a
+    favourite direction to leave in after a pause, a time-distance law for
+    pointing, a tendency to overshoot, a favourite set of shortcuts and a usual
+    order of applications. Two of them with different habits stand in for the
+    owner and someone else at the same desk."""
+
+    departure: int = 0                 # favourite octant (0 right, 4 left)
+    departure_p: float = 0.7
+    law_a: float = 11.0                # log us
+    law_b: float = 0.35                # per bit of log2(D + 1)
+    law_sigma: float = 0.15
+    overshoot_p: float = 0.2
+    shortcuts: tuple[tuple[int, float], ...] = ((1, 0.5), (2, 0.4), (4, 0.1))
+    apps: tuple[int, ...] = (0, 1, 2)  # usual cycle of categories
+    seed: int = 0
+
+    def __post_init__(self) -> None:
+        self._r = random.Random(self.seed)
+
+    def _octant_angle(self) -> float:
+        o = self.departure if self._r.random() < self.departure_p else self._r.randrange(8)
+        return o * math.pi / 4 + self._r.gauss(0, 0.1)
+
+    def gestures(self, n: int, start_us: int = 0, device: int = 1) -> list[Record]:
+        """n pointings, each after a pause long enough to count as rest."""
+        out: list[Record] = []
+        t = float(start_us)
+        for _ in range(n):
+            t += 1_500_000
+            theta = self._octant_angle()
+            d = math.exp(self._r.uniform(math.log(60), math.log(800)))
+            total = math.exp(self.law_a + self.law_b * math.log2(d + 1)
+                             + self._r.gauss(0, self.law_sigma))
+            over = 1.08 if self._r.random() < self.overshoot_p else 1.0
+            steps = max(4, int(total / 16000))
+            ux, uy = math.cos(theta), -math.sin(theta)
+            pos = 0.0
+            for i in range(1, steps + 1):
+                frac = i / steps
+                # Out to `over` of the distance, back to the target at the end.
+                target = d * over * min(1.0, frac / 0.85) if frac < 0.85 else \
+                    d * (over - (over - 1.0) * (frac - 0.85) / 0.15)
+                step = target - pos
+                pos = target
+                out.append(Record(int(t), device, False,
+                                  Event(EventKind.MOTION, dx=int(round(step * ux)),
+                                        dy=int(round(step * uy)))))
+                t += total / steps
+            out.append(Record(int(t), device, False, Event(EventKind.BUTTON_DOWN, button=0)))
+            t += 90_000
+            out.append(Record(int(t), device, False, Event(EventKind.BUTTON_UP, button=0)))
+        return out
+
+    def shortcut_presses(self, n: int, start_us: int = 0) -> list[Record]:
+        out: list[Record] = []
+        t = float(start_us)
+        classes = [c for c, _ in self.shortcuts]
+        weights = [w for _, w in self.shortcuts]
+        for _ in range(n):
+            sc = ShortcutClass(self._r.choices(classes, weights)[0])
+            out.append(Record(int(t), 0, False,
+                              Event(EventKind.KEY_DOWN, KeyClass.LETTER, 0, shortcut=sc)))
+            out.append(Record(int(t + 80_000), 0, False,
+                              Event(EventKind.KEY_UP, KeyClass.LETTER, 0)))
+            t += 700_000
+        return out
+
+    def app_switches(self, n: int, start_us: int = 0, step_us: int = 900_000) -> list[tuple[int, str]]:
+        """(time, category name) focus ticks: mostly the usual cycle."""
+        from .context import CATEGORIES
+
+        out = []
+        for i in range(n):
+            if self._r.random() < 0.8:
+                cat = self.apps[i % len(self.apps)]
+            else:
+                cat = self._r.randrange(len(CATEGORIES))
+            out.append((start_us + i * step_us, CATEGORIES[cat]))
+        return out

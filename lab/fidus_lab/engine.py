@@ -12,7 +12,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .evidence import Cusum, LogisticFusion, probability_from_evidence
-from .experts import KeystrokeExpert, KeystrokeTemplate, PointerExpert, PointerTemplate
+from .experts import (
+    HabitExpert,
+    HabitTemplate,
+    KeystrokeExpert,
+    KeystrokeTemplate,
+    PointerExpert,
+    PointerTemplate,
+)
 from .segment import Segment
 
 
@@ -34,10 +41,15 @@ class IdentityEngine:
     # impostor still has to be far from every mode. `genuine` is then only a
     # fallback and may be any of them.
     modes: list[KeystrokeTemplate] | None = None
+    # Habits (shortcuts, pointing shape, application sequence): optional like
+    # the pointer, with its own population reference when one is enrolled.
+    habits: HabitTemplate | None = None
+    habits_reference: HabitTemplate | None = None
     cusum_h: float = 25.0
     prior_db: float = -10.0
     keystroke_expert: KeystrokeExpert = field(default_factory=KeystrokeExpert)
     pointer_expert: PointerExpert = field(default_factory=PointerExpert)
+    habit_expert: HabitExpert = field(default_factory=HabitExpert)
     fusion: LogisticFusion = field(default_factory=LogisticFusion)
     min_quality: int = 4
 
@@ -50,6 +62,8 @@ class IdentityEngine:
             )
         if self.pointer_reference is not None and self.pointer_reference is self.pointer:
             raise ValueError("pointer_reference must not be the genuine pointer template")
+        if self.habits_reference is not None and self.habits_reference is self.habits:
+            raise ValueError("habits_reference must not be the genuine habit template")
 
     @property
     def reference_kind(self) -> str:
@@ -79,6 +93,10 @@ class IdentityEngine:
             )
             ev.update(pev)
             n += pn
+        if self.habits is not None:
+            hev, hn = self.habit_expert.evidence(seg, self.habits, self.habits_reference)
+            ev.update(hev)
+            n += hn
         return ev, n
 
     def step(self, seg: Segment) -> "Decision":
