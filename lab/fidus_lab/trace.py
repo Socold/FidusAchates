@@ -16,6 +16,17 @@ from typing import BinaryIO, Iterator
 MAGIC = b"FIDUSTR\x01"
 RECORD_LEN = 16
 PROV_VIRTUAL = 0x80
+# `DigraphClass::NONE` as the recorder writes it: relation None (bits 0-2 at
+# zero) and row move "not applicable". Only the relation tells whether there
+# is a digraph, so test with `has_digraph`, never with truthiness.
+DIGRAPH_NONE = 0x18
+_RELATION_MASK = 0x07
+
+
+def has_digraph(digraph: int | None) -> bool:
+    """True if a key-down carries a real digraph class (a relation other
+    than None), whatever its row-move bits."""
+    return digraph is not None and digraph & _RELATION_MASK != 0
 
 
 class EventKind(IntEnum):
@@ -140,7 +151,8 @@ def encode(r: Record) -> bytes:
     it tees from the live stream, and tests build traces with it."""
     e = r.event
     if e.kind == EventKind.KEY_DOWN:
-        payload = bytes([int(e.key_class or 0), int(e.digraph or 0), int(e.shortcut), 0])
+        dg = e.digraph if has_digraph(e.digraph) else DIGRAPH_NONE
+        payload = bytes([int(e.key_class or 0), dg, int(e.shortcut), 0])
     elif e.kind == EventKind.KEY_UP:
         payload = bytes([int(e.key_class or 0), 0, 0, 0])
     elif e.kind in (EventKind.MOTION, EventKind.WHEEL):

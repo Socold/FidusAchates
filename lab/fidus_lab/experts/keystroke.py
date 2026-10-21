@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from ..evidence import deciban_from_logpdf
 from ..segment import Segment
 from ..stats import Distribution, fit_best, wide_reference
-from ..trace import EventKind, KeyClass
+from ..trace import EventKind, KeyClass, has_digraph
 
 
 def _hold_times(seg: Segment) -> list[tuple[KeyClass, float]]:
@@ -40,7 +40,10 @@ def _digraph_latencies(seg: Segment) -> list[tuple[int, float]]:
     for r in seg.records:
         if r.event.kind != EventKind.KEY_DOWN:
             continue
-        if last_t is not None and r.event.digraph:
+        # NONE is written as 0x18, not 0: a truthiness test let "no digraph"
+        # through as a fake class 24 (first key, modifiers, keys outside the
+        # letter block).
+        if last_t is not None and has_digraph(r.event.digraph):
             out.append((r.event.digraph, float(r.time_us - last_t)))
         last_t = r.time_us
     return out

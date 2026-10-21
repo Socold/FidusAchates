@@ -42,3 +42,27 @@ def test_bad_magic_is_rejected(tmp_path):
     p.write_bytes(b"NOTFIDUS" + b"\x00" * 16)
     with pytest.raises(ValueError):
         list(read_trace(p))
+
+
+def test_digraph_none_is_not_a_class():
+    """The recorder writes DigraphClass::NONE as 0x18; it must never be
+    fitted as a digraph class (it was, as a fake class 24)."""
+    from fidus_lab.experts.keystroke import _digraph_latencies
+    from fidus_lab.segment import Segment
+    from fidus_lab.trace import DIGRAPH_NONE, Event, Record, has_digraph
+
+    assert not has_digraph(DIGRAPH_NONE) and not has_digraph(0) and not has_digraph(None)
+    assert has_digraph(5) and has_digraph(0x0B)
+    recs = [Record(t, 0, False, Event(EventKind.KEY_DOWN, KeyClass.LETTER, dg))
+            for t, dg in ((0, DIGRAPH_NONE), (100_000, 5), (200_000, DIGRAPH_NONE), (300_000, 3))]
+    seg = Segment(start_us=0, end_us=300_000, records=recs)
+    assert [dc for dc, _ in _digraph_latencies(seg)] == [5, 3]
+
+
+def test_rust_fixture_first_key_has_no_digraph():
+    if not FIXTURE.exists():
+        pytest.skip("fixture not generated yet")
+    from fidus_lab.trace import has_digraph
+
+    first = next(iter(read_trace(FIXTURE)))
+    assert first.event.kind == EventKind.KEY_DOWN and not has_digraph(first.event.digraph)
