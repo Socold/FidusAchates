@@ -122,7 +122,9 @@ shows the current session, a timeline of learning and recognition over the
 last 30 days (it survives restarts), the learning curves, and the guest sessions: hand the
 computer to someone who agrees to it for ten minutes, and their activity becomes
 the impostor population and the real detection numbers. Everything is kept 30
-days in `~/.local/share/fidusachates/`, then deleted.
+days in `~/.local/share/fidusachates/`, then deleted, except the last fitted
+model (`model.json`, parameters only): after a month away it stands in until
+the fresh data is as good again.
 
 For action sensitivity (work package 9), add the line the install script prints
 to `~/.bashrc`: each command I run in an interactive bash is reduced to a class

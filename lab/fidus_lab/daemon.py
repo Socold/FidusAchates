@@ -33,6 +33,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import saved_model
 from .analyze import SegmentReport
 from .attribution import attribute
 from .console import Console, publish_link, start
@@ -97,9 +98,10 @@ class Model:
 class Daemon:
     def __init__(self, store: Store, agent_cmd: list[str], console: Console,
                  params: CriteriaParams = CriteriaParams(),
-                 history: History | None = None) -> None:
+                 history: History | None = None, model_path: Path | None = None) -> None:
         self.store = store
         self.history = history
+        self.model_path = model_path
         self.agent_cmd = agent_cmd
         self.console = console
         self.params = params
@@ -311,24 +313,26 @@ class Daemon:
         conv = tracker.convergence(performance_ok=performance_ok,
                                    n_days=len(set(days)) if days else 0)
         progress = (conv.volume + conv.stability + conv.coverage + conv.performance) / 4
+        status = {
+            "curve_kind": curve.get("impostor_kind"),
+            "phase": conv.phase().value,
+            "ready": conv.ready,
+            "progress": round(progress, 3),
+            "criteria": {"volume": conv.volume, "stability": conv.stability,
+                         "coverage": conv.coverage, "performance": conv.performance},
+            "owner_segments": len(segments),
+            "owner_keystrokes": tracker.n_keystrokes,
+            "days": len(set(days)),
+            "guests": len(guests),
+            "population_reference": population is not None,
+            "fitted_at": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        }
+        enrolled, status = self._fresh_or_saved(enrolled, status)
         with self._lock:
             if enrolled is not None:
                 self._model = Model(enrolled, population, time.time(), len(segments))
                 self._engine = enrolled.engine(population)
-            self._status = {
-                "curve_kind": curve.get("impostor_kind"),
-                "phase": conv.phase().value,
-                "ready": conv.ready,
-                "progress": round(progress, 3),
-                "criteria": {"volume": conv.volume, "stability": conv.stability,
-                             "coverage": conv.coverage, "performance": conv.performance},
-                "owner_segments": len(segments),
-                "owner_keystrokes": tracker.n_keystrokes,
-                "days": len(set(days)),
-                "guests": len(guests),
-                "population_reference": population is not None,
-                "fitted_at": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
-            }
+            self._status = status
         self._publish_status()
         if self.history is not None:
             line = self.history.fit(self._status)
@@ -336,6 +340,24 @@ class Daemon:
                 self.console.state.add_history(line)
         self.console.state.set_guests(self.store.guests())
         self._push_panel()
+
+    def _fresh_or_saved(self, enrolled, status: dict):
+        """The fresh fit, saved for later; or, when the stored days no longer
+        support it (a long absence emptied them), the last model saved."""
+        if self.model_path is None:
+            return enrolled, status
+        saved = saved_model.load(self.model_path)
+        if saved is not None and saved_model.prefer_saved(
+                status if enrolled is not None else None, saved[1]):
+            old = saved[1]
+            return saved[0], old | {
+                "restored_from": old.get("fitted_at"),
+                "guests": status["guests"],
+                "population_reference": status["population_reference"],
+                "curve_kind": status["curve_kind"]}
+        if enrolled is not None:
+            saved_model.save(self.model_path, enrolled, status)
+        return enrolled, status
 
     def _curve(self) -> None:
         segments, days = self.store.load_owner()
@@ -491,7 +513,8 @@ def main(argv: list[str]) -> int:
     # indicator turns off at once instead of after its heartbeat.
     signal.signal(signal.SIGTERM, _terminate)
     history = History(Path(args.data), retention_days=args.retention_days)
-    return Daemon(store, cmd, console, history=history).run()
+    return Daemon(store, cmd, console, history=history,
+                  model_path=Path(args.data) / "model.json").run()
 
 
 def _terminate(_signum, _frame) -> None:

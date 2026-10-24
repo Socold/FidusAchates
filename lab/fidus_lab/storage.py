@@ -201,11 +201,38 @@ class Store:
                 if m and dt.date.fromisoformat(m.group(1)) < cutoff:
                     p.unlink()
                     removed.append(p)
+        if self._prune_excluded(cutoff):
+            removed.append(self.root / "excluded.jsonl")
         for d in self.guests():
             if dt.date.fromisoformat(d["day"]) < cutoff:
                 self.delete_guest(d["id"])
                 removed.append(self.root / "guests" / d["id"])
         return removed
+
+
+    def _prune_excluded(self, cutoff: dt.date) -> bool:
+        """Drop flagged windows whose day is past the retention: their
+        trace is gone, so they guard nothing."""
+        p = self.root / "excluded.jsonl"
+        if not p.exists():
+            return False
+        lines = p.read_text(encoding="utf-8").splitlines()
+        keep = []
+        for line in lines:
+            try:
+                if dt.date.fromisoformat(json.loads(line)["d"]) < cutoff:
+                    continue
+            except (ValueError, KeyError, TypeError):
+                continue  # unreadable: nothing it could still guard
+            keep.append(line)
+        if len(keep) == len(lines):
+            return False
+        tmp = p.with_suffix(".tmp")
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.writelines(line + "\n" for line in keep)
+        os.replace(tmp, p)
+        return True
 
 
 @dataclass

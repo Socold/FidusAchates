@@ -615,7 +615,9 @@ function renderStatus() {
   $('hero-state').textContent = label;
   $('phase-line').textContent = st.phase ? `phase ${st.phase}, ${st.days || 0} day(s), ` +
     `${(st.owner_keystrokes || 0).toLocaleString()} keystrokes, model fitted ${st.fitted_at || '-'}` +
-    (st.population_reference ? ', guest population in use' : '') : 'waiting for the first fit';
+    (st.population_reference ? ', guest population in use' : '') +
+    (st.restored_from ? ', restored model: the stored days no longer support a fresh one' : '')
+    : 'waiting for the first fit';
   const c = st.criteria || {}, names = {volume: 'C1 volume', stability: 'C2 stability',
     coverage: 'C4 days covered', performance: 'C3 measured performance'};
   $('criteria').innerHTML = '';
