@@ -65,7 +65,7 @@ def test_daemon_saves_the_fresh_fit_and_falls_back_after_an_absence(tmp_path):
 
     from fidus_lab.daemon import Daemon
 
-    d = SimpleNamespace(model_path=tmp_path / "model.json")
+    d = SimpleNamespace(model_path=tmp_path / "model.json", snapshots=None)
     e = _enrolled()
     ready = {"progress": 1.0, "ready": True, "fitted_at": "2026-10-24 12:00", "guests": 0,
              "population_reference": False, "curve_kind": "simulated"}

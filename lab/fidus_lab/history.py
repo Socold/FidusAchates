@@ -6,7 +6,8 @@
 
 Three kinds of line, each with a wall-clock time "w" (ISO, seconds):
 
-    fit    after a refit: progress, the four criteria, keystrokes, days, guests;
+    fit    after a refit: progress, the four criteria, keystrokes, days, guests,
+           and the model's drift against the daily snapshots (drift.py);
            at most one per FIT_EVERY_S unless the phase or readiness changes
     hour   the scores of one clock hour: windows, mean recognition confidence,
            mean and highest probability of someone else, alarms
@@ -88,7 +89,8 @@ class History:
                 "phase": status.get("phase"), "ready": status.get("ready"),
                 "criteria": status.get("criteria"),
                 "keystrokes": status.get("owner_keystrokes"),
-                "days": status.get("days"), "guests": status.get("guests")}
+                "days": status.get("days"), "guests": status.get("guests"),
+                "drift": status.get("drift")}
         with self._lock:
             last = self._last_fit
             if last is not None:

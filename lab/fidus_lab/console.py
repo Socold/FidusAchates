@@ -471,6 +471,10 @@ _PAGE = """<!doctype html>
    <div id="tl-conf"></div></div>
   <div class="card"><h2>Alarms</h2>
    <p class="sub">Windows the engine alarmed on, per day (on me, these are false alarms)</p><div id="tl-alarms"></div></div>
+  <div class="card"><h2>Drift of my model</h2>
+   <p class="sub">How far the current model is from itself a day ago, a week ago, and the oldest day kept
+   (Jensen-Shannon, 0 = same). Measured only, no alert yet: my own drift sets the future threshold</p>
+   <div id="tl-drift"></div></div>
   <div class="card"><h2>Keystrokes enrolled</h2>
    <p class="sub">Keystrokes in the templates at each refit, within the retention period</p><div id="tl-keys"></div></div>
   <div class="card"><h2>Measured performance</h2>
@@ -687,6 +691,11 @@ function renderTimeline() {
   const days = Object.keys(perDay).map(Number).sort((a, b) => a - b);
   chart($('tl-alarms'), {xs: days, xFmt: fmtDay, xLabel: 'day', yFmt: v => Math.round(v), aria: 'alarms per day',
     series: [{name: 'alarms', ys: days.map(d => perDay[d]), color: 'var(--critical)'}]});
+  const dr = (l, k) => l.drift && l.drift[k] ? l.drift[k].overall : null;
+  chart($('tl-drift'), {...base(fx), yMin: 0, yFmt: v => v.toFixed(3), aria: 'model drift over time',
+    series: [{name: 'vs 1 day before', ys: fits.map(l => dr(l, '1d')), color: 'var(--series-1)'},
+             {name: 'vs 7 days before', ys: fits.map(l => dr(l, '7d')), color: 'var(--series-2)'},
+             {name: 'vs oldest kept', ys: fits.map(l => dr(l, 'oldest')), color: 'var(--series-3)'}]});
   chart($('tl-keys'), {...base(fx), yFmt: v => Math.round(v).toLocaleString(), aria: 'keystrokes enrolled',
     series: [{name: 'keystrokes', ys: fits.map(l => l.keystrokes), color: 'var(--series-1)'}]});
   const cx = curves.map(l => l.x);

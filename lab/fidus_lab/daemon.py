@@ -38,6 +38,7 @@ from .analyze import SegmentReport
 from .attribution import attribute
 from .console import Console, publish_link, start
 from .context import ContextEvent, ContextTracker
+from .drift import ModelSnapshots
 from .enrolment import CriteriaParams, EnrolmentTracker
 from .explain import explain
 from .history import History
@@ -98,10 +99,12 @@ class Model:
 class Daemon:
     def __init__(self, store: Store, agent_cmd: list[str], console: Console,
                  params: CriteriaParams = CriteriaParams(),
-                 history: History | None = None, model_path: Path | None = None) -> None:
+                 history: History | None = None, model_path: Path | None = None,
+                 snapshots: ModelSnapshots | None = None) -> None:
         self.store = store
         self.history = history
         self.model_path = model_path
+        self.snapshots = snapshots
         self.agent_cmd = agent_cmd
         self.console = console
         self.params = params
@@ -328,6 +331,9 @@ class Daemon:
             "fitted_at": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
         }
         enrolled, status = self._fresh_or_saved(enrolled, status)
+        if self.snapshots is not None and enrolled is not None:
+            # Measured only, no alert: what my own drift looks like comes first.
+            status["drift"] = self.snapshots.drift(enrolled)
         with self._lock:
             if enrolled is not None:
                 self._model = Model(enrolled, population, time.time(), len(segments))
@@ -357,6 +363,8 @@ class Daemon:
                 "curve_kind": status["curve_kind"]}
         if enrolled is not None:
             saved_model.save(self.model_path, enrolled, status)
+            if self.snapshots is not None:
+                self.snapshots.save_daily(enrolled, status)
         return enrolled, status
 
     def _curve(self) -> None:
@@ -380,6 +388,8 @@ class Daemon:
                     self.store.prune()
                     if self.history is not None:
                         self.history.prune()
+                    if self.snapshots is not None:
+                        self.snapshots.prune()
                     self._refit()
                     ready = self._status.get("ready", False)
                     next_refit = t + (REFIT_EVERY_S if ready else REFIT_LEARNING_S)
@@ -513,8 +523,9 @@ def main(argv: list[str]) -> int:
     # indicator turns off at once instead of after its heartbeat.
     signal.signal(signal.SIGTERM, _terminate)
     history = History(Path(args.data), retention_days=args.retention_days)
+    snapshots = ModelSnapshots(Path(args.data), retention_days=args.retention_days)
     return Daemon(store, cmd, console, history=history,
-                  model_path=Path(args.data) / "model.json").run()
+                  model_path=Path(args.data) / "model.json", snapshots=snapshots).run()
 
 
 def _terminate(_signum, _frame) -> None:
