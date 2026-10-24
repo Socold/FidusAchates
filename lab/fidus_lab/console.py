@@ -74,6 +74,9 @@ class ConsoleState:
     status: dict = field(default_factory=dict)
     learning: dict | None = None
     guests: list = field(default_factory=list)
+    # The daemon's history over the retention period, and the hour in progress.
+    history: list = field(default_factory=list)
+    live_hour: dict | None = None
     # Actions the console may trigger, registered by the daemon.
     actions: dict[str, Callable[[dict], dict]] = field(default_factory=dict)
     max_segments: int = 600
@@ -119,6 +122,21 @@ class ConsoleState:
             self.guests = list(guests)
         self._broadcast("guests", {"guests": guests})
 
+    def set_history(self, lines: list) -> None:
+        with self._lock:
+            self.history = list(lines)
+        self._broadcast("history", {"lines": lines})
+
+    def add_history(self, line: dict) -> None:
+        with self._lock:
+            self.history.append(line)
+        self._broadcast("history_line", line)
+
+    def set_live_hour(self, line: dict | None) -> None:
+        with self._lock:
+            self.live_hour = line
+        self._broadcast("live_hour", line or {})
+
     def snapshot(self) -> dict:
         with self._lock:
             return {
@@ -129,6 +147,8 @@ class ConsoleState:
                 "status": dict(self.status),
                 "learning": self.learning,
                 "guests": list(self.guests),
+                "history": list(self.history),
+                "live_hour": self.live_hour,
             }
 
     def subscribe(self) -> "_Queue":
@@ -413,8 +433,8 @@ _PAGE = """<!doctype html>
  .out-alert{color:var(--critical);font-weight:600}.out-tag{color:var(--warning)}
 </style></head><body>
 <header><h1>FidusAchates</h1>
- <nav><button data-tab="now" class="on">Now</button><button data-tab="learning">Learning</button>
- <button data-tab="guests">Guests</button></nav>
+ <nav><button data-tab="now" class="on">Now</button><button data-tab="timeline">Timeline</button>
+ <button data-tab="learning">Learning</button><button data-tab="guests">Guests</button></nav>
  <span id="state-pill" class="pill"><i class="dot" style="background:var(--neutral)"></i>waiting</span>
 </header>
 <main>
@@ -437,6 +457,28 @@ _PAGE = """<!doctype html>
   <div class="scroll"><table><thead><tr><th>time</th><th>events</th><th>actor</th>
   <th>P(someone else)</th><th>evidence</th><th>outcome</th><th>main reasons</th></tr></thead>
   <tbody id="rows"></tbody></table></div></div>
+</section>
+<section id="tab-timeline" class="hidden">
+ <div style="margin-bottom:12px"><span class="muted">Range </span><nav style="display:inline">
+  <button class="range" data-range="1">24 h</button><button class="range" data-range="7">7 days</button>
+  <button class="range on" data-range="30">30 days</button></nav>
+  <span class="muted" id="tl-note"></span></div>
+ <div class="grid">
+  <div class="card"><h2>Learning</h2>
+   <p class="sub">Overall progress and each enrolment criterion, after every refit</p><div id="tl-learn"></div></div>
+  <div class="card"><h2>Is it me? Hour by hour</h2>
+   <p class="sub">Mean recognition confidence, and the highest probability of someone else, per hour of activity</p>
+   <div id="tl-conf"></div></div>
+  <div class="card"><h2>Alarms</h2>
+   <p class="sub">Windows the engine alarmed on, per day (on me, these are false alarms)</p><div id="tl-alarms"></div></div>
+  <div class="card"><h2>Keystrokes enrolled</h2>
+   <p class="sub">Keystrokes in the templates at each refit, within the retention period</p><div id="tl-keys"></div></div>
+  <div class="card"><h2>Measured performance</h2>
+   <p class="sub">From each learning curve: false alarms per hour on me, and the share of someone else caught</p>
+   <div id="tl-perf"></div></div>
+  <div class="card"><h2>Time to recognise me</h2>
+   <p class="sub">From each learning curve: median seconds of my activity before -20 dB</p><div id="tl-ttr"></div></div>
+ </div>
 </section>
 <section id="tab-learning" class="hidden">
  <div class="grid">
@@ -484,14 +526,19 @@ _PAGE = """<!doctype html>
 <div class="tip" id="tip"></div>
 <script>
 const $ = id => document.getElementById(id);
-const S = {segments: [], status: {}, learning: null, guests: []};
+const S = {segments: [], status: {}, learning: null, guests: [], history: [], live_hour: null};
+const TABS = ['now', 'timeline', 'learning', 'guests'];
+let rangeDays = 30;
 function showTab(name) {
-  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x.dataset.tab === name));
-  for (const t of ['now', 'learning', 'guests']) $('tab-' + t).classList.toggle('hidden', t !== name);
+  document.querySelectorAll('nav button[data-tab]').forEach(x => x.classList.toggle('on', x.dataset.tab === name));
+  for (const t of TABS) $('tab-' + t).classList.toggle('hidden', t !== name);
   render();
 }
-document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+document.querySelectorAll('nav button[data-tab]').forEach(b => b.onclick = () => {
   history.replaceState(null, '', '#' + b.dataset.tab); showTab(b.dataset.tab); });
+document.querySelectorAll('button.range').forEach(b => b.onclick = () => {
+  rangeDays = +b.dataset.range;
+  document.querySelectorAll('button.range').forEach(x => x.classList.toggle('on', x === b)); render(); });
 async function act(name, body) {
   await fetch('/api/action/' + name, {method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(body || {})});
@@ -532,9 +579,10 @@ function chart(el, o) {
     `stroke="var(--good)" stroke-dasharray="3 3"/><text x="${X(o.vline) + 4}" y="${T + 10}">ready</text>`;
   let marks = '';
   o.series.forEach((s, si) => {
-    let d = '', on = false;
+    let d = '', on = false, prev = null;
     s.ys.forEach((y, i) => { if (y == null) { on = false; return; }
-      d += (on ? 'L' : 'M') + X(o.xs[i]).toFixed(1) + ' ' + Y(y).toFixed(1); on = true; });
+      if (o.gap && prev != null && o.xs[i] - prev > o.gap) on = false;
+      d += (on ? 'L' : 'M') + X(o.xs[i]).toFixed(1) + ' ' + Y(y).toFixed(1); on = true; prev = o.xs[i]; });
     g += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2"/>`;
     s.ys.forEach((y, i) => { if (y == null) return;
       const tip = `${s.name}: ${o.yFmt(y)}\\n${o.xLabel}: ${o.xFmt(o.xs[i])}`;
@@ -605,6 +653,48 @@ function renderNow() {
     rows.append(tr);
   }
 }
+const HOUR = 3600e3, DAY = 24 * HOUR;
+const two = n => String(n).padStart(2, '0');
+const fmtWhen = v => { const d = new Date(v);
+  return `${two(d.getDate())}/${two(d.getMonth() + 1)} ${two(d.getHours())}:${two(d.getMinutes())}`; };
+const fmtDay = v => { const d = new Date(v); return `${two(d.getDate())}/${two(d.getMonth() + 1)}`; };
+function renderTimeline() {
+  const from = Date.now() - rangeDays * DAY;
+  const lines = S.history.concat(S.live_hour && S.live_hour.w ? [S.live_hour] : [])
+    .map(l => ({...l, x: new Date(l.w).getTime()})).filter(l => l.x >= from);
+  const of = k => lines.filter(l => l.k === k);
+  const fits = of('fit'), hours = of('hour'), curves = of('curve');
+  const first = S.history.length ? fmtWhen(new Date(S.history[0].w).getTime()) : null;
+  $('tl-note').textContent = first ? ` history kept since ${first}` : ' no history yet: it fills after the first refit';
+  const xf = rangeDays > 1 ? fmtDay : fmtWhen;
+  const base = xs => ({xs, xFmt: xf, xLabel: 'when', gap: rangeDays > 1 ? 6 * HOUR : 2 * HOUR});
+  const fx = fits.map(l => l.x), c = l => l.criteria || {};
+  chart($('tl-learn'), {...base(fx), yMin: 0, yMax: 1, yFmt: v => Math.round(v * 100) + '%', aria: 'learning over time',
+    series: [{name: 'overall', ys: fits.map(l => l.progress), color: 'var(--text-primary)'},
+             {name: 'C1 volume', ys: fits.map(l => c(l).volume), color: 'var(--series-1)'},
+             {name: 'C2 stability', ys: fits.map(l => c(l).stability), color: 'var(--series-2)'},
+             {name: 'C4 days', ys: fits.map(l => c(l).coverage), color: 'var(--series-3)'},
+             {name: 'C3 performance', ys: fits.map(l => c(l).performance), color: 'var(--warning)'}]});
+  chart($('tl-conf'), {...base(hours.map(l => l.x)), yMin: 0, yMax: 1, yFmt: v => Math.round(v * 100) + '%',
+    aria: 'recognition per hour', refs: [{y: 0.5, label: 'alert above 50 %'}],
+    series: [{name: 'confidence it is me', ys: hours.map(l => l.conf), color: 'var(--series-3)'},
+             {name: 'highest P(someone else)', ys: hours.map(l => l.p_max), color: 'var(--series-2)'}]});
+  const perDay = {};
+  for (const l of hours) { const d = new Date(l.x); d.setHours(12, 0, 0, 0);
+    perDay[d.getTime()] = (perDay[d.getTime()] || 0) + (l.alarms || 0); }
+  const days = Object.keys(perDay).map(Number).sort((a, b) => a - b);
+  chart($('tl-alarms'), {xs: days, xFmt: fmtDay, xLabel: 'day', yFmt: v => Math.round(v), aria: 'alarms per day',
+    series: [{name: 'alarms', ys: days.map(d => perDay[d]), color: 'var(--critical)'}]});
+  chart($('tl-keys'), {...base(fx), yFmt: v => Math.round(v).toLocaleString(), aria: 'keystrokes enrolled',
+    series: [{name: 'keystrokes', ys: fits.map(l => l.keystrokes), color: 'var(--series-1)'}]});
+  const cx = curves.map(l => l.x);
+  chart($('tl-perf'), {...base(cx), yMin: 0, yFmt: v => v.toFixed(1), aria: 'measured performance',
+    refs: [{y: 0.2, label: 'false alarm target'}],
+    series: [{name: 'false alarms / h', ys: curves.map(l => l.false_alarms_per_hour), color: 'var(--series-2)'},
+             {name: 'share caught', ys: curves.map(l => l.detected_share), color: 'var(--series-1)'}]});
+  chart($('tl-ttr'), {...base(cx), yFmt: v => fmtS(v), aria: 'time to recognise over time',
+    series: [{name: 'time to recognise', ys: curves.map(l => l.time_to_recognise_s), color: 'var(--series-3)'}]});
+}
 function renderLearning() {
   const L = S.learning || {}, pts = L.points || [];
   const ready = L.ready_at_minutes;
@@ -654,10 +744,11 @@ let pending = false;
 function render() { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false;
   renderStatus();
   if (!$('tab-now').classList.contains('hidden')) renderNow();
+  if (!$('tab-timeline').classList.contains('hidden')) renderTimeline();
   if (!$('tab-learning').classList.contains('hidden')) renderLearning();
   if (!$('tab-guests').classList.contains('hidden')) renderGuests(); }); }
 Object.assign(S, /*INITIAL*/{}); S.status = S.status || {}; S.guests = S.guests || [];
-S.segments = S.segments || []; render();
+S.segments = S.segments || []; S.history = S.history || []; render();
 const es = new EventSource('/events');
 es.addEventListener('hello', e => { Object.assign(S, JSON.parse(e.data)); S.status = S.status || {};
   S.guests = S.guests || []; render(); });
@@ -666,7 +757,11 @@ es.addEventListener('segment', e => { S.segments.push(JSON.parse(e.data));
 es.addEventListener('status', e => { S.status = JSON.parse(e.data); render(); });
 es.addEventListener('learning', e => { S.learning = JSON.parse(e.data); render(); });
 es.addEventListener('guests', e => { S.guests = JSON.parse(e.data).guests; render(); });
+es.addEventListener('history', e => { S.history = JSON.parse(e.data).lines; render(); });
+es.addEventListener('history_line', e => { const l = JSON.parse(e.data); S.history.push(l);
+  if (l.k === 'hour') S.live_hour = null; render(); });
+es.addEventListener('live_hour', e => { const l = JSON.parse(e.data); S.live_hour = l.w ? l : null; render(); });
 window.addEventListener('resize', render);
 // A link ending in #learning opens that tab (the fragment survives the login redirect).
-if (['now', 'learning', 'guests'].includes(location.hash.slice(1))) showTab(location.hash.slice(1));
+if (TABS.includes(location.hash.slice(1))) showTab(location.hash.slice(1));
 </script></body></html>"""

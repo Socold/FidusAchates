@@ -6,7 +6,9 @@
 
 It also listens to the shell extension's `ActivityTick(category)` for the
 application context, refits the templates from the stored days every half
-hour, and recomputes the learning curves every few hours or on request.
+hour, and recomputes the learning curves every few hours or on request. The
+learning snapshots, hourly scores and last curve go to the history, so the
+console's timeline covers the retention period across restarts.
 
 The recorder stays the only process that reads /dev/input, confined and with
 no network; this process never sees a key code, only the reduced stream. This
@@ -37,6 +39,7 @@ from .console import Console, publish_link, start
 from .context import ContextEvent, ContextTracker
 from .enrolment import CriteriaParams, EnrolmentTracker
 from .explain import explain
+from .history import History
 from .learning import Enrolled, Population, learning_curve
 from .overlay import best_overlay
 from .policy import decide
@@ -93,8 +96,10 @@ class Model:
 
 class Daemon:
     def __init__(self, store: Store, agent_cmd: list[str], console: Console,
-                 params: CriteriaParams = CriteriaParams()) -> None:
+                 params: CriteriaParams = CriteriaParams(),
+                 history: History | None = None) -> None:
         self.store = store
+        self.history = history
         self.agent_cmd = agent_cmd
         self.console = console
         self.params = params
@@ -252,6 +257,12 @@ class Daemon:
         if d.alarmed and guest is None:
             # Never learn from a window the engine flagged (threat M10).
             self.store.exclude(seg)
+        if self.history is not None and guest is None:
+            # My scores only: a guest's would blur how well it knows me.
+            closed = self.history.score(d.confidence, d.p_impostor, d.alarmed)
+            if closed is not None:
+                self.console.state.add_history(closed)
+            self.console.state.set_live_hour(self.history.current())
         self.console.state.publish(report, extra={
             "t": round(self._session_t, 1),
             "evidence_db": round(d.evidence_db, 1),
@@ -319,6 +330,10 @@ class Daemon:
                 "fitted_at": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
             }
         self._publish_status()
+        if self.history is not None:
+            line = self.history.fit(self._status)
+            if line is not None:
+                self.console.state.add_history(line)
         self.console.state.set_guests(self.store.guests())
         self._push_panel()
 
@@ -329,6 +344,8 @@ class Daemon:
         d = curve.as_dict()
         d["computed_at"] = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
         self.console.state.set_learning(d)
+        if self.history is not None:
+            self.console.state.add_history(self.history.curve(d))
 
     def _background(self) -> None:
         next_refit = 0.0
@@ -339,6 +356,8 @@ class Daemon:
                 if t >= next_refit or self._refit_now.is_set():
                     self._refit_now.clear()
                     self.store.prune()
+                    if self.history is not None:
+                        self.history.prune()
                     self._refit()
                     ready = self._status.get("ready", False)
                     next_refit = t + (REFIT_EVERY_S if ready else REFIT_LEARNING_S)
@@ -365,6 +384,10 @@ class Daemon:
         threading.Thread(target=follow, args=(actions_path(), self.actions, self._stop, now_us),
                          daemon=True).start()
         start_activity_listener(self.on_activity, self.on_lock)
+        if self.history is not None:
+            # What the last run knew, before the first refit lands.
+            self.console.state.set_learning(self.history.load_learning())
+            self.console.state.set_history(self.history.load())
         self._new_session()
         self.overlay.set_status("learning", 0)
         last_flush = time.time()
@@ -401,6 +424,8 @@ class Daemon:
                 self.store.flush()
                 if self._guest:
                     self._guest.close()
+            if self.history is not None:
+                self.history.flush()
             self.overlay.set_status("off", 0, force=True)
 
 
@@ -465,7 +490,8 @@ def main(argv: list[str]) -> int:
     # take the same way out as Ctrl-C, so the trace is flushed and the
     # indicator turns off at once instead of after its heartbeat.
     signal.signal(signal.SIGTERM, _terminate)
-    return Daemon(store, cmd, console).run()
+    history = History(Path(args.data), retention_days=args.retention_days)
+    return Daemon(store, cmd, console, history=history).run()
 
 
 def _terminate(_signum, _frame) -> None:

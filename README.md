@@ -118,7 +118,8 @@ green with that confidence once the enrolment criteria are met, red with the
 probability when someone else is likely at the keyboard. Its menu has a
 **Monitoring** switch (it stops the service for the session; it starts again at
 the next login) and opens the console, which
-shows the current session, the learning curves, and the guest sessions: hand the
+shows the current session, a timeline of learning and recognition over the
+last 30 days (it survives restarts), the learning curves, and the guest sessions: hand the
 computer to someone who agrees to it for ten minutes, and their activity becomes
 the impostor population and the real detection numbers. Everything is kept 30
 days in `~/.local/share/fidusachates/`, then deleted.
