@@ -63,6 +63,10 @@ class Store:
     retention_days: int = RETENTION_DAYS
 
     def __post_init__(self) -> None:
+        # Mine only, the root included: it holds the model and the flagged
+        # windows next to the per-day folders.
+        self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        os.chmod(self.root, 0o700)
         for d in ("traces", "context", "guests"):
             (self.root / d).mkdir(parents=True, exist_ok=True, mode=0o700)
         self._day: str | None = None
@@ -91,7 +95,8 @@ class Store:
     def exclude(self, seg: Segment, today: dt.date | None = None) -> None:
         """Keep a flagged window out of every future enrolment."""
         day = (today or dt.date.today()).isoformat()
-        with open(self.root / "excluded.jsonl", "a", encoding="utf-8") as fh:
+        fd = os.open(self.root / "excluded.jsonl", os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        with os.fdopen(fd, "a", encoding="utf-8") as fh:
             fh.write(json.dumps({"d": day, "s": seg.start_us, "e": seg.end_us}) + "\n")
 
     def _excluded(self) -> dict[str, list[tuple[int, int]]]:

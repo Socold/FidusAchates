@@ -75,3 +75,12 @@ def test_daemon_saves_the_fresh_fit_and_falls_back_after_an_absence(tmp_path):
     back, status = Daemon._fresh_or_saved(d, None, empty)
     assert back == e and status["ready"] and status["restored_from"] == "2026-10-24 12:00"
     assert status["guests"] == 1
+
+
+def test_the_data_folder_and_flagged_windows_are_mine_only(tmp_path):
+    root = tmp_path / "fidus"
+    root.mkdir(mode=0o755)
+    st = Store(root)
+    st.exclude(list(segment_trace(Typist(seed=1, **GEN).type_segment(30)))[0])
+    assert oct(os.stat(root).st_mode)[-3:] == "700"
+    assert oct(os.stat(root / "excluded.jsonl").st_mode)[-3:] == "600"
