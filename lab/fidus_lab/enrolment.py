@@ -111,7 +111,8 @@ class EnrolmentTracker:
 
     The trace carries no wall-clock time, so "days" cannot be known from it.
     Sessions separated by at least `session_gap_us` stand in for distinct days;
-    a caller with real calendar knowledge may override `n_days`.
+    a caller with real calendar knowledge may override `n_days`. Time going
+    back also starts a session: a reboot restarts the monotonic clock.
     """
 
     params: CriteriaParams = CriteriaParams()
@@ -131,7 +132,8 @@ class EnrolmentTracker:
         self.devices = set()
 
     def feed(self, seg: Segment) -> None:
-        if self._last_end_us is None or seg.start_us - self._last_end_us >= self.session_gap_us:
+        gap = None if self._last_end_us is None else seg.start_us - self._last_end_us
+        if gap is None or gap < 0 or gap >= self.session_gap_us:
             self.n_sessions += 1
         self._last_end_us = seg.end_us
         self.segments.append(seg)

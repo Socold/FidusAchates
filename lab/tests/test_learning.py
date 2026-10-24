@@ -94,3 +94,9 @@ def test_a_different_typist_is_caught_despite_my_own_pointer():
     mine = [replay(eng.engine(), person(OWNER_KEYS, {}, 10, seed=s + 100)).alarms
             for s in range(20, 26)]
     assert sum(mine) == 0
+
+
+def test_split_sessions_cuts_at_a_reboot():
+    before = person(OWNER_KEYS, {}, 2, seed=1, t0=50_000_000_000)
+    after = person(OWNER_KEYS, {}, 2, seed=2, t0=1_000_000)
+    assert [len(x) for x in split_sessions(before + after)] == [2, 2]

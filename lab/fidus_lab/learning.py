@@ -216,12 +216,13 @@ class LearningCurve:
 
 def split_sessions(segments: list[Segment], max_segments: int = 30,
                    gap_us: int = 30 * 60 * 1_000_000) -> list[list[Segment]]:
-    """Cut segments into replay sessions: a long idle or a size cap starts a
-    new one, as a fresh login would."""
+    """Cut segments into replay sessions: a long idle, a reboot (time going
+    back) or a size cap starts a new one, as a fresh login would."""
     out: list[list[Segment]] = []
     cur: list[Segment] = []
     for s in segments:
-        if cur and (s.start_us - cur[-1].end_us > gap_us or len(cur) >= max_segments):
+        gap = s.start_us - cur[-1].end_us if cur else 0
+        if cur and (gap > gap_us or gap < 0 or len(cur) >= max_segments):
             out.append(cur)
             cur = []
         cur.append(s)

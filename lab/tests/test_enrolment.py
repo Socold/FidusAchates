@@ -79,3 +79,14 @@ def test_tracker_derives_counts_from_the_data():
     conv = tr.convergence(performance_ok=False)
     # Volume is data-derived and partial with defaults (needs 2000 keystrokes).
     assert 0 < conv.volume < 1.0
+
+
+def test_a_reboot_starts_a_session():
+    """A reboot restarts the monotonic clock: the next day's first segment
+    starts before the previous one ended, and was not counted."""
+    from fidus_lab.enrolment import EnrolmentTracker
+    tr = EnrolmentTracker()
+    for start in (50_000_000_000, 1_000_000):
+        for seg in segment_trace(Typist(seed=1, **GEN).type_segment(40, start_us=start)):
+            tr.feed(seg)
+    assert tr.n_sessions == 2
