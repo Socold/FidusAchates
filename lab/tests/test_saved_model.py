@@ -84,3 +84,48 @@ def test_the_data_folder_and_flagged_windows_are_mine_only(tmp_path):
     st.exclude(list(segment_trace(Typist(seed=1, **GEN).type_segment(30)))[0])
     assert oct(os.stat(root).st_mode)[-3:] == "700"
     assert oct(os.stat(root / "excluded.jsonl").st_mode)[-3:] == "600"
+
+
+OTHER = dict(hold_mu=11.9, hold_sigma=0.25, gap_mu=12.1, gap_sigma=0.3)
+
+
+def _with_guest(tmp_path):
+    st = Store(tmp_path)
+    g = st.new_guest("Alex", consent=True)
+    for i in range(4):
+        g.write(Typist(seed=i, **OTHER).type_segment(60, start_us=i * 60_000_000))
+    g.close()
+    return st
+
+
+def test_the_pooled_guest_reference_round_trips(tmp_path):
+    from fidus_lab.learning import Population
+
+    st = _with_guest(tmp_path)
+    pop = Population.fit([s for g in st.load_guest_sessions() for s in g])
+    saved_model.save_population(tmp_path / "population.json", pop, {"sessions": 1})
+    back, meta = saved_model.load_population(tmp_path / "population.json")
+    assert back == pop and meta == {"sessions": 1}
+    assert oct(os.stat(tmp_path / "population.json").st_mode)[-3:] == "600"
+
+
+def test_the_pooled_reference_outlives_the_purge_but_not_a_deletion(tmp_path):
+    import threading
+    from types import SimpleNamespace
+
+    from fidus_lab.daemon import Daemon
+
+    st = _with_guest(tmp_path)
+    d = SimpleNamespace(store=st, population_path=tmp_path / "population.json",
+                        _refit_now=threading.Event())
+    pop, meta = Daemon._population(d, st.load_guest_sessions())
+    assert pop is not None and meta["sessions"] == 1 and not meta["kept"]
+    # The guest session is purged after the retention period: the summary stays.
+    st.prune(today=dt.date.today() + dt.timedelta(days=40))
+    assert st.load_guest_sessions() == []
+    kept, meta = Daemon._population(d, [])
+    assert kept == pop and meta["kept"]
+    # Forgetting it, or deleting a guest, removes it and asks for a refit.
+    assert Daemon._population_forget(d, {}) == {"forgotten": True}
+    assert d._refit_now.is_set()
+    assert Daemon._population(d, []) == (None, None)

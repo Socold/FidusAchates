@@ -13,6 +13,16 @@ mixtures (mu, sigma, weight, count), category counts of habits, the
 time-distance law. No event, no window, no time of day. It is written as
 plain JSON through an explicit codec, never pickle, so the file can be read
 and loading it never runs code.
+
+    ~/.local/share/fidusachates/population.json
+
+The same for the guests: the pooled templates of every guest session, which
+is what lets the engine tell me from someone else. The sessions themselves go
+after the retention period; this pooled summary stays, so detection does not
+fall back to the wide default a month after the last guest. It names no one
+(session ids and a count), cannot be split back into one person, and the
+guests agree to it. Deleting a guest from the console deletes it, and the next
+refit pools the remaining guests again.
 """
 
 from __future__ import annotations
@@ -24,7 +34,7 @@ from pathlib import Path
 
 from .experts import HabitTemplate, KeystrokeTemplate, PointerTemplate
 from .experts.habits import TimeDistanceLaw
-from .learning import Enrolled
+from .learning import Enrolled, Population
 from .stats import Categorical, LogNormal, LogNormalMixture
 
 FORMAT = 1
@@ -96,9 +106,37 @@ def decode(d: dict) -> Enrolled:
     )
 
 
+def encode_population(pop: Population) -> dict:
+    return {"keystroke": None if pop.keystroke is None else _keystroke(pop.keystroke),
+            "pointer": _pointer(pop.pointer), "habits": _habits(pop.habits)}
+
+
+def decode_population(d: dict) -> Population:
+    return Population(keystroke=None if d["keystroke"] is None else _unkeystroke(d["keystroke"]),
+                      pointer=_unpointer(d["pointer"]), habits=_unhabits(d["habits"]))
+
+
+def save_population(path: Path, pop: Population, meta: dict) -> None:
+    """Write the pooled guest templates with who they pool (session ids only)."""
+    _write(path, {"format": FORMAT, "meta": meta, "population": encode_population(pop)})
+
+
+def load_population(path: Path) -> tuple[Population, dict] | None:
+    try:
+        blob = json.loads(path.read_text(encoding="utf-8"))
+        if blob.get("format") != FORMAT:
+            return None
+        return decode_population(blob["population"]), dict(blob["meta"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
 def save(path: Path, enrolled: Enrolled, status: dict) -> None:
     """Write the model with the status it had when fitted, atomically, 0600."""
-    blob = {"format": FORMAT, "status": status, "model": encode(enrolled)}
+    _write(path, {"format": FORMAT, "status": status, "model": encode(enrolled)})
+
+
+def _write(path: Path, blob: dict) -> None:
     tmp = path.with_suffix(".tmp")
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as fh:

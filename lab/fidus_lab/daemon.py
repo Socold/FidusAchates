@@ -100,8 +100,10 @@ class Daemon:
     def __init__(self, store: Store, agent_cmd: list[str], console: Console,
                  params: CriteriaParams = CriteriaParams(),
                  history: History | None = None, model_path: Path | None = None,
-                 snapshots: ModelSnapshots | None = None) -> None:
+                 snapshots: ModelSnapshots | None = None,
+                 population_path: Path | None = None) -> None:
         self.store = store
+        self.population_path = population_path
         self.history = history
         self.model_path = model_path
         self.snapshots = snapshots
@@ -139,6 +141,7 @@ class Daemon:
         a["guest_start"] = self._guest_start
         a["guest_stop"] = self._guest_stop
         a["guest_delete"] = self._guest_delete
+        a["population_forget"] = self._population_forget
         a["recompute"] = self._recompute
 
     def _guest_start(self, body: dict) -> dict:
@@ -165,8 +168,36 @@ class Daemon:
 
     def _guest_delete(self, body: dict) -> dict:
         ok = self.store.delete_guest(str(body.get("id", "")))
+        if ok:
+            # Their share of the pooled reference goes with them: the next
+            # refit pools whoever is left.
+            self._population_forget({})
         self.console.state.set_guests(self.store.guests())
         return {"deleted": ok}
+
+    def _population_forget(self, _body: dict) -> dict:
+        hit = False
+        if self.population_path is not None and self.population_path.exists():
+            self.population_path.unlink()
+            hit = True
+        self._refit_now.set()
+        return {"forgotten": hit}
+
+    def _population(self, guests: list) -> tuple[Population | None, dict | None]:
+        """The pooled guest reference: fitted from the guest sessions while
+        there are any, and kept for when they have been purged."""
+        if guests:
+            pop = Population.fit([s for g in guests for s in g])
+            meta = {"sessions": len(guests), "ids": [g["id"] for g in self.store.guests()],
+                    "fitted_at": dt.datetime.now().strftime("%Y-%m-%d %H:%M"), "kept": False}
+            if pop is not None and self.population_path is not None:
+                saved_model.save_population(self.population_path, pop, meta)
+            return pop, meta
+        if self.population_path is not None:
+            got = saved_model.load_population(self.population_path)
+            if got is not None:
+                return got[0], got[1] | {"kept": True}
+        return None, None
 
     def _recompute(self, _body: dict) -> dict:
         self._refit_now.set()
@@ -310,7 +341,7 @@ class Daemon:
         for s in segments:
             tracker.feed(s)
         enrolled = Enrolled.fit(segments) if segments else None
-        population = Population.fit([s for g in guests for s in g]) if guests else None
+        population, pop_meta = self._population(guests)
         curve = self.console.state.learning or {}
         performance_ok = bool(curve.get("ready_at_minutes"))
         conv = tracker.convergence(performance_ok=performance_ok,
@@ -328,6 +359,7 @@ class Daemon:
             "days": len(set(days)),
             "guests": len(guests),
             "population_reference": population is not None,
+            "population": pop_meta,
             "fitted_at": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
         }
         enrolled, status = self._fresh_or_saved(enrolled, status)
@@ -360,6 +392,7 @@ class Daemon:
                 "restored_from": old.get("fitted_at"),
                 "guests": status["guests"],
                 "population_reference": status["population_reference"],
+                "population": status.get("population"),
                 "curve_kind": status["curve_kind"]}
         if enrolled is not None:
             saved_model.save(self.model_path, enrolled, status)
@@ -525,7 +558,8 @@ def main(argv: list[str]) -> int:
     history = History(Path(args.data), retention_days=args.retention_days)
     snapshots = ModelSnapshots(Path(args.data), retention_days=args.retention_days)
     return Daemon(store, cmd, console, history=history,
-                  model_path=Path(args.data) / "model.json", snapshots=snapshots).run()
+                  model_path=Path(args.data) / "model.json", snapshots=snapshots,
+                  population_path=Path(args.data) / "population.json").run()
 
 
 def _terminate(_signum, _frame) -> None:

@@ -515,15 +515,19 @@ _PAGE = """<!doctype html>
   <div class="card"><h2>Record someone else</h2>
    <p class="sub">Hand the computer to someone for 10 to 15 minutes of ordinary use. Their activity is kept
    apart, never enrols as me, and becomes the impostor population: it gives the real detection numbers and
-   a reference that sharpens the model. Ask them first: it is behavioural data about them, deleted after
-   the retention period like mine.</p>
+   a reference that sharpens the model. Ask them first: it is behavioural data about them. Their session is
+   deleted after the retention period like mine; a statistical summary pooled with the other guests, which
+   names no one, is kept so detection keeps working, until they ask, or I delete it.</p>
    <input id="guest-label" placeholder="label, e.g. a first name" maxlength="40">
    <label style="display:block;margin:8px 0"><input type="checkbox" id="guest-consent">
-    They have agreed, knowing what is recorded, why, for how long, and that they can have it deleted.</label>
+    They have agreed, knowing what is recorded, why, for how long (30 days for their session, until deleted
+    for the pooled summary), and that they can have both deleted.</label>
    <button class="act" onclick="startGuest()">Start guest session</button>
    <button class="act stop" onclick="act('guest_stop')">Stop</button></div>
   <div class="card"><h2>Recorded guests</h2><table><thead><tr><th>label</th><th>day</th><th>size</th><th></th></tr></thead>
-   <tbody id="guest-rows"></tbody></table></div>
+   <tbody id="guest-rows"></tbody></table>
+   <h2 style="margin-top:16px">Pooled guest reference</h2><p class="sub" id="pop-line"></p>
+   <button class="link" id="pop-forget" onclick="if (confirm('Forget the pooled guest reference?')) act('population_forget')">forget it</button></div>
  </div>
 </section>
 </main>
@@ -750,6 +754,11 @@ function renderGuests() {
     tr.append(td(g.label), td(g.day), td(Math.round((g.bytes || 0) / 1024) + ' KB'), c);
     rows.append(tr); }
   if (!S.guests.length) rows.innerHTML = '<tr><td class="muted" colspan="4">none yet</td></tr>';
+  const pop = (S.status || {}).population;
+  $('pop-line').textContent = !pop ? 'None: without guests, someone else is judged against a wide default, ' +
+    'which only catches very different typists.' : `From ${pop.sessions} guest session(s), fitted ${pop.fitted_at}` +
+    (pop.kept ? ', kept after their sessions were deleted.' : '.');
+  $('pop-forget').classList.toggle('hidden', !pop);
 }
 let pending = false;
 function render() { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false;
