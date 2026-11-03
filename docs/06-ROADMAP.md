@@ -150,6 +150,8 @@ First end-to-end result: no enrolment needed, so the whole chain can be demonstr
 
 **Measured on 2026-10-21** (same artifact): for 4.2, digraph classes cost about 1.5 points of EER on CMU (keystroke expert 0.115 with true digraphs, 0.129 with classes, after fixing the hold matcher, which alone was worth 9 points); the default of ADR-0008 stands, on a narrow fixed-text slice. The pointer expert gets its first real number on Balabit: mean EER 0.38 per segment, 0.29 per session, which is weak.
 
+**Measured on 2026-11-04** (`research/results/2026-11-04-kloak/`): the kloak anonymiser (default 100 ms) cuts identification on one CMU repetition from 48 % to 13-22 %, but its noise is zero-mean and the same for everyone, so an observer averaging 5 to 10 repetitions is back to the clean single-repetition level; the keystroke expert loses more (EER 0.129 to 0.23-0.26) because kloak damages holds most. A grabbing kloak would leave the recorder blind, which it does not detect yet.
+
 ---
 
 ## WP 5 - Fusion, CUSUM, explainability and console

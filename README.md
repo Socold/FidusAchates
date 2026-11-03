@@ -142,8 +142,10 @@ reaches the daemon (ADR-0014). Commands run by tools in non-interactive shells
 are not seen.
 
 Measurements so far are in [research/results](research/results): the
-synthetic validations, the usage-aware comparison, and the public corpora
-(`python3 -m fidus_lab.public_eval`, data kept out of the repository). See
+synthetic validations, the usage-aware comparison, the public corpora
+(`python3 -m fidus_lab.public_eval`, data kept out of the repository), and what
+the kloak anonymiser does to them (`python3 -m fidus_lab.kloak_eval`, written up
+in [research/articles](research/articles/2026-11-04-kloak.md)). See
 [shell-extension/README.md](shell-extension/README.md) and
 [research/TRACE-FORMAT.md](research/TRACE-FORMAT.md).
 

@@ -1,0 +1,311 @@
+{
+  "corpus": "CMU DSL-StrongPasswordData, 51 subjects x 400 repetitions",
+  "model": "kloak.c schedule: uniform integer delay in [max(prev_release - now, 0), D], millisecond clock, order preserved",
+  "seed": 20261104,
+  "delays": {
+    "0ms": {
+      "profiled_clean": {
+        "eer_mean": 0.0961,
+        "eer_std": 0.0688,
+        "identification": 0.4825,
+        "n_genuine_windows": 10200
+      },
+      "aware": {
+        "k1": {
+          "eer_mean": 0.096,
+          "eer_std": 0.0688,
+          "identification": 0.4823,
+          "n_genuine_windows": 10200
+        },
+        "k5": {
+          "eer_mean": 0.0717,
+          "eer_std": 0.0751,
+          "identification": 0.6471,
+          "n_genuine_windows": 2040
+        },
+        "k10": {
+          "eer_mean": 0.0611,
+          "eer_std": 0.0718,
+          "identification": 0.6951,
+          "n_genuine_windows": 1020
+        },
+        "k20": {
+          "eer_mean": 0.0476,
+          "eer_std": 0.0675,
+          "identification": 0.7471,
+          "n_genuine_windows": 510
+        }
+      },
+      "clean_reference": {
+        "k1": {
+          "eer_mean": 0.096,
+          "eer_std": 0.0687,
+          "identification": 0.4825,
+          "n_genuine_windows": 10200
+        },
+        "k5": {
+          "eer_mean": 0.0719,
+          "eer_std": 0.0748,
+          "identification": 0.6466,
+          "n_genuine_windows": 2040
+        },
+        "k10": {
+          "eer_mean": 0.0611,
+          "eer_std": 0.0719,
+          "identification": 0.6971,
+          "n_genuine_windows": 1020
+        },
+        "k20": {
+          "eer_mean": 0.0487,
+          "eer_std": 0.0675,
+          "identification": 0.749,
+          "n_genuine_windows": 510
+        }
+      },
+      "keystroke_expert": {
+        "profiled_clean": 0.1291,
+        "aware": 0.1289
+      }
+    },
+    "25ms": {
+      "profiled_clean": {
+        "eer_mean": 0.105,
+        "eer_std": 0.0679,
+        "identification": 0.3758,
+        "n_genuine_windows": 10200
+      },
+      "aware": {
+        "k1": {
+          "eer_mean": 0.1093,
+          "eer_std": 0.0682,
+          "identification": 0.422,
+          "n_genuine_windows": 10200
+        },
+        "k5": {
+          "eer_mean": 0.0733,
+          "eer_std": 0.0727,
+          "identification": 0.6333,
+          "n_genuine_windows": 2040
+        },
+        "k10": {
+          "eer_mean": 0.0629,
+          "eer_std": 0.0701,
+          "identification": 0.6912,
+          "n_genuine_windows": 1020
+        },
+        "k20": {
+          "eer_mean": 0.0458,
+          "eer_std": 0.0641,
+          "identification": 0.751,
+          "n_genuine_windows": 510
+        }
+      },
+      "lag": {
+        "mean_ms": 12.2,
+        "p95_ms": 23.8,
+        "max_ms": 25.0
+      },
+      "noise": {
+        "H": {
+          "mean_shift_ms": -0.05,
+          "added_sd_ms": 10.6,
+          "clean_between_rep_sd_ms": 29.27
+        },
+        "DD": {
+          "mean_shift_ms": -0.05,
+          "added_sd_ms": 10.61,
+          "clean_between_rep_sd_ms": 186.07
+        },
+        "UD": {
+          "mean_shift_ms": 0.01,
+          "added_sd_ms": 10.4,
+          "clean_between_rep_sd_ms": 189.43
+        }
+      },
+      "keystroke_expert": {
+        "profiled_clean": 0.1516,
+        "aware": 0.1445
+      }
+    },
+    "50ms": {
+      "profiled_clean": {
+        "eer_mean": 0.1156,
+        "eer_std": 0.0603,
+        "identification": 0.2424,
+        "n_genuine_windows": 10200
+      },
+      "aware": {
+        "k1": {
+          "eer_mean": 0.1199,
+          "eer_std": 0.0596,
+          "identification": 0.337,
+          "n_genuine_windows": 10200
+        },
+        "k5": {
+          "eer_mean": 0.0841,
+          "eer_std": 0.0664,
+          "identification": 0.5848,
+          "n_genuine_windows": 2040
+        },
+        "k10": {
+          "eer_mean": 0.0651,
+          "eer_std": 0.0701,
+          "identification": 0.6647,
+          "n_genuine_windows": 1020
+        },
+        "k20": {
+          "eer_mean": 0.0502,
+          "eer_std": 0.067,
+          "identification": 0.7353,
+          "n_genuine_windows": 510
+        }
+      },
+      "lag": {
+        "mean_ms": 25.2,
+        "p95_ms": 47.7,
+        "max_ms": 50.0
+      },
+      "noise": {
+        "H": {
+          "mean_shift_ms": -0.28,
+          "added_sd_ms": 20.72,
+          "clean_between_rep_sd_ms": 29.27
+        },
+        "DD": {
+          "mean_shift_ms": -0.04,
+          "added_sd_ms": 20.67,
+          "clean_between_rep_sd_ms": 186.07
+        },
+        "UD": {
+          "mean_shift_ms": 0.27,
+          "added_sd_ms": 19.93,
+          "clean_between_rep_sd_ms": 189.43
+        }
+      },
+      "keystroke_expert": {
+        "profiled_clean": 0.187,
+        "aware": 0.1671
+      }
+    },
+    "100ms": {
+      "profiled_clean": {
+        "eer_mean": 0.1662,
+        "eer_std": 0.0655,
+        "identification": 0.128,
+        "n_genuine_windows": 10200
+      },
+      "aware": {
+        "k1": {
+          "eer_mean": 0.152,
+          "eer_std": 0.07,
+          "identification": 0.2192,
+          "n_genuine_windows": 10200
+        },
+        "k5": {
+          "eer_mean": 0.1134,
+          "eer_std": 0.0772,
+          "identification": 0.4848,
+          "n_genuine_windows": 2040
+        },
+        "k10": {
+          "eer_mean": 0.0899,
+          "eer_std": 0.0768,
+          "identification": 0.5804,
+          "n_genuine_windows": 1020
+        },
+        "k20": {
+          "eer_mean": 0.0619,
+          "eer_std": 0.0751,
+          "identification": 0.6843,
+          "n_genuine_windows": 510
+        }
+      },
+      "lag": {
+        "mean_ms": 53.1,
+        "p95_ms": 95.7,
+        "max_ms": 100.0
+      },
+      "noise": {
+        "H": {
+          "mean_shift_ms": 0.19,
+          "added_sd_ms": 38.86,
+          "clean_between_rep_sd_ms": 29.27
+        },
+        "DD": {
+          "mean_shift_ms": 0.04,
+          "added_sd_ms": 40.36,
+          "clean_between_rep_sd_ms": 186.07
+        },
+        "UD": {
+          "mean_shift_ms": -0.1,
+          "added_sd_ms": 37.6,
+          "clean_between_rep_sd_ms": 189.43
+        }
+      },
+      "keystroke_expert": {
+        "profiled_clean": 0.2636,
+        "aware": 0.2331
+      }
+    },
+    "200ms": {
+      "profiled_clean": {
+        "eer_mean": 0.2264,
+        "eer_std": 0.0785,
+        "identification": 0.0709,
+        "n_genuine_windows": 10200
+      },
+      "aware": {
+        "k1": {
+          "eer_mean": 0.1845,
+          "eer_std": 0.0767,
+          "identification": 0.1471,
+          "n_genuine_windows": 10200
+        },
+        "k5": {
+          "eer_mean": 0.158,
+          "eer_std": 0.0854,
+          "identification": 0.3299,
+          "n_genuine_windows": 2040
+        },
+        "k10": {
+          "eer_mean": 0.1305,
+          "eer_std": 0.0953,
+          "identification": 0.4255,
+          "n_genuine_windows": 1020
+        },
+        "k20": {
+          "eer_mean": 0.0982,
+          "eer_std": 0.0963,
+          "identification": 0.5196,
+          "n_genuine_windows": 510
+        }
+      },
+      "lag": {
+        "mean_ms": 122.1,
+        "p95_ms": 193.8,
+        "max_ms": 200.0
+      },
+      "noise": {
+        "H": {
+          "mean_shift_ms": 7.84,
+          "added_sd_ms": 60.92,
+          "clean_between_rep_sd_ms": 29.27
+        },
+        "DD": {
+          "mean_shift_ms": 0.74,
+          "added_sd_ms": 73.09,
+          "clean_between_rep_sd_ms": 186.07
+        },
+        "UD": {
+          "mean_shift_ms": -6.85,
+          "added_sd_ms": 64.93,
+          "clean_between_rep_sd_ms": 189.43
+        }
+      },
+      "keystroke_expert": {
+        "profiled_clean": 0.3101,
+        "aware": 0.2917
+      }
+    }
+  }
+}
