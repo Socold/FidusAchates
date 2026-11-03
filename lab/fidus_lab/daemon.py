@@ -131,6 +131,11 @@ class Daemon:
         self._last_p: float | None = None
         self._last_confidence: float | None = None
         self._status: dict = {"phase": "starting", "progress": 0.0, "ready": False}
+        # Segments closed since the last fit: nothing new typed, nothing to
+        # refit. A full refit on 4 000 segments costs about a minute of CPU
+        # and the curve two more; redone every five minutes on an idle machine
+        # they kept a core at 40 % for days (03/11/2026).
+        self._closed_since_fit = 0
         self._index = 0
         self._register_actions()
 
@@ -264,6 +269,7 @@ class Daemon:
 
     def _close(self, seg: Segment) -> None:
         with self._lock:
+            self._closed_since_fit += 1
             seg.context = [e for e in self._pending_context
                            if seg.start_us <= e.time_us <= seg.end_us]
             # The category in focus when the segment ended: the last change
@@ -416,21 +422,28 @@ class Daemon:
         while not self._stop.is_set():
             t = time.time()
             try:
+                fresh = self._closed_since_fit > 0 or self._model is None
                 if t >= next_refit or self._refit_now.is_set():
+                    forced = self._refit_now.is_set()
                     self._refit_now.clear()
-                    self.store.prune()
-                    if self.history is not None:
-                        self.history.prune()
-                    if self.snapshots is not None:
-                        self.snapshots.prune()
-                    self._refit()
+                    if fresh or forced:
+                        self.store.prune()
+                        if self.history is not None:
+                            self.history.prune()
+                        if self.snapshots is not None:
+                            self.snapshots.prune()
+                        self._closed_since_fit = 0
+                        self._refit()
                     ready = self._status.get("ready", False)
                     next_refit = t + (REFIT_EVERY_S if ready else REFIT_LEARNING_S)
                 if t >= next_curve or self._curve_now.is_set():
+                    forced = self._curve_now.is_set()
                     self._curve_now.clear()
-                    self._curve()
+                    if fresh or forced:
+                        self._curve()
+                        self._closed_since_fit = 0
+                        self._refit()  # C3 may have just been met
                     next_curve = t + CURVE_EVERY_S
-                    self._refit()  # C3 may have just been met
             except Exception as e:  # noqa: BLE001  the live path must survive a bad fit
                 print(f"fidus-daemon: background step failed: {e!r}", file=sys.stderr)
             self._stop.wait(5)
