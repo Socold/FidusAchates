@@ -112,6 +112,15 @@ systemctl --user status fidusachates      # the daemon
 systemctl --user disable --now fidusachates   # stop everything
 ```
 
+What it costs: the daemon refits the model every five minutes while it is
+still learning (every thirty once ready) and recomputes the learning curve
+every three hours, but only when something was typed since the last fit, so an
+idle machine pays nothing. A full refit on a month of data is about a minute of
+one core, the curve two to three. On 03/11/2026 two defects (a quadratic
+enrolment tracker, then refits on an idle machine) kept a core busy for four
+days and the CPU at 93 °C; both are fixed, and `top` showing `python3` at 100 %
+for more than a few minutes is a bug, not the design.
+
 The indicator sits right after the clock: grey while it is learning, with the
 learning progress and how sure it is that I am the one typing (`33% · 91%`),
 green with that confidence once the enrolment criteria are met, red with the
