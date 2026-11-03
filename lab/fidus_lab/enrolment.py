@@ -120,16 +120,29 @@ class EnrolmentTracker:
     snapshot_every: int = 4  # segments between template snapshots
 
     segments: list[Segment] = None  # type: ignore[assignment]
-    snapshots: list[KeystrokeTemplate] = None  # type: ignore[assignment]
     n_keystrokes: int = 0
     n_sessions: int = 0
     devices: set[int] = None  # type: ignore[assignment]
     _last_end_us: int | None = None
+    # Prefix lengths at which a snapshot is due. The templates themselves are
+    # fitted lazily, in `snapshots`: fitting the whole prefix at every fourth
+    # segment made `feed` quadratic (4 000 segments = a thousand fits over up
+    # to 4 000 segments each), and the live daemon redid it every five
+    # minutes, pinning a core for days (03/11/2026, CPU at 91 degrees).
+    _snapshot_at: list[int] = None  # type: ignore[assignment]
 
     def __post_init__(self) -> None:
         self.segments = []
-        self.snapshots = []
+        self._snapshot_at = []
         self.devices = set()
+
+    @property
+    def snapshots(self) -> list[KeystrokeTemplate]:
+        """Template snapshots over the growing prefix, the same values as
+        before, fitted on demand and only the last few: the stability
+        criterion looks at `stability_windows` consecutive pairs."""
+        keep = self.params.stability_windows + 1
+        return [KeystrokeTemplate.fit(self.segments[:n]) for n in self._snapshot_at[-keep:]]
 
     def feed(self, seg: Segment) -> None:
         gap = None if self._last_end_us is None else seg.start_us - self._last_end_us
@@ -142,7 +155,7 @@ class EnrolmentTracker:
         )
         self.devices |= seg.devices
         if len(self.segments) % self.snapshot_every == 0:
-            self.snapshots.append(KeystrokeTemplate.fit(self.segments))
+            self._snapshot_at.append(len(self.segments))
 
     def convergence(self, performance_ok: bool, n_days: int | None = None) -> Convergence:
         return assess(
