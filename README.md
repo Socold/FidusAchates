@@ -144,8 +144,11 @@ are not seen.
 Measurements so far are in [research/results](research/results): the
 synthetic validations, the usage-aware comparison, the public corpora
 (`python3 -m fidus_lab.public_eval`, data kept out of the repository), and what
-the kloak anonymiser does to them (`python3 -m fidus_lab.kloak_eval`, written up
-in [research/articles](research/articles/2026-11-04-kloak.md)). See
+the kloak anonymiser does to them (`python3 -m fidus_lab.kloak_eval`), whether
+re-timing buffers hide a typist and a remote hop can be seen
+(`fidus_lab.input_paths_eval`), and what a stolen or observed rhythm is worth
+to a forger (`fidus_lab.mimicry_eval`), written up in
+[research/articles](research/articles). See
 [shell-extension/README.md](shell-extension/README.md) and
 [research/TRACE-FORMAT.md](research/TRACE-FORMAT.md).
 

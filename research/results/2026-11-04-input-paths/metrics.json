@@ -1,0 +1,466 @@
+{
+  "corpus": "CMU DSL-StrongPasswordData",
+  "seed": 20261104,
+  "short_hold_ms": 30.0,
+  "burst_gap_ms": 1.0,
+  "clean": {
+    "automation_share": 0.0
+  },
+  "kloak_detection": {
+    "25ms": {
+      "blind": {
+        "k1": {
+          "short_holds": 0.4792,
+          "hold_spread": 0.4311,
+          "bursts": 0.4621
+        },
+        "k5": {
+          "short_holds": 0.4453,
+          "hold_spread": 0.4172,
+          "bursts": 0.3478
+        }
+      },
+      "aware_of_typist": 0.3847,
+      "automation_share": 0.0
+    },
+    "50ms": {
+      "blind": {
+        "k1": {
+          "short_holds": 0.3939,
+          "hold_spread": 0.2879,
+          "bursts": 0.4626
+        },
+        "k5": {
+          "short_holds": 0.2801,
+          "hold_spread": 0.2368,
+          "bursts": 0.3485
+        }
+      },
+      "aware_of_typist": 0.2338,
+      "automation_share": 0.0
+    },
+    "100ms": {
+      "blind": {
+        "k1": {
+          "short_holds": 0.2024,
+          "hold_spread": 0.1102,
+          "bursts": 0.4416
+        },
+        "k5": {
+          "short_holds": 0.0907,
+          "hold_spread": 0.0466,
+          "bursts": 0.2792
+        }
+      },
+      "aware_of_typist": 0.092,
+      "automation_share": 0.0
+    },
+    "200ms": {
+      "blind": {
+        "k1": {
+          "short_holds": 0.112,
+          "hold_spread": 0.0445,
+          "bursts": 0.4241
+        },
+        "k5": {
+          "short_holds": 0.0152,
+          "hold_spread": 0.0108,
+          "bursts": 0.2267
+        }
+      },
+      "aware_of_typist": 0.0412,
+      "automation_share": 0.0
+    }
+  },
+  "buffers": {
+    "cadence_150ms": {
+      "lag_mean_ms": 29.2,
+      "lag_p95_ms": 138.9,
+      "lag_max_ms": 477.8,
+      "leak_share": 0.552,
+      "identity_aware": {
+        "k1": {
+          "eer_mean": 0.1555,
+          "eer_std": 0.0838,
+          "identification": 0.132,
+          "n_genuine_windows": 10200
+        },
+        "k5": {
+          "eer_mean": 0.1741,
+          "eer_std": 0.0873,
+          "identification": 0.1828,
+          "n_genuine_windows": 2040
+        },
+        "k10": {
+          "eer_mean": 0.1663,
+          "eer_std": 0.0923,
+          "identification": 0.2147,
+          "n_genuine_windows": 1020
+        },
+        "k20": {
+          "eer_mean": 0.1541,
+          "eer_std": 0.0958,
+          "identification": 0.2412,
+          "n_genuine_windows": 510
+        }
+      },
+      "automation_share": 0.0596,
+      "blind_detection": {
+        "k1": {
+          "short_holds": 0.4855,
+          "hold_spread": 0.0,
+          "bursts": 0.5
+        },
+        "k5": {
+          "short_holds": 0.4348,
+          "hold_spread": 0.0,
+          "bursts": 0.5
+        }
+      }
+    },
+    "cadence_250ms": {
+      "lag_mean_ms": 243.3,
+      "lag_p95_ms": 799.3,
+      "lag_max_ms": 1477.8,
+      "leak_share": 0.1973,
+      "identity_aware": {
+        "k1": {
+          "eer_mean": 0.1629,
+          "eer_std": 0.0978,
+          "identification": 0.0679,
+          "n_genuine_windows": 10200
+        },
+        "k5": {
+          "eer_mean": 0.1998,
+          "eer_std": 0.0912,
+          "identification": 0.1049,
+          "n_genuine_windows": 2040
+        },
+        "k10": {
+          "eer_mean": 0.2103,
+          "eer_std": 0.0952,
+          "identification": 0.1147,
+          "n_genuine_windows": 1020
+        },
+        "k20": {
+          "eer_mean": 0.2077,
+          "eer_std": 0.1005,
+          "identification": 0.1373,
+          "n_genuine_windows": 510
+        }
+      },
+      "automation_share": 0.4851,
+      "blind_detection": {
+        "k1": {
+          "short_holds": 0.4855,
+          "hold_spread": 0.0,
+          "bursts": 0.5
+        },
+        "k5": {
+          "short_holds": 0.4348,
+          "hold_spread": 0.0,
+          "bursts": 0.5
+        }
+      }
+    },
+    "cadence_400ms": {
+      "lag_mean_ms": 835.3,
+      "lag_p95_ms": 2133.0,
+      "lag_max_ms": 2977.8,
+      "leak_share": 0.0496,
+      "identity_aware": {
+        "k1": {
+          "eer_mean": 0.2365,
+          "eer_std": 0.0696,
+          "identification": 0.0345,
+          "n_genuine_windows": 10200
+        },
+        "k5": {
+          "eer_mean": 0.2631,
+          "eer_std": 0.0834,
+          "identification": 0.0515,
+          "n_genuine_windows": 2040
+        },
+        "k10": {
+          "eer_mean": 0.2751,
+          "eer_std": 0.1117,
+          "identification": 0.0559,
+          "n_genuine_windows": 1020
+        },
+        "k20": {
+          "eer_mean": 0.2728,
+          "eer_std": 0.126,
+          "identification": 0.0863,
+          "n_genuine_windows": 510
+        }
+      },
+      "automation_share": 0.8164,
+      "blind_detection": {
+        "k1": {
+          "short_holds": 0.4855,
+          "hold_spread": 0.0,
+          "bursts": 0.5
+        },
+        "k5": {
+          "short_holds": 0.4348,
+          "hold_spread": 0.0,
+          "bursts": 0.5
+        }
+      }
+    },
+    "foreign_median_donor": {
+      "lag_mean_ms": 187.1,
+      "lag_p95_ms": 794.7,
+      "lag_max_ms": 2658.6,
+      "leak_share": 0.3783,
+      "identity_aware": {
+        "k1": {
+          "eer_mean": 0.2355,
+          "eer_std": 0.0613,
+          "identification": 0.0684,
+          "n_genuine_windows": 10200
+        },
+        "k5": {
+          "eer_mean": 0.2506,
+          "eer_std": 0.0695,
+          "identification": 0.101,
+          "n_genuine_windows": 2040
+        },
+        "k10": {
+          "eer_mean": 0.2369,
+          "eer_std": 0.0848,
+          "identification": 0.1265,
+          "n_genuine_windows": 1020
+        },
+        "k20": {
+          "eer_mean": 0.2126,
+          "eer_std": 0.089,
+          "identification": 0.1431,
+          "n_genuine_windows": 510
+        }
+      },
+      "automation_share": 0.0,
+      "blind_detection": {
+        "k1": {
+          "short_holds": 0.4863,
+          "hold_spread": 0.0964,
+          "bursts": 0.4986
+        },
+        "k5": {
+          "short_holds": 0.4385,
+          "hold_spread": 0.0672,
+          "bursts": 0.4931
+        }
+      }
+    },
+    "foreign_slowest_donor": {
+      "lag_mean_ms": 1407.1,
+      "lag_p95_ms": 4074.4,
+      "lag_max_ms": 12996.4,
+      "leak_share": 0.0332,
+      "identity_aware": {
+        "k1": {
+          "eer_mean": 0.4245,
+          "eer_std": 0.0197,
+          "identification": 0.0204,
+          "n_genuine_windows": 10200
+        },
+        "k5": {
+          "eer_mean": 0.4729,
+          "eer_std": 0.0411,
+          "identification": 0.025,
+          "n_genuine_windows": 2040
+        },
+        "k10": {
+          "eer_mean": 0.4769,
+          "eer_std": 0.0564,
+          "identification": 0.0186,
+          "n_genuine_windows": 1020
+        },
+        "k20": {
+          "eer_mean": 0.4577,
+          "eer_std": 0.0735,
+          "identification": 0.0137,
+          "n_genuine_windows": 510
+        }
+      },
+      "automation_share": 0.0,
+      "blind_detection": {
+        "k1": {
+          "short_holds": 0.4508,
+          "hold_spread": 0.0773,
+          "bursts": 0.5
+        },
+        "k5": {
+          "short_holds": 0.3208,
+          "hold_spread": 0.048,
+          "bursts": 0.5
+        }
+      }
+    }
+  },
+  "remote": {
+    "lan": {
+      "frame_ms": 16.0,
+      "latency_ms": 2.0,
+      "jitter_ms": 1.0,
+      "lag_mean_ms": 10.7,
+      "lag_p95_ms": 18.2,
+      "lag_max_ms": 25.8,
+      "events_per_packet": 1.02,
+      "blind_detection": {
+        "k1": {
+          "short_holds": 0.4991,
+          "hold_spread": 0.4712,
+          "bursts": 0.2898
+        },
+        "k5": {
+          "short_holds": 0.4993,
+          "hold_spread": 0.4667,
+          "bursts": 0.1091
+        }
+      },
+      "aware_of_typist": 0.4408,
+      "identity_aware": {
+        "k1": {
+          "eer_mean": 0.1024,
+          "eer_std": 0.0703,
+          "identification": 0.4557,
+          "n_genuine_windows": 10200
+        },
+        "k5": {
+          "eer_mean": 0.0745,
+          "eer_std": 0.0756,
+          "identification": 0.649,
+          "n_genuine_windows": 2040
+        },
+        "k10": {
+          "eer_mean": 0.0609,
+          "eer_std": 0.0712,
+          "identification": 0.7029,
+          "n_genuine_windows": 1020
+        },
+        "k20": {
+          "eer_mean": 0.0461,
+          "eer_std": 0.0629,
+          "identification": 0.749,
+          "n_genuine_windows": 510
+        }
+      },
+      "identity_profiled_clean": {
+        "eer_mean": 0.1017,
+        "eer_std": 0.0696,
+        "identification": 0.4335,
+        "n_genuine_windows": 10200
+      }
+    },
+    "wan": {
+      "frame_ms": 16.0,
+      "latency_ms": 40.0,
+      "jitter_ms": 10.0,
+      "lag_mean_ms": 48.8,
+      "lag_p95_ms": 68.5,
+      "lag_max_ms": 131.4,
+      "events_per_packet": 1.02,
+      "blind_detection": {
+        "k1": {
+          "short_holds": 0.433,
+          "hold_spread": 0.3624,
+          "bursts": 0.2415
+        },
+        "k5": {
+          "short_holds": 0.3387,
+          "hold_spread": 0.3294,
+          "bursts": 0.0765
+        }
+      },
+      "aware_of_typist": 0.3053,
+      "identity_aware": {
+        "k1": {
+          "eer_mean": 0.1167,
+          "eer_std": 0.068,
+          "identification": 0.3895,
+          "n_genuine_windows": 10200
+        },
+        "k5": {
+          "eer_mean": 0.0762,
+          "eer_std": 0.0725,
+          "identification": 0.6387,
+          "n_genuine_windows": 2040
+        },
+        "k10": {
+          "eer_mean": 0.0621,
+          "eer_std": 0.07,
+          "identification": 0.6961,
+          "n_genuine_windows": 1020
+        },
+        "k20": {
+          "eer_mean": 0.0484,
+          "eer_std": 0.0692,
+          "identification": 0.7529,
+          "n_genuine_windows": 510
+        }
+      },
+      "identity_profiled_clean": {
+        "eer_mean": 0.114,
+        "eer_std": 0.0677,
+        "identification": 0.3129,
+        "n_genuine_windows": 10200
+      }
+    },
+    "far": {
+      "frame_ms": 16.0,
+      "latency_ms": 150.0,
+      "jitter_ms": 40.0,
+      "lag_mean_ms": 161.7,
+      "lag_p95_ms": 234.6,
+      "lag_max_ms": 498.9,
+      "events_per_packet": 1.02,
+      "blind_detection": {
+        "k1": {
+          "short_holds": 0.0997,
+          "hold_spread": 0.0547,
+          "bursts": 0.0345
+        },
+        "k5": {
+          "short_holds": 0.0208,
+          "hold_spread": 0.0142,
+          "bursts": 0.0005
+        }
+      },
+      "aware_of_typist": 0.0576,
+      "identity_aware": {
+        "k1": {
+          "eer_mean": 0.1714,
+          "eer_std": 0.0697,
+          "identification": 0.1868,
+          "n_genuine_windows": 10200
+        },
+        "k5": {
+          "eer_mean": 0.1239,
+          "eer_std": 0.0739,
+          "identification": 0.4049,
+          "n_genuine_windows": 2040
+        },
+        "k10": {
+          "eer_mean": 0.0969,
+          "eer_std": 0.0807,
+          "identification": 0.5127,
+          "n_genuine_windows": 1020
+        },
+        "k20": {
+          "eer_mean": 0.0695,
+          "eer_std": 0.0806,
+          "identification": 0.6314,
+          "n_genuine_windows": 510
+        }
+      },
+      "identity_profiled_clean": {
+        "eer_mean": 0.2035,
+        "eer_std": 0.0611,
+        "identification": 0.0911,
+        "n_genuine_windows": 10200
+      }
+    }
+  }
+}

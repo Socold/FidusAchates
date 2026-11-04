@@ -152,6 +152,8 @@ First end-to-end result: no enrolment needed, so the whole chain can be demonstr
 
 **Measured on 2026-11-04** (`research/results/2026-11-04-kloak/`): the kloak anonymiser (default 100 ms) cuts identification on one CMU repetition from 48 % to 13-22 %, but its noise is zero-mean and the same for everyone, so an observer averaging 5 to 10 repetitions is back to the clean single-repetition level; the keystroke expert loses more (EER 0.129 to 0.23-0.26) because kloak damages holds most. A grabbing kloak would leave the recorder blind, which it does not detect yet.
 
+**Measured on 2026-11-04** (`research/results/2026-11-04-input-paths/`, `2026-11-04-mimicry/`): kloak at 100 ms is itself visible (hold spread over 5 repetitions, EER 0.047, no template needed); a buffer releasing keys on someone else's rhythm only hides a typist when it is slower than almost all of their gaps (chance identification at 1.4 s of mean lag), and a fixed clock is labelled automation; a remote hop over a long path shows as near-simultaneous key events (EER 0.035 on one repetition), the first statistic for E11. A stolen template forges me 89 % of the time against the keystroke expert, and 55 observed keystrokes 79 %, with no forgery labelled automation: templates must be protected at rest (PR-10) and the behavioural score never read without provenance.
+
 ---
 
 ## WP 5 - Fusion, CUSUM, explainability and console
