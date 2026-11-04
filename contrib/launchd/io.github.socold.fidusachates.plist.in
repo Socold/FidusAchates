@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- FidusAchates live daemon (research build). Installed by scripts/install-macos.sh,
+     which fills in the Python, agent, layout and lab paths. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>io.github.socold.fidusachates</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>@PY@</string>
+    <string>-m</string>
+    <string>fidus_lab.daemon</string>
+    <string>--agent</string>
+    <string>@AGENT@</string>
+    <string>--layout</string>
+    <string>@LAYOUT@</string>
+    <string>--retention-days</string>
+    <string>30</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PYTHONPATH</key>
+    <string>@LAB@</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>

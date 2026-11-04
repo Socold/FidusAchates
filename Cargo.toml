@@ -1,6 +1,10 @@
 [workspace]
 resolver = "2"
 members = ["crates/fidus-core", "crates/fidus-agent"]
+# The cross-platform indicator (notification area on Windows, menu bar on macOS)
+# pulls GUI dependencies and is built on the target, not in the offline Linux
+# flow. Kept out of the workspace so the recorder build stays dependency-free.
+exclude = ["crates/fidus-tray"]
 
 [workspace.package]
 version = "0.1.0"

@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FidusAchates</title>
+<style>
+  /* Opened once on first install (file://), so: no network, system fonts only. */
+  :root {
+    --bg: #faf9f7; --panel: #ffffff; --line: #e4e1db; --fg: #1c1a17; --fg-2: #4c4843;
+    --muted: #6f6a62; --accent: #3a6ea5; --accent-soft: #e8eef6; --warn: #8a5a00; --warn-soft: #f6eedd;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #171614; --panel: #211f1c; --line: #35322d; --fg: #ece9e4; --fg-2: #c7c2b9;
+      --muted: #938d82; --accent: #8fb4dd; --accent-soft: #1e2a39; --warn: #e0ad5a; --warn-soft: #352a16;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.6 var(--sans); }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 48px 20px 72px; }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 8px; }
+  .eyebrow { font: 600 .72rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: .22em; color: var(--muted); }
+  h1 { font: 600 clamp(2rem, 6vw, 2.8rem)/1.1 var(--serif); margin: 10px 0 10px; }
+  .tag { font-style: italic; color: var(--muted); font-family: var(--serif); font-size: 1.1rem; }
+  h2 { font: 600 1.3rem/1.2 var(--serif); margin: 40px 0 8px; }
+  p { color: var(--fg-2); margin: 0 0 14px; }
+  strong { color: var(--fg); }
+  .lead { font-size: 1.12rem; color: var(--fg-2); margin-top: 18px; }
+  code { font-family: var(--mono); font-size: .85em; background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; color: var(--fg); }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+  @media (max-width: 560px) { .two { grid-template-columns: 1fr; } }
+  .q { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 20px; }
+  .q .k { font: 600 .7rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: .16em; color: var(--accent); }
+  .q h3 { font: 600 1.15rem/1.25 var(--serif); margin: 6px 0 6px; }
+  .q p { margin: 0; font-size: .95rem; }
+
+  ul.clean { list-style: none; padding: 0; margin: 14px 0; }
+  ul.clean li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); color: var(--fg-2); }
+  ul.clean li:last-child { border-bottom: 0; }
+  ul.clean .m { color: var(--accent); font-weight: 700; }
+  ul.clean strong { color: var(--fg); }
+
+  .indicator { display: flex; align-items: center; gap: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin: 14px 0; }
+  .dot { width: 16px; height: 16px; border-radius: 4px; flex: none; }
+  .indicator .t { font-size: .95rem; color: var(--fg-2); }
+  .indicator .t b { color: var(--fg); }
+
+  .note { background: var(--warn-soft); border: 1px solid var(--line); border-left: 4px solid var(--warn); border-radius: 8px; padding: 16px 18px; margin: 24px 0; }
+  .note h2 { margin-top: 0; color: var(--warn); }
+  .note p { color: var(--fg-2); margin-bottom: 0; }
+  footer { margin-top: 44px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <div class="eyebrow">Welcome</div>
+    <h1>FidusAchates</h1>
+    <div class="tag">The faithful companion: the one who walks alongside, recognises, and warns.</div>
+    <p class="lead">FidusAchates learns the way <em>you</em> use this device, your typing rhythm and pointer gestures, and then quietly keeps watch. It is now installed and learning. Here is what it does, and what it will never do.</p>
+  </header>
+
+  <h2>The two questions it answers</h2>
+  <div class="two">
+    <div class="q">
+      <div class="k">Identity</div>
+      <h3>Is it still you?</h3>
+      <p>After it has learned your rhythm, it notices if someone else takes over the keyboard, and raises an alarm.</p>
+    </div>
+    <div class="q">
+      <div class="k">Attribution</div>
+      <h3>Is it still a human?</h3>
+      <p>It tells a person apart from an automation, a script, an AI agent or a remote hand, and labels it. Wanted automation stays quiet.</p>
+    </div>
+  </div>
+
+  <h2>What it will never do</h2>
+  <ul class="clean">
+    <li><span class="m">&times;</span><span><strong>It never records what you type.</strong> Only the rhythm and motion, never the letters, words, passwords or content.</span></li>
+    <li><span class="m">&times;</span><span><strong>It never uses the network.</strong> Nothing leaves this machine; the program refuses to open a network connection at all.</span></li>
+    <li><span class="m">&times;</span><span><strong>It never acts against you.</strong> It flags and explains; it does not lock you out, log you off, or block anything.</span></li>
+    <li><span class="m">&times;</span><span><strong>It never watches someone else without consent.</strong> Observing another person needs their explicit agreement first.</span></li>
+  </ul>
+
+  <h2>How you will see it</h2>
+  <p>A small indicator sits in your system's bar: the <strong>menu bar</strong> on macOS, the <strong>notification area</strong> on Windows, the <strong>top bar</strong> on GNOME. A coloured square shows its state, and a switch lets you pause it at any moment.</p>
+  <div class="indicator">
+    <span class="dot" style="background:#4b9e6a"></span>
+    <span class="t"><b>Calm.</b> It recognises you; nothing unusual.</span>
+  </div>
+  <div class="indicator">
+    <span class="dot" style="background:#c6893f"></span>
+    <span class="t"><b>Watching.</b> Something changed; it is gathering evidence.</span>
+  </div>
+  <div class="indicator">
+    <span class="dot" style="background:#b5452f"></span>
+    <span class="t"><b>Alarm.</b> It thinks the person or the control has changed. Open the console to see exactly why.</span>
+  </div>
+
+  <h2>While it learns</h2>
+  <p>It does not recognise you on day one. It measures how long it needs on <em>this</em> machine and shows the progress in its console (opened from the indicator). Until then it holds back rather than cry wolf.</p>
+
+  <h2>Your data stays yours</h2>
+  <p>The only things kept on disk are statistical templates, sealed at rest with a key held in your session keyring, never written in clear by default. If you ever copy your home folder elsewhere, those templates travel sealed. See <code>docs/05-PRIVACY.md</code> and <code>docs/10-SECURITY-REVIEW.md</code> in the project.</p>
+
+  <div class="note">
+    <h2>One honest warning</h2>
+    <p>To read your rhythm, this tool reads your input device. It therefore <strong>technically has the power of a keylogger.</strong> It is built never to use it that way, and that is checked by automated tests, but the power exists. Keep it only if you are willing to read the code, or to trust someone who has. You can remove it at any time, and pause it instantly from the indicator.</p>
+  </div>
+
+  <footer>
+    FidusAchates is a local, explainable research tool for continuous authentication. Open the console from the indicator to see every decision, term by term. This page opened once, on first install.
+  </footer>
+</main>
+</body>
+</html>
