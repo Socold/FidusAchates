@@ -133,6 +133,7 @@ Implemented in the habits expert: C01 (category of each focus change), C02, C03,
 | E20 | **Phantom activity** | The shell reports focus changes or window activity while no hardware input arrives. Signature of input injected into the compositor (remote desktop, portal-driven agent). Deterministic indicator, needs the shell extension | L | Very high | 4 | 3 |
 | E21 | **Remote session active** | The compositor reports an active remote-desktop or screencast session. Deterministic indicator, needs the shell extension | L | Very high | 4 | 3 |
 | E22 | **Sanctioned-actor match** | The segment matches the sanctioned-actor registry (a declared device pattern or an open agent session). Turns an automation label into `automation_sanctioned` (FR-39) | L | n/a (label) | n/a | 3 |
+| E23 | **Blind recorder** | The compositor's idle time (`org.gnome.Mutter.IdleMonitor`) keeps resetting while no event reaches the recorder: input arrives that I cannot read, typically a tool holding an `EVIOCGRAB` on my keyboard and re-injecting through the compositor or elsewhere. Several misses per minute, any recorded event ends it. Deterministic, no extension needed | L | Very high | 4 | 3 |
 
 ## Family F - Meta-signals
 

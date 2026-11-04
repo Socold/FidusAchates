@@ -156,6 +156,63 @@ class PhantomWatch:
                 f"{self.window_us // 60_000_000} min with no input reaching the recorder")
 
 
+@dataclass
+class BlindWatch:
+    """E23, blind recorder: the compositor keeps seeing input that never
+    reaches the devices I read. A tool holding an `EVIOCGRAB` on my keyboard
+    takes every event for itself; if it re-injects through `uinput` the
+    recorder sees a virtual device (E01), but if it re-injects through the
+    compositor, or forwards the keys elsewhere, the recorder simply goes quiet
+    while I keep typing. E20 catches that only when focus changes; this
+    catches it in a single window.
+
+    The compositor's idle time (`org.gnome.Mutter.IdleMonitor`) resets on any
+    input it handles. Each sample places its last input at `t - idle`; when
+    that is more than `slack_us` after the last event the recorder got, the
+    compositor saw something I did not. `min_misses` such samples, each with a
+    newer compositor input, within `window_us` start an episode; any recorded
+    event ends it. Input from a device I do not open (a touchscreen, a pen, an
+    on-screen keyboard) looks the same, which is why it takes several misses
+    and is reported as input I cannot see rather than as an attacker. Called
+    from two threads, hence the lock."""
+
+    window_us: int = 60_000_000
+    min_misses: int = 3
+    slack_us: int = 2_000_000
+    started_us: int = 0
+    active: bool = False
+    _last_input_us: int | None = None
+    _misses: deque = field(default_factory=deque)
+    _mutex: threading.Lock = field(default_factory=threading.Lock)
+
+    def input(self, t_us: int) -> bool:
+        """Any recorded event. Returns True if this ends a blind episode."""
+        with self._mutex:
+            self._last_input_us = t_us
+            self._misses.clear()
+            ended, self.active = self.active, False
+            return ended
+
+    def idle(self, t_us: int, idle_us: int) -> bool:
+        """A compositor idle-time sample taken at `t_us`. Returns True if
+        this starts a blind episode."""
+        with self._mutex:
+            seen = t_us - idle_us
+            last = self._last_input_us if self._last_input_us is not None else self.started_us
+            if seen > last + self.slack_us and (not self._misses or seen > self._misses[-1]):
+                self._misses.append(seen)
+            while self._misses and self._misses[0] < t_us - self.window_us:
+                self._misses.popleft()
+            hit = len(self._misses) >= self.min_misses
+            started = hit and not self.active
+            self.active = self.active or hit
+            return started
+
+    def describe(self) -> str:
+        return (f"the desktop received input {self.min_misses} times in "
+                f"{self.window_us // 1_000_000} s that never reached the recorder")
+
+
 def near_simultaneous_share(segment: Segment, gap_us: int = 1000) -> tuple[float, int]:
     """Share of consecutive key events (downs and ups) less than `gap_us`
     apart, and the number of pairs. A keyboard puts two events in the same

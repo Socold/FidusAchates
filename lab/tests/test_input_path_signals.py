@@ -5,6 +5,7 @@ import random
 
 from fidus_lab.attribution import (
     ActorLabel,
+    BlindWatch,
     PhantomWatch,
     RemoteTimingWatch,
     attribute,
@@ -106,3 +107,41 @@ def test_an_input_path_cue_labels_the_segment_like_automation():
     assert attribute(seg, reg).label == ActorLabel.HUMAN
     a = attribute(seg, reg, input_path="re-timed input")
     assert a.label == ActorLabel.AUTOMATION_UNSANCTIONED and "re-timed input" in a.reason
+
+
+def test_blind_needs_several_misses_of_fresh_compositor_input():
+    w = BlindWatch(window_us=60 * S, min_misses=3, slack_us=2 * S, started_us=0)
+    w.input(10 * S)
+    # The compositor saw input at the same time as the recorder: nothing.
+    assert not w.idle(15 * S, 5 * S)
+    # The recorder goes quiet while the compositor keeps seeing input.
+    assert [w.idle(t * S, 1 * S) for t in (30, 35, 40)] == [False, False, True]
+    assert w.active
+    # Input reaching the recorder again ends it.
+    assert w.input(45 * S) and not w.active
+
+
+def test_blind_ignores_a_desk_left_alone():
+    w = BlindWatch(window_us=60 * S, min_misses=3, slack_us=2 * S, started_us=0)
+    w.input(10 * S)
+    # Nobody types: the compositor's last input stays where the recorder's is.
+    assert not any(w.idle(t * S, (t - 10) * S) for t in range(15, 200, 5))
+    assert not w.active
+
+
+def test_blind_counts_one_miss_per_new_compositor_input():
+    w = BlindWatch(window_us=60 * S, min_misses=3, slack_us=2 * S, started_us=0)
+    w.input(0)
+    # One unseen touch at 20 s, sampled again and again: still a single miss.
+    assert not any(w.idle(t * S, (t - 20) * S) for t in range(25, 60, 5))
+    assert not w.active
+
+
+def test_blind_misses_expire_with_the_window():
+    w = BlindWatch(window_us=60 * S, min_misses=3, slack_us=2 * S, started_us=0)
+    w.input(0)
+    assert not w.idle(10 * S, 0)
+    assert not w.idle(20 * S, 0)
+    # The first two are over a minute old by now.
+    assert not w.idle(90 * S, 0)
+    assert not w.active
