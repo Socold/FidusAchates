@@ -63,6 +63,8 @@ CURVE_EVERY_S = 3 * 3600
 HEARTBEAT_S = 30
 # How often the compositor's idle time is read for E23.
 IDLE_POLL_S = 5
+# How often the lock and seat states are re-read, in case a signal was missed.
+STATE_POLL_S = 5
 # The bar turns red above this, and only once enrolment is complete.
 ALERT_ABOVE = 0.5
 
@@ -597,17 +599,26 @@ def start_activity_listener(callback, on_lock=None, on_seat=None, on_idle=None) 
                              "/org/fidusachates/Overlay", None,
                              Gio.DBusSignalFlags.NONE, on_signal)
         if on_lock is not None:
+            lock = OnChange(on_lock)
             bus.signal_subscribe(None, "org.gnome.ScreenSaver", "ActiveChanged",
                                  "/org/gnome/ScreenSaver", None,
                                  Gio.DBusSignalFlags.NONE,
-                                 lambda *a: on_lock(bool(a[-1].unpack()[0])))
-            try:
-                active = bus.call_sync("org.gnome.ScreenSaver", "/org/gnome/ScreenSaver",
-                                       "org.gnome.ScreenSaver", "GetActive", None, None,
-                                       Gio.DBusCallFlags.NONE, 1000, None).unpack()[0]
-                on_lock(bool(active))
-            except Exception:  # noqa: BLE001  no screensaver service: nothing to track
-                pass
+                                 lambda *a: lock(bool(a[-1].unpack()[0])))
+
+            def read_lock() -> bool:
+                try:
+                    active = bus.call_sync("org.gnome.ScreenSaver", "/org/gnome/ScreenSaver",
+                                           "org.gnome.ScreenSaver", "GetActive", None, None,
+                                           Gio.DBusCallFlags.NONE, 1000, None).unpack()[0]
+                except Exception:  # noqa: BLE001  no screensaver service: nothing to track
+                    return False
+                lock(bool(active))
+                return True
+
+            # The signal alone is not enough: one missed ActiveChanged left
+            # every key withheld as a password for a day. Re-read it.
+            if read_lock():
+                GLib.timeout_add_seconds(STATE_POLL_S, read_lock)
         if on_seat is not None:
             _watch_seat(Gio, GLib, on_seat)
         if on_idle is not None:
@@ -616,6 +627,21 @@ def start_activity_listener(callback, on_lock=None, on_seat=None, on_idle=None) 
 
     threading.Thread(target=loop, daemon=True).start()
     return True
+
+
+class OnChange:
+    """Forward a boolean state to `fn` only when it differs from the last
+    one forwarded, so that a periodic re-read and the change signal can both
+    feed it."""
+
+    def __init__(self, fn) -> None:
+        self.fn = fn
+        self.last: bool | None = None
+
+    def __call__(self, value: bool) -> None:
+        if value != self.last:
+            self.last = value
+            self.fn(value)
 
 
 def _poll_idle(Gio, bus, on_idle) -> bool:
@@ -660,17 +686,28 @@ def _watch_seat(Gio, GLib, on_seat) -> None:
         def changed(_c, _s, _p, _i, _sig, params):
             iface, props, _inv = params.unpack()
             if iface == "org.freedesktop.login1.Session" and "Active" in props:
-                on_seat(bool(props["Active"]))
+                seat(bool(props["Active"]))
 
+        seat = OnChange(on_seat)
         sysbus.signal_subscribe("org.freedesktop.login1", "org.freedesktop.DBus.Properties",
                                 "PropertiesChanged", session, None,
                                 Gio.DBusSignalFlags.NONE, changed)
-        active = sysbus.call_sync("org.freedesktop.login1", session,
-                                  "org.freedesktop.DBus.Properties", "Get",
-                                  GLib.Variant("(ss)", ("org.freedesktop.login1.Session",
-                                                        "Active")),
-                                  None, Gio.DBusCallFlags.NONE, 1000, None).unpack()[0]
-        on_seat(bool(active))
+
+        def read_seat() -> bool:
+            try:
+                active = sysbus.call_sync(
+                    "org.freedesktop.login1", session, "org.freedesktop.DBus.Properties",
+                    "Get", GLib.Variant("(ss)", ("org.freedesktop.login1.Session", "Active")),
+                    None, Gio.DBusCallFlags.NONE, 1000, None).unpack()[0]
+            except Exception:  # noqa: BLE001  logind gone: keep the last state
+                return True
+            seat(bool(active))
+            return True
+
+        read_seat()
+        # A missed PropertiesChanged left my own input dropped as another
+        # session's for a day. Re-read it.
+        GLib.timeout_add_seconds(STATE_POLL_S, read_seat)
     except Exception:  # noqa: BLE001  no logind: my session is taken as active
         return
 
