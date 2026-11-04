@@ -252,9 +252,17 @@ Wire the stubbed sensitivity (FR-47) to the real command-category signals (C09, 
 
 ## WP 10 - Porting
 
-Windows, macOS, Linux X11, and other Wayland compositors (layer-shell and foreign-toplevel replace the GNOME extension where available). Only the capture stage is rewritten.
+Windows, macOS, Linux X11, and other Wayland compositors (layer-shell and foreign-toplevel replace the GNOME extension where available). Only the capture stage is rewritten. Design and per-platform API choices are in [11-PORTING-WINDOWS-MACOS.md](11-PORTING-WINDOWS-MACOS.md).
 
 **Acceptance criterion**: on each platform the criteria of WP 1 are met, and a trace captured there replays in `fidus-lab` without adaptation.
+
+**Status**: groundwork in place, capture not yet ported. An OS-detecting installer (`install.sh`) dispatches to the Linux, macOS (`scripts/install-macos.sh`, launchd) and Windows (`scripts/install-windows.ps1`, logon task) paths, and opens a first-install onboarding page (`contrib/onboarding/`). The cross-platform indicator for the Windows notification area and the macOS menu bar is scaffolded as a reference crate (`crates/fidus-tray/`), excluded from the offline workspace. What remains needs the target hardware: the capture `Source` per OS (Raw Input on Windows, `CGEventTap` on macOS, the key code dropped in the layer; the agent is evdev-only and has no `Source` seam yet), the `state`/`control` daemon files the indicator reads and writes, finishing the indicator, and OS code signing (below).
+
+---
+
+## Cross-cutting - Security review and release integrity
+
+Not a work package, but recorded here so it is tracked. A full data-protection and security review is in [10-SECURITY-REVIEW.md](10-SECURITY-REVIEW.md): the repository holds no secret or biometric data, behavioural templates are sealed at rest (AES-256-GCM, keyring key), and the daemon no longer writes them in clear silently (it requires a keyring, a passphrase, or an explicit opt-in). Release signing and the way a tool proves a binary is the genuine FidusAchates, by transparency rather than by hiding from security software, are designed in [ADR-0015](adr/0015-release-signing-and-verification.md), with the offline verifier `scripts/verify-release.sh`. OS code signing (Authenticode, Developer ID plus notarization) is the runtime half and lands with WP10.
 
 ---
 

@@ -1,0 +1,24 @@
+# Cross-platform indicator for FidusAchates. Built on the target (Windows,
+# macOS), not in the offline Linux recorder flow. Excluded from the root
+# workspace on purpose (see the root Cargo.toml). On Linux the GNOME Shell
+# extension already provides the indicator; this crate covers Windows and macOS.
+#
+# The dependency versions below are indicative. On the target, run
+#   cargo add tray-icon muda tao
+# so Cargo pins the current versions it can fetch, then build.
+[package]
+name = "fidus-tray"
+description = "FidusAchates indicator: notification area (Windows), menu bar (macOS)."
+version = "0.1.0"
+edition = "2021"
+license = "LicenseRef-PolyForm-Noncommercial-1.0.0"
+publish = false
+
+[[bin]]
+name = "fidus-tray"
+path = "src/main.rs"
+
+[dependencies]
+tray-icon = "0.19"
+muda = "0.15"
+tao = "0.30"

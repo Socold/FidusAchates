@@ -48,7 +48,7 @@ measurements on my own data.
 | 7 | Port of the retained signals to the Rust agent | to do (after signals are chosen on real data) |
 | 8 | Multiple profiles and revision (counting users) | done |
 | 9 | Action sensitivity wired into the malice policy | wired live through a shell hook that sends classes only (ADR-0014); attack bench remains |
-| 10 | Porting to Windows, macOS, X11, other compositors | to do |
+| 10 | Porting to Windows, macOS, X11, other compositors | groundwork: OS-detecting install, onboarding, indicator scaffold; capture per OS remains |
 | 11 | Mobile SDK | to do |
 | 12 | Doubt resolution: challenge or session lock (long-term vision) | not planned yet |
 
@@ -165,6 +165,10 @@ to a forger (`fidus_lab.mimicry_eval`), written up in
 | [06 - Roadmap](docs/06-ROADMAP.md) | Work packages and acceptance criteria |
 | [07 - Design review](docs/07-DESIGN-REVIEW.md) | Critical re-reading of the design: errors found, decisions reopened, gaps |
 | [08 - Code review](docs/08-CODE-REVIEW.md) | Critical re-reading of the code: confirmed bugs, weaknesses, and the fix and test for each |
+| [09 - Study: input paths](docs/09-STUDY-INPUT-PATH.md) | How the path input takes (local, re-timed, remote, automated) shows in the timing |
+| [10 - Security review](docs/10-SECURITY-REVIEW.md) | Data-protection and security review: secrets, data at rest, attack surface, the position on EDR and antivirus |
+| [11 - Porting (Windows, macOS)](docs/11-PORTING-WINDOWS-MACOS.md) | WP10 design: capture per platform, permissions, privacy and footprint parity, signing |
+| [Research and study](research/README.md) | What the project measured and found, with the articles and how to reproduce them |
 | [Trace format](research/TRACE-FORMAT.md) | Binary format of the reduced research trace |
 | [ADR](docs/adr/) | Architecture decisions and the alternatives ruled out |
 
@@ -189,11 +193,39 @@ Among the decisions, [ADR-0011](docs/adr/0011-attribution-not-malice.md) separat
 
 **Local-first, structurally.** At start-up the agent installs a seccomp filter that denies network sockets, checks that opening one fails, and refuses to run otherwise. It has no network access to give, even if compromised, and does not rely on its unit file for that. No telemetry, no CDN, no remote font.
 
+**Sealed at rest.** The behavioural templates and traces kept on disk are sealed (AES-256-GCM, key in the session keyring), and the daemon refuses to write them in clear silently: it wants a keyring, a passphrase, or an explicit opt-in. See [docs/10-SECURITY-REVIEW.md](docs/10-SECURITY-REVIEW.md).
+
 **Explainable by construction.** The engine adds log-likelihood ratios expressed in decibans. The contribution of each signal to the decision is therefore **exact**, not estimated. The displayed explanation is the formula itself, read term by term.
 
 **Observes, does not act.** The tool locks nothing, blocks nothing, logs nobody out. It flags. A long-term vision, work package 12, sketches a response (a challenge by hardware-key touch or OTP, a session lock on failure); it is gated on real false-alarm numbers and is out of scope until then.
 
 ## How it works, in short
+
+The path of one event, from the keyboard to a decision. Everything happens on
+the machine; nothing crosses the network, and the key code is dropped before
+anything is kept.
+
+```mermaid
+flowchart TD
+  K["Keyboard and pointer<br/>/dev/input"] --> R["fidus-agent (Rust)<br/>capture, no root, no network"]
+  R --> P{"Privacy reduction<br/>in memory"}
+  P -->|"key codes, typed content,<br/>lock-screen and sudo input"| X["dropped<br/>never stored"]
+  P -->|"timings, key classes,<br/>pointer deltas"| B["Hot buffer<br/>10 s ring, not persisted"]
+  B --> S["Signals<br/>rhythm, digraph classes, pointer,<br/>cadence, input-path timing"]
+  S --> E["Experts<br/>one calibrated score each"]
+  E --> F["LLR fusion<br/>evidence in decibans"]
+  F --> C["CUSUM<br/>change detection"]
+  C --> D1["Identity<br/>same person? alarm on takeover"]
+  C --> D2["Attribution<br/>human or automation? a label"]
+  D1 --> U["Console and top-bar indicator<br/>127.0.0.1, every decision explained"]
+  D2 --> U
+  D1 -.-> G[("Aggregates and templates<br/>sealed at rest, 0600")]
+```
+
+The only things written to disk are aggregates and templates, sealed with a key
+held in the session keyring (see [docs/05-PRIVACY.md](docs/05-PRIVACY.md) and
+[docs/10-SECURITY-REVIEW.md](docs/10-SECURITY-REVIEW.md)). The raw event and the
+hot buffer never leave memory.
 
 ```
 Each signal contributes evidence for the impostor hypothesis, in decibans:
