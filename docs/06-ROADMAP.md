@@ -154,6 +154,8 @@ First end-to-end result: no enrolment needed, so the whole chain can be demonstr
 
 **Measured on 2026-11-04** (`research/results/2026-11-04-input-paths/`, `2026-11-04-mimicry/`): kloak at 100 ms is itself visible (hold spread over 5 repetitions, EER 0.047, no template needed); a buffer releasing keys on someone else's rhythm only hides a typist when it is slower than almost all of their gaps (chance identification at 1.4 s of mean lag), and a fixed clock is labelled automation; a remote hop over a long path shows as near-simultaneous key events (EER 0.035 on one repetition), the first statistic for E11. A stolen template forges me 89 % of the time against the keystroke expert, and 55 observed keystrokes 79 %, with no forgery labelled automation: templates must be protected at rest (PR-10) and the behavioural score never read without provenance.
 
+**Measured on 2026-11-04** (`research/results/2026-11-04-session/`): over a window of consecutive attempts, the correlations between keys (full-covariance against diagonal log-likelihood) tell a template forger from the victim at EER 0.20 on one attempt and 0.01 over fifty, and a forger who observed 5 to 50 repetitions at 0.22 to 0.35; a forger holding the full covariance is not caught (above 0.5), and the speed drift between attempts is not a useful cue (0.28 at best). Texture is worth a session-level signal; it also makes the stored covariance the asset to protect.
+
 ---
 
 ## WP 5 - Fusion, CUSUM, explainability and console
