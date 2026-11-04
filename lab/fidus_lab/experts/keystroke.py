@@ -132,3 +132,39 @@ class KeystrokeExpert:
         # the reference stays unimodal and wide while the genuine density
         # stays sharp: that contrast is what exposes a close impostor.
         return wide_reference(g).logpdf(x)
+
+
+def hold_dispersion_ratio(seg: Segment, tpl: KeystrokeTemplate,
+                          min_per_class: int = 4) -> tuple[float, int]:
+    """How much more scattered the segment's holds are than the template's, per
+    key class: the standard deviation of log-holds over the template's sigma
+    (the pooled component sigma for a mixture), averaged with the hold counts
+    as weights. Returns the ratio and the holds it rests on (0 if none).
+
+    A tool that re-times keys between the keyboard and the recorder adds the
+    same zero-mean noise to every hold, and my holds are tight; the ratio is
+    the candidate cue (research/articles/2026-11-04-hiding-for-real.md). On my
+    own free text it overlaps kloak's (`fidus_lab.retiming_check`), so it is
+    measured, not used to label anything."""
+    import math
+    import statistics
+
+    from ..stats import LogNormalMixture
+
+    by: dict[int, list[float]] = {}
+    for kc, dt in _hold_times(seg):
+        if dt > 0:
+            by.setdefault(int(kc), []).append(math.log(dt))
+    num = 0.0
+    n = 0
+    for kc, logs in by.items():
+        d = tpl.hold.get(kc)
+        if d is None or len(logs) < min_per_class:
+            continue
+        sigma = (math.sqrt((d.sigmas[0] ** 2 + d.sigmas[1] ** 2) / 2)
+                 if isinstance(d, LogNormalMixture) else d.sigma)
+        if sigma <= 0:
+            continue
+        num += len(logs) * statistics.pstdev(logs) / sigma
+        n += len(logs)
+    return (num / n, n) if n else (0.0, 0)

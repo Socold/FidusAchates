@@ -134,5 +134,43 @@
         "n_victims": 51
       }
     }
+  },
+  "session_consistency": {
+    "k10": {
+      "autocorr": {
+        "eer": 0.4647,
+        "genuine_median": -0.063,
+        "forged_median": -0.111
+      },
+      "cv": {
+        "eer": 0.4578,
+        "genuine_median": 0.125,
+        "forged_median": 0.115
+      }
+    },
+    "k20": {
+      "autocorr": {
+        "eer": 0.4176,
+        "genuine_median": 0.01,
+        "forged_median": -0.07
+      },
+      "cv": {
+        "eer": 0.4176,
+        "genuine_median": 0.145,
+        "forged_median": 0.125
+      }
+    },
+    "k50": {
+      "autocorr": {
+        "eer": 0.3676,
+        "genuine_median": 0.095,
+        "forged_median": -0.025
+      },
+      "cv": {
+        "eer": 0.3627,
+        "genuine_median": 0.159,
+        "forged_median": 0.13
+      }
+    }
   }
 }
