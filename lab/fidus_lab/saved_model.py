@@ -29,9 +29,9 @@ from __future__ import annotations
 
 import dataclasses
 import json
-import os
 from pathlib import Path
 
+from . import vault
 from .experts import HabitTemplate, KeystrokeTemplate, PointerTemplate
 from .experts.habits import TimeDistanceLaw
 from .learning import Enrolled, Population
@@ -123,7 +123,7 @@ def save_population(path: Path, pop: Population, meta: dict) -> None:
 
 def load_population(path: Path) -> tuple[Population, dict] | None:
     try:
-        blob = json.loads(path.read_text(encoding="utf-8"))
+        blob = _read(path)
         if blob.get("format") != FORMAT:
             return None
         return decode_population(blob["population"]), dict(blob["meta"])
@@ -137,17 +137,18 @@ def save(path: Path, enrolled: Enrolled, status: dict) -> None:
 
 
 def _write(path: Path, blob: dict) -> None:
-    tmp = path.with_suffix(".tmp")
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        json.dump(blob, fh, separators=(",", ":"))
-    os.replace(tmp, path)
+    """Atomically, 0600, sealed when the daemon has a key (vault, PR-4)."""
+    vault.write_bytes(path, json.dumps(blob, separators=(",", ":")).encode("utf-8"))
+
+
+def _read(path: Path) -> dict:
+    return json.loads(vault.read_bytes(path).decode("utf-8"))
 
 
 def load(path: Path) -> tuple[Enrolled, dict] | None:
     """The saved model and its status, or None if missing or unreadable."""
     try:
-        blob = json.loads(path.read_text(encoding="utf-8"))
+        blob = _read(path)
         if blob.get("format") != FORMAT:
             return None
         return decode(blob["model"]), dict(blob["status"])

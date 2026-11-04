@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import os
 import queue
 import signal
 import subprocess
@@ -33,9 +34,9 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import saved_model
+from . import saved_model, vault
 from .analyze import SegmentReport
-from .attribution import attribute
+from .attribution import PhantomWatch, RemoteTimingWatch, attribute
 from .console import Console, publish_link, start
 from .context import ContextEvent, ContextTracker
 from .drift import ModelSnapshots
@@ -69,9 +70,14 @@ def now_us() -> int:
     return time.monotonic_ns() // 1000
 
 
-def panel_state(ready: bool, progress: float, p_impostor: float | None) -> tuple[str, int]:
+def panel_state(ready: bool, progress: float, p_impostor: float | None,
+                phantom: bool = False) -> tuple[str, int]:
     """What the top bar shows: learning until enrolment is complete, then
-    recognised, or the alert with its percentage."""
+    recognised, or the alert with its percentage. Phantom activity (E20)
+    alerts at any phase: it is not about who types, but about input I
+    cannot see at all."""
+    if phantom:
+        return "alert", 100
     if not ready:
         return "learning", int(round(progress * 100))
     if p_impostor is not None and p_impostor > ALERT_ABOVE:
@@ -115,6 +121,11 @@ class Daemon:
         self.segmenter = LiveSegmenter()
         self.context = ContextTracker()
         self.secrets = SecretInputFilter()
+        self.phantom = PhantomWatch(started_us=now_us())
+        self._seat_active = True
+        self._locked = False
+        self.foreign_dropped = 0
+        self.remote_timing = RemoteTimingWatch()
         self.actions = ActionLog(on_add=self._on_action)
         self._pending_context: list[ContextEvent] = []
         self._records: queue.Queue = queue.Queue(maxsize=100_000)
@@ -233,12 +244,33 @@ class Daemon:
 
     def on_lock(self, active: bool) -> None:
         """Called from the D-Bus thread when the screen locks or unlocks."""
+        self._locked = active
         self.secrets.lock_changed(active, now_us())
         print(f"fidus-daemon: screen {'locked' if active else 'unlocked'}; "
               f"{self.secrets.dropped} key events withheld so far", file=sys.stderr)
 
+    def on_seat(self, active: bool) -> None:
+        """Called from the D-Bus thread when my session becomes, or stops
+        being, the active one on its seat."""
+        self._seat_active = active
+        print(f"fidus-daemon: my session is {'active' if active else 'in the background'}; "
+              f"{self.foreign_dropped} events from another session dropped so far",
+              file=sys.stderr)
+
+    def mine(self) -> bool:
+        """Whether input arriving now is mine: my session is the active one on
+        the seat and it is not locked. Otherwise the hands on the keyboard are
+        someone else's (another account, a person at the lock screen), and
+        nothing of it is kept: keys, pointer, nothing (privacy 4.3)."""
+        return self._seat_active and not self._locked
+
     def on_activity(self, category: str) -> None:
         """Called from the D-Bus thread on every focus change."""
+        if self.phantom.focus(now_us()):
+            print(f"fidus-daemon: phantom activity (E20): {self.phantom.describe()}",
+                  file=sys.stderr)
+            self._publish_status()
+            self._push_panel(force=True)
         ev = self.context.tick(now_us(), category)
         if ev is None:
             return
@@ -283,7 +315,7 @@ class Daemon:
         if engine is None:
             return
         d = engine.step(seg)
-        a = attribute(seg, self.registry)
+        a = attribute(seg, self.registry, input_path=self._input_path(seg))
         sensitivity, actions = self.actions.sensitivity(seg)
         outcome = decide(a.label, identity_diverged=d.alarmed, sensitivity=sensitivity)
         self._index += 1
@@ -317,6 +349,13 @@ class Daemon:
         })
         self._push_panel()
 
+    def _input_path(self, seg: Segment) -> str | None:
+        """A cue, kept across segments, that my hands are not what the
+        recorder reads: a remote hop (E11). Re-timed input is not a cue here:
+        on my own traces the spread of my holds overlaps kloak's
+        (docs/09-STUDY-INPUT-PATH.md, `python -m fidus_lab.retiming_check`)."""
+        return "remote session timing" if self.remote_timing.feed(seg) else None
+
     def _focus_at_close(self, end_us: int) -> int | None:
         # Pending events are those after the segment's start; the earliest
         # one past its end tells what was focused before it.
@@ -327,7 +366,8 @@ class Daemon:
 
     def _push_panel(self, force: bool = False) -> None:
         st = self._status
-        state, pct = panel_state(st.get("ready", False), st.get("progress", 0.0), self._last_p)
+        state, pct = panel_state(st.get("ready", False), st.get("progress", 0.0), self._last_p,
+                                 phantom=self.phantom.active)
         self.overlay.set_status(state, pct, identity_confidence(self._last_confidence),
                                 force=force)
 
@@ -336,6 +376,7 @@ class Daemon:
             st = dict(self._status)
             st["guest"] = ({"id": self._guest.id, "label": self._guest.label}
                            if self._guest else None)
+            st["phantom"] = self.phantom.describe() if self.phantom.active else None
         self.console.state.set_status(st)
 
     # --- background: refit and curves --------------------------------------------
@@ -428,6 +469,7 @@ class Daemon:
                     self._refit_now.clear()
                     if fresh or forced:
                         self.store.prune()
+                        self.store.seal_closed()
                         if self.history is not None:
                             self.history.prune()
                         if self.snapshots is not None:
@@ -461,7 +503,7 @@ class Daemon:
         threading.Thread(target=self._heartbeat, daemon=True).start()
         threading.Thread(target=follow, args=(actions_path(), self.actions, self._stop, now_us),
                          daemon=True).start()
-        start_activity_listener(self.on_activity, self.on_lock)
+        start_activity_listener(self.on_activity, self.on_lock, self.on_seat)
         if self.history is not None:
             # What the last run knew, before the first refit lands.
             self.console.state.set_learning(self.history.load_learning())
@@ -479,7 +521,14 @@ class Daemon:
                     print("fidus-daemon: the recorder stopped", file=sys.stderr)
                     return proc.wait() or 1
                 if r:
-                    self.secrets.push(r)
+                    if self.phantom.input(r.time_us):
+                        print("fidus-daemon: input reaches the recorder again", file=sys.stderr)
+                        self._publish_status()
+                        self._push_panel(force=True)
+                    if self.mine():
+                        self.secrets.push(r)
+                    else:
+                        self.foreign_dropped += 1
                 for rr in self.secrets.release(now_us()):
                     self._take(rr)
                 closed = self.segmenter.tick(now_us() - self.secrets.delay_us)
@@ -507,10 +556,12 @@ class Daemon:
             self.overlay.set_status("off", 0, force=True)
 
 
-def start_activity_listener(callback, on_lock=None) -> bool:
-    """Subscribe to the extension's ActivityTick, and to GNOME's screen lock
-    for `on_lock`, on a GLib loop in its own thread. Without PyGObject or the
-    extension, context simply stays empty."""
+def start_activity_listener(callback, on_lock=None, on_seat=None) -> bool:
+    """Subscribe to the extension's ActivityTick, to GNOME's screen lock for
+    `on_lock`, and to logind for `on_seat` (is my graphical session the active
+    one on its seat), on a GLib loop in its own thread. Without PyGObject or
+    the extension, context simply stays empty; without logind, my session is
+    taken as active."""
     try:
         import gi
 
@@ -542,10 +593,61 @@ def start_activity_listener(callback, on_lock=None) -> bool:
                 on_lock(bool(active))
             except Exception:  # noqa: BLE001  no screensaver service: nothing to track
                 pass
+        if on_seat is not None:
+            _watch_seat(Gio, GLib, on_seat)
         GLib.MainLoop().run()
 
     threading.Thread(target=loop, daemon=True).start()
     return True
+
+
+def _watch_seat(Gio, GLib, on_seat) -> None:
+    """Follow the Active property of my user's display session in logind.
+    Another person logged in on the same machine uses the same keyboard and
+    mouse, and my account can read them (group `input`); only while my
+    session is the active one is the input mine."""
+    import os
+
+    try:
+        sysbus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        user = sysbus.call_sync("org.freedesktop.login1", "/org/freedesktop/login1",
+                                "org.freedesktop.login1.Manager", "GetUser",
+                                GLib.Variant("(u)", (os.getuid(),)), None,
+                                Gio.DBusCallFlags.NONE, 1000, None).unpack()[0]
+        display = sysbus.call_sync("org.freedesktop.login1", user,
+                                   "org.freedesktop.DBus.Properties", "Get",
+                                   GLib.Variant("(ss)", ("org.freedesktop.login1.User",
+                                                         "Display")),
+                                   None, Gio.DBusCallFlags.NONE, 1000, None).unpack()[0]
+        session = display[1]
+        if not session or session == "/":
+            return
+
+        def changed(_c, _s, _p, _i, _sig, params):
+            iface, props, _inv = params.unpack()
+            if iface == "org.freedesktop.login1.Session" and "Active" in props:
+                on_seat(bool(props["Active"]))
+
+        sysbus.signal_subscribe("org.freedesktop.login1", "org.freedesktop.DBus.Properties",
+                                "PropertiesChanged", session, None,
+                                Gio.DBusSignalFlags.NONE, changed)
+        active = sysbus.call_sync("org.freedesktop.login1", session,
+                                  "org.freedesktop.DBus.Properties", "Get",
+                                  GLib.Variant("(ss)", ("org.freedesktop.login1.Session",
+                                                        "Active")),
+                                  None, Gio.DBusCallFlags.NONE, 1000, None).unpack()[0]
+        on_seat(bool(active))
+    except Exception:  # noqa: BLE001  no logind: my session is taken as active
+        return
+
+
+def _read_passphrase(path: str | None) -> bytes | None:
+    """The passphrase from a file, first line, newline stripped. None when no
+    path is given or the file is empty."""
+    if not path:
+        return None
+    data = Path(path).read_bytes().split(b"\n", 1)[0].rstrip(b"\r")
+    return data or None
 
 
 def main(argv: list[str]) -> int:
@@ -556,9 +658,46 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--data", default=str(default_root()))
     ap.add_argument("--retention-days", type=int, default=30)
     ap.add_argument("--port", type=int, default=0)
+    ap.add_argument("--passphrase-file", default=os.environ.get("FIDUS_PASSPHRASE_FILE"),
+                    help="when no keyring is available, derive the at-rest key from "
+                         "the passphrase in this file (first line)")
+    ap.add_argument("--allow-clear-at-rest", action="store_true",
+                    help="permit writing templates and traces in clear when no key "
+                         "is available; off by default")
     args = ap.parse_args(argv)
 
-    store = Store(Path(args.data), retention_days=args.retention_days)
+    data = Path(args.data)
+    key = vault.keyring_key()
+    source = "keyring"
+    if key is None:
+        passphrase = _read_passphrase(args.passphrase_file)
+        if passphrase is not None:
+            key = vault.derive_key(passphrase, vault.passphrase_salt(data))
+            source = "passphrase"
+    if key is not None:
+        vault.configure(vault.Vault(key))
+        resealed = [p for p in [data / "model.json", data / "population.json",
+                                *sorted((data / "models").glob("*.json"))] if vault.reseal(p)]
+        print(f"fidus-daemon: templates and closed days sealed ({source};"
+              f" {len(resealed)} older template files sealed now)", file=sys.stderr)
+    elif args.allow_clear_at_rest:
+        print("fidus-daemon: WARNING, no key: behavioural templates and traces are "
+              "written IN CLEAR at rest (--allow-clear-at-rest). A copy of "
+              f"{data} that leaves this session can be used to impersonate you.",
+              file=sys.stderr)
+    else:
+        print("fidus-daemon: refusing to write behavioural templates in clear.\n"
+              "  A template, and a day of trace, are enough to impersonate you, so\n"
+              "  they are not persisted without protection. Choose one:\n"
+              "    - run in a desktop session with a keyring (the default), or\n"
+              "    - pass --passphrase-file FILE to derive a key from a passphrase, or\n"
+              "    - pass --allow-clear-at-rest to accept clear storage on purpose.",
+              file=sys.stderr)
+        return 2
+    store = Store(data, retention_days=args.retention_days)
+    sealed = store.seal_closed()
+    if sealed:
+        print(f"fidus-daemon: {len(sealed)} closed day files sealed", file=sys.stderr)
     console = start(port=args.port, rearm=True)
     link = publish_link(console)
     threading.Thread(target=console.serve_forever, daemon=True).start()

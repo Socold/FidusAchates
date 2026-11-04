@@ -93,17 +93,22 @@ def write_events(path: Path, events: Iterable[ContextEvent]) -> None:
 
 def read_events(path: Path) -> Iterator[ContextEvent]:
     with open(path, encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                d = json.loads(line)
-                yield ContextEvent(time_us=int(d["t"]), category=int(d["c"]),
-                                   previous=d.get("p"), opening_rank=d.get("r"),
-                                   dwell_us=d.get("d"))
-            except (ValueError, KeyError, TypeError):
-                continue  # a torn last line after a crash
+        yield from parse_events(fh)
+
+
+def parse_events(lines: Iterable[str]) -> Iterator[ContextEvent]:
+    """Events from JSON lines, from a file or from a sealed day opened in memory."""
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            d = json.loads(line)
+            yield ContextEvent(time_us=int(d["t"]), category=int(d["c"]),
+                               previous=d.get("p"), opening_rank=d.get("r"),
+                               dwell_us=d.get("d"))
+        except (ValueError, KeyError, TypeError):
+            continue  # a torn last line after a crash
 
 
 def category_at(events: list[ContextEvent], times: list[int], time_us: int) -> int | None:

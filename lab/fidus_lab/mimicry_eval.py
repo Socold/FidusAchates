@@ -26,6 +26,15 @@ accepted. The forgers:
 For the sampled forgeries I also report the share the attribution channel
 labels automation: a forgery must look human as well as look like the victim.
 
+Session consistency: a forger who draws every attempt independently from the
+template is right on average and wrong in its texture. A person drifts from
+one repetition to the next (warming up, tiring), so consecutive repetitions
+are correlated; independent draws are not. `session_consistency` reads two
+statistics of the total typing time over windows of k consecutive
+repetitions, genuine against forged, as detection EERs: its lag-1
+autocorrelation, and its coefficient of variation (a real window comes from
+one sitting, the template mixes several).
+
 The keystroke expert is the engine's (one repetition per segment, wide
 fallback reference); the scaled-Manhattan detector is the CMU baseline. The
 observed repetitions are drawn from the victim's genuine test half, and the
@@ -168,6 +177,50 @@ def expert_forgery(tpl: KeystrokeTemplate, columns: list[str], rng: random.Rando
     return _features("forger", holds, dds, columns)
 
 
+def lag1_autocorrelation(xs: list[float]) -> float:
+    m = statistics.fmean(xs)
+    den = sum((x - m) ** 2 for x in xs)
+    if den == 0:
+        return 0.0
+    return sum((a - m) * (b - m) for a, b in zip(xs, xs[1:], strict=False)) / den
+
+
+def _total_time(s: CmuSample, columns: list[str]) -> float:
+    return sum(v for c, v in zip(columns, s.features, strict=True) if c.startswith("DD."))
+
+
+def session_consistency(clean: list[CmuSample], columns: list[str],
+                        ks: tuple[int, ...] = (10, 20, 50)) -> dict:
+    """Detection EER of independent forgeries against real consecutive
+    repetitions, from the lag-1 autocorrelation of the total time, per
+    window length. The forger samples the victim's own template (the
+    strongest forger of `run`)."""
+    from .metrics import eer_exact
+
+    out = {}
+    by = _by_subject(clean)
+    for k in ks:
+        gen, forged = {"autocorr": [], "cv": []}, {"autocorr": [], "cv": []}
+        for subj, rows in by.items():
+            rng = random.Random(f"{SEED}-session-{subj}-{k}")
+            m = ScaledManhattan.train(rows[:200])
+            test = rows[200:]
+            for i in range(0, len(test) - k + 1, k):
+                real = [_total_time(x, columns) for x in test[i:i + k]]
+                fake = [_total_time(manhattan_forgery(m, columns, rng, False), columns)
+                        for _ in range(k)]
+                for into, w in ((gen, real), (forged, fake)):
+                    into["autocorr"].append(lag1_autocorrelation(w))
+                    into["cv"].append(statistics.pstdev(w) / statistics.fmean(w))
+        out[f"k{k}"] = {}
+        for stat in ("autocorr", "cv"):
+            e = eer_exact(gen[stat], forged[stat])  # read both ways below
+            out[f"k{k}"][stat] = {"eer": round(min(e, 1 - e), 4),
+                                  "genuine_median": round(statistics.median(gen[stat]), 3),
+                                  "forged_median": round(statistics.median(forged[stat]), 3)}
+    return out
+
+
 def run(path: str) -> dict:
     clean = load_cmu(path)
     columns = cmu_columns(path)
@@ -232,7 +285,8 @@ def run(path: str) -> dict:
         print(f"{subj} done", file=sys.stderr)
 
     res: dict = {"corpus": "CMU DSL-StrongPasswordData", "seed": SEED,
-                 "attempts_per_victim": N_ATTEMPTS, "acceptance": {}}
+                 "attempts_per_victim": N_ATTEMPTS, "acceptance": {},
+                 "session_consistency": session_consistency(clean, columns)}
     for det, attacks in out.items():
         res["acceptance"][det] = {
             name: {"mean": round(statistics.fmean(v.values()), 4),

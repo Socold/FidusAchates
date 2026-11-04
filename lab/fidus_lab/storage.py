@@ -6,6 +6,11 @@
         guests/<id>.fidustr|.jsonl    someone else's labelled session
         guests/<id>.json              its label and day
 
+A day that is over, and a guest session from an earlier day, are sealed
+(`.sealed` appended, AES-GCM, key in the keyring: `fidus_lab.vault`) when the
+daemon has a key; reading opens them in memory. Today's files stay plain
+while they are being appended to.
+
 Reduced traces only (classes, deltas, monotonic times), never a key code. The
 file name carries the day, which the trace itself never does; that is what
 lets the enrolment criteria count real days. Everything older than the
@@ -16,6 +21,7 @@ person's behavioural data and are kept no longer than mine.
 from __future__ import annotations
 
 import datetime as dt
+import io
 import json
 import os
 import re
@@ -23,12 +29,42 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Iterator
 
-from .context import ContextEvent, attach, read_events, write_events
+from . import vault
+from .context import ContextEvent, attach, parse_events, read_events, write_events
 from .segment import Segment, segment_trace
-from .trace import MAGIC, Record, encode, read_trace
+from .trace import MAGIC, Record, encode, read_stream, read_trace
 
 RETENTION_DAYS = 30
-_DAY_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})\.(fidustr|jsonl)$")
+_DAY_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})\.(fidustr|jsonl)(\.sealed)?$")
+SEALED = ".sealed"
+
+
+def sealed_path(path: Path) -> Path:
+    return path.with_name(path.name + SEALED)
+
+
+def resolve(path: Path) -> Path | None:
+    """The file for a plain name: itself, or its sealed copy."""
+    if path.exists():
+        return path
+    s = sealed_path(path)
+    return s if s.exists() else None
+
+
+def seal_file(path: Path) -> bool:
+    """Replace a plain file by its sealed copy, once the copy reads back the
+    same. Nothing happens without a key."""
+    v = vault.active()
+    if v is None or not path.exists():
+        return False
+    plain = path.read_bytes()
+    target = sealed_path(path)
+    vault.write_bytes(target, plain)
+    if vault.read_bytes(target) != plain:
+        target.unlink()
+        return False
+    path.unlink()
+    return True
 
 
 def default_root() -> Path:
@@ -135,8 +171,8 @@ class Store:
                 d = json.loads(meta.read_text())
             except (OSError, ValueError):
                 continue
-            trace = meta.with_suffix(".fidustr")
-            d["bytes"] = trace.stat().st_size if trace.exists() else 0
+            trace = resolve(meta.with_suffix(".fidustr"))
+            d["bytes"] = trace.stat().st_size if trace is not None else 0
             out.append(d)
         return out
 
@@ -144,7 +180,7 @@ class Store:
         if not re.fullmatch(r"\d{4}-\d{2}-\d{2}-\d{2}", gid):
             return False
         hit = False
-        for ext in (".json", ".fidustr", ".jsonl"):
+        for ext in (".json", ".fidustr", ".jsonl", ".fidustr" + SEALED, ".jsonl" + SEALED):
             p = self.root / "guests" / f"{gid}{ext}"
             if p.exists():
                 p.unlink()
@@ -164,8 +200,28 @@ class Store:
     # --- reading my activity back --------------------------------------------
 
     def days(self) -> list[str]:
-        return sorted(m.group(1) for p in (self.root / "traces").iterdir()
-                      if (m := _DAY_RE.match(p.name)))
+        return sorted({m.group(1) for p in (self.root / "traces").iterdir()
+                       if (m := _DAY_RE.match(p.name))})
+
+    def seal_closed(self, today: dt.date | None = None) -> list[Path]:
+        """Seal every day before today, mine and the guests'. Returns the
+        plain files that were replaced; none without a key."""
+        if vault.active() is None:
+            return []
+        day = (today or dt.date.today()).isoformat()
+        done = []
+        for sub in ("traces", "context"):
+            for p in sorted((self.root / sub).iterdir()):
+                m = _DAY_RE.match(p.name)
+                if m and not m.group(3) and m.group(1) < day and seal_file(p):
+                    done.append(p)
+        for d in self.guests():
+            if d.get("day", day) < day:
+                for ext in (".fidustr", ".jsonl"):
+                    p = self.root / "guests" / f"{d['id']}{ext}"
+                    if seal_file(p):
+                        done.append(p)
+        return done
 
     def load_owner(self, max_segments: int = 4000) -> tuple[list[Segment], list[int]]:
         """My most recent segments, oldest first, and the day index of each,
@@ -272,18 +328,31 @@ def monotonic_runs(records: Iterable[Record]) -> Iterator[list[Record]]:
 
 
 def _segments_of(trace: Path, context: Path) -> list[Segment]:
-    if not trace.exists():
+    found = resolve(trace)
+    if found is None:
         return []
-    try:
-        records = list(read_trace(trace))
-    except ValueError:
-        # A crash can leave a torn final record; keep what precedes it.
-        records = _read_prefix(trace)
+    if found != trace:
+        try:
+            records = list(read_stream(io.BytesIO(vault.read_bytes(found))))
+        except ValueError:
+            return []  # sealed with a key this session does not have
+    else:
+        try:
+            records = list(read_trace(trace))
+        except ValueError:
+            # A crash can leave a torn final record; keep what precedes it.
+            records = _read_prefix(trace)
     segs: list[Segment] = []
     for run in monotonic_runs(records):
         segs += list(segment_trace(run))
-    if context.exists():
+    ctx = resolve(context)
+    if ctx == context:
         attach(segs, list(read_events(context)))
+    elif ctx is not None:
+        try:
+            attach(segs, list(parse_events(vault.read_bytes(ctx).decode("utf-8").splitlines())))
+        except ValueError:
+            pass  # segments without their categories rather than none
     return segs
 
 
