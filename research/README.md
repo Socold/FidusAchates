@@ -32,6 +32,8 @@ away from a known reference rather than a figure with no scale.
 | 2026-11-04 | [Hiding how I type for real, and being seen hiding](articles/2026-11-04-hiding-for-real.md) | What does it cost to hide a rhythm so it cannot be recovered? | Real hiding needs output whose timing no longer depends on the typing; a buffer that replays someone else's rhythm is the textbook defeat, and its lag structure betrays it. |
 | 2026-11-04 | [A remote hand on the keyboard](articles/2026-11-04-remote-hand.md) | Can a remote operator be told from key timing? | Near-simultaneous key bursts from a long network path are a cheap, enrolment-free signal (E11), strong exactly where the threat is. |
 | 2026-11-04 | [What my typing rhythm is worth to a thief](articles/2026-11-04-stolen-rhythm.md) | If someone steals my template, can they impersonate me? | Yes, on a fixed password, and the forgery reads as human; which is why the template must be protected at rest and never scored alone. |
+| 2026-11-04 | [A careful hand, a box in the cable, and a recorder gone blind](articles/2026-11-04-delivery.md) | What is left when a remote operator smooths delivery, a rig sits in the cable, or a tool grabs the keyboard? | A jitter buffer hides the path (identity is all that remains); a rig on the wrong polling grid is caught on one repetition, on the right grid not at all; a grab is now reported (E23) from the compositor's idle time. |
+| 2026-11-04 | [Right on average, wrong in texture](articles/2026-11-04-session-texture.md) | Does a forgery that passes attempt by attempt hold up over a session? | No, unless it holds the full covariance: the correlations between keys expose a template forger (EER 0.01 over 50 attempts) and, less well, one who watched me (0.22 to 0.35). |
 
 The input-path study that several of these draw on is written up in
 [docs/09-STUDY-INPUT-PATH.md](../docs/09-STUDY-INPUT-PATH.md); its results are in
@@ -53,9 +55,11 @@ into the design:
 - The behavioural score is never read alone. Provenance (how the input reached
   the machine) carries weight next to it, especially against a device wired
   between the keyboard and the machine.
-- The open experiment is **consistency over time**: these forgeries are scored one
-  repetition at a time, and whether the engine catches a forgery that is right on
-  average but wrong in its texture over a session is the next test.
+- Over a session, texture helps: a forger drawing each timing on its own misses
+  the correlations between keys and is caught over a window, but one holding the
+  full covariance is not ([session-texture](articles/2026-11-04-session-texture.md)).
+  Storing that covariance makes the template a better forging kit, which raises
+  the stakes of sealing it.
 
 ### Hiding a rhythm is harder than adding noise
 
@@ -81,8 +85,10 @@ it is used:
 
 - Under Wayland, remote-desktop input never reaches `evdev`, so there the right
   signals are the shell's (phantom activity, remote session active), not E11.
-- A careful operator who smooths delivery erases the bursts; what remains is the
-  distance to my template, as long as the path keeps adding jitter.
+- A careful operator who smooths delivery erases the bursts. Spreading packets
+  still leaves even steps and destroys identity; a jitter buffer leaves nothing
+  in the timing, and an impostor through it is accepted as often as at my desk
+  ([delivery](articles/2026-11-04-delivery.md)). Identity, and E21, carry it.
 
 ### Automation betrays itself through cadence, but not always
 
@@ -97,13 +103,13 @@ divergence or a sensitive action (ADR-0011).
 
 Carried forward from the articles above, in rough priority:
 
-1. **Consistency of a forgery over a whole session**, not one repetition at a time.
-2. **A careful remote operator** who smooths input: what is left beyond the
-   template distance.
-3. **A physical rig** between keyboard and machine, which adds its own timing
-   noise the perfect-timing forger does not.
-4. **Detecting the recorder going blind** (an `EVIOCGRAB` by another tool), which
-   the kloak study found is currently silent.
+1. **Texture in free text**: how much of the correlation structure survives
+   pooling by digraph class, and whether it holds as a live session signal.
+2. **Knowing my devices**: the keyboard's polling grid and identity as part of
+   enrolment, measured on real hardware rather than simulated on CMU, since a
+   rig on the right grid is otherwise invisible.
+3. **E23 over days of my own use**: how often a touchscreen, a pen or a lock
+   screen trips it, and whether its thresholds hold.
 
 ## Reproducing a result
 
