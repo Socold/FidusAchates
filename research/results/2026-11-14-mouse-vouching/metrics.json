@@ -1,0 +1,226 @@
+{
+  "own": {
+    "owner_segments_enrolled": 3000,
+    "owner_sessions_held_out": 46,
+    "guests": [
+      {
+        "segments": 170,
+        "sessions": 6
+      }
+    ],
+    "caps": [
+      {
+        "cap_db": null,
+        "owner_false_alarms_per_hour": 1.2393125930067266,
+        "owner_recognised_share": 1.0,
+        "owner_median_time_to_recognise_s": 14.478915999999998,
+        "guests": [
+          {
+            "sessions": 6,
+            "sessions_alarmed": 0,
+            "alarms": 0,
+            "first_alarm_s": null
+          }
+        ],
+        "simulated_detected_share": 0.15217391304347827
+      },
+      {
+        "cap_db": 6.0,
+        "owner_false_alarms_per_hour": 1.4871751116080718,
+        "owner_recognised_share": 1.0,
+        "owner_median_time_to_recognise_s": 25.529833500000002,
+        "guests": [
+          {
+            "sessions": 6,
+            "sessions_alarmed": 0,
+            "alarms": 0,
+            "first_alarm_s": null
+          }
+        ],
+        "simulated_detected_share": 0.1956521739130435
+      },
+      {
+        "cap_db": 3.0,
+        "owner_false_alarms_per_hour": 1.4871751116080718,
+        "owner_recognised_share": 0.9565217391304348,
+        "owner_median_time_to_recognise_s": 33.523281499999996,
+        "guests": [
+          {
+            "sessions": 6,
+            "sessions_alarmed": 0,
+            "alarms": 0,
+            "first_alarm_s": null
+          }
+        ],
+        "simulated_detected_share": 0.2391304347826087
+      },
+      {
+        "cap_db": 2.0,
+        "owner_false_alarms_per_hour": 1.9829001488107625,
+        "owner_recognised_share": 0.9347826086956522,
+        "owner_median_time_to_recognise_s": 34.448755,
+        "guests": [
+          {
+            "sessions": 6,
+            "sessions_alarmed": 1,
+            "alarms": 1,
+            "first_alarm_s": 176.822938
+          }
+        ],
+        "simulated_detected_share": 0.2391304347826087
+      },
+      {
+        "cap_db": 1.0,
+        "owner_false_alarms_per_hour": 2.478625186013453,
+        "owner_recognised_share": 0.8695652173913043,
+        "owner_median_time_to_recognise_s": 34.11231,
+        "guests": [
+          {
+            "sessions": 6,
+            "sessions_alarmed": 3,
+            "alarms": 3,
+            "first_alarm_s": 45.88374699999999
+          }
+        ],
+        "simulated_detected_share": 0.3695652173913043
+      },
+      {
+        "cap_db": 0.5,
+        "owner_false_alarms_per_hour": 3.222212741817489,
+        "owner_recognised_share": 0.8695652173913043,
+        "owner_median_time_to_recognise_s": 34.512283499999995,
+        "guests": [
+          {
+            "sessions": 6,
+            "sessions_alarmed": 4,
+            "alarms": 5,
+            "first_alarm_s": 45.88374699999999
+          }
+        ],
+        "simulated_detected_share": 0.41304347826086957
+      },
+      {
+        "cap_db": 0.0,
+        "owner_false_alarms_per_hour": 5.205112890628252,
+        "owner_recognised_share": 0.8695652173913043,
+        "owner_median_time_to_recognise_s": 34.512283499999995,
+        "guests": [
+          {
+            "sessions": 6,
+            "sessions_alarmed": 6,
+            "alarms": 11,
+            "first_alarm_s": 19.85192
+          }
+        ],
+        "simulated_detected_share": 0.5
+      }
+    ],
+    "per_signal_uncapped": {
+      "owner": {
+        "B01_velocity": {
+          "mean_db": -50.88348917232217,
+          "segments": 767
+        },
+        "B06_pointing_time": {
+          "mean_db": -14.56715462742371,
+          "segments": 414
+        },
+        "B07_overshoot": {
+          "mean_db": -3.552599703734276,
+          "segments": 405
+        },
+        "B08_micro_corrections": {
+          "mean_db": -2.5933337018144256,
+          "segments": 414
+        },
+        "B09_pause_before_click": {
+          "mean_db": -13.033596113072175,
+          "segments": 419
+        },
+        "B10_click_duration": {
+          "mean_db": -14.83625069592838,
+          "segments": 424
+        },
+        "B13_wheel_interval": {
+          "mean_db": -33.04908415396927,
+          "segments": 347
+        },
+        "B15_approach": {
+          "mean_db": -0.2241648888646186,
+          "segments": 414
+        },
+        "B25_departure": {
+          "mean_db": -0.22397898677749803,
+          "segments": 679
+        }
+      },
+      "guests": [
+        {
+          "B01_velocity": {
+            "mean_db": -60.540660986957434,
+            "segments": 126
+          },
+          "B06_pointing_time": {
+            "mean_db": -10.237629338532642,
+            "segments": 23
+          },
+          "B07_overshoot": {
+            "mean_db": -1.3187015600533858,
+            "segments": 21
+          },
+          "B08_micro_corrections": {
+            "mean_db": -0.42203953990340964,
+            "segments": 23
+          },
+          "B09_pause_before_click": {
+            "mean_db": -12.474673502775696,
+            "segments": 23
+          },
+          "B10_click_duration": {
+            "mean_db": -14.411752403436367,
+            "segments": 23
+          },
+          "B13_wheel_interval": {
+            "mean_db": 1.9328478604743327,
+            "segments": 55
+          },
+          "B15_approach": {
+            "mean_db": -0.45056382912047216,
+            "segments": 23
+          },
+          "B25_departure": {
+            "mean_db": -0.01915440799500449,
+            "segments": 108
+          }
+        }
+      ]
+    },
+    "computed": "2026-11-14"
+  },
+  "balabit_eer": {
+    "None": {
+      "k1": 0.377,
+      "k3": 0.328,
+      "k5": 0.31,
+      "session": 0.286
+    },
+    "2.0": {
+      "k1": 0.452,
+      "k3": 0.436,
+      "k5": 0.417,
+      "session": 0.377
+    },
+    "1.0": {
+      "k1": 0.453,
+      "k3": 0.436,
+      "k5": 0.425,
+      "session": 0.391
+    },
+    "0.5": {
+      "k1": 0.453,
+      "k3": 0.439,
+      "k5": 0.425,
+      "session": 0.385
+    }
+  }
+}
