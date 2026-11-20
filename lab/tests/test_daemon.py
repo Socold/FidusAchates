@@ -147,3 +147,13 @@ def test_state_snapshot_carries_live_fields():
 
 def test_segment_type_has_context_by_default():
     assert Segment(0, 0).context == []
+
+
+def test_on_change_forwards_only_new_states():
+    from fidus_lab.daemon import OnChange
+
+    seen = []
+    w = OnChange(seen.append)
+    for v in (True, True, False, False, False, True):
+        w(v)
+    assert seen == [True, False, True]

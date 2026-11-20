@@ -36,7 +36,7 @@ from pathlib import Path
 
 from . import saved_model, vault
 from .analyze import SegmentReport
-from .attribution import PhantomWatch, RemoteTimingWatch, attribute
+from .attribution import BlindWatch, PhantomWatch, RemoteTimingWatch, attribute
 from .console import Console, publish_link, start
 from .context import ContextEvent, ContextTracker
 from .drift import ModelSnapshots
@@ -61,6 +61,10 @@ REFIT_EVERY_S = 30 * 60
 REFIT_LEARNING_S = 5 * 60
 CURVE_EVERY_S = 3 * 3600
 HEARTBEAT_S = 30
+# How often the compositor's idle time is read for E23.
+IDLE_POLL_S = 5
+# How often the lock and seat states are re-read, in case a signal was missed.
+STATE_POLL_S = 5
 # The bar turns red above this, and only once enrolment is complete.
 ALERT_ABOVE = 0.5
 
@@ -122,6 +126,7 @@ class Daemon:
         self.context = ContextTracker()
         self.secrets = SecretInputFilter()
         self.phantom = PhantomWatch(started_us=now_us())
+        self.blind = BlindWatch(started_us=now_us())
         self._seat_active = True
         self._locked = False
         self.foreign_dropped = 0
@@ -281,6 +286,14 @@ class Daemon:
             else:
                 self.store.write_context([ev])
 
+    def on_idle(self, idle_ms: int) -> None:
+        """Called from the D-Bus thread with the compositor's idle time."""
+        if self.blind.idle(now_us(), idle_ms * 1000):
+            print(f"fidus-daemon: blind recorder (E23): {self.blind.describe()}",
+                  file=sys.stderr)
+            self._publish_status()
+            self._push_panel(force=True)
+
     def _take(self, r: Record) -> None:
         """One record past the secret-input filter: stored and segmented."""
         if (self._last_record_us is not None
@@ -367,7 +380,7 @@ class Daemon:
     def _push_panel(self, force: bool = False) -> None:
         st = self._status
         state, pct = panel_state(st.get("ready", False), st.get("progress", 0.0), self._last_p,
-                                 phantom=self.phantom.active)
+                                 phantom=self.phantom.active or self.blind.active)
         self.overlay.set_status(state, pct, identity_confidence(self._last_confidence),
                                 force=force)
 
@@ -377,6 +390,7 @@ class Daemon:
             st["guest"] = ({"id": self._guest.id, "label": self._guest.label}
                            if self._guest else None)
             st["phantom"] = self.phantom.describe() if self.phantom.active else None
+            st["blind"] = self.blind.describe() if self.blind.active else None
         self.console.state.set_status(st)
 
     # --- background: refit and curves --------------------------------------------
@@ -503,7 +517,7 @@ class Daemon:
         threading.Thread(target=self._heartbeat, daemon=True).start()
         threading.Thread(target=follow, args=(actions_path(), self.actions, self._stop, now_us),
                          daemon=True).start()
-        start_activity_listener(self.on_activity, self.on_lock, self.on_seat)
+        start_activity_listener(self.on_activity, self.on_lock, self.on_seat, self.on_idle)
         if self.history is not None:
             # What the last run knew, before the first refit lands.
             self.console.state.set_learning(self.history.load_learning())
@@ -521,7 +535,9 @@ class Daemon:
                     print("fidus-daemon: the recorder stopped", file=sys.stderr)
                     return proc.wait() or 1
                 if r:
-                    if self.phantom.input(r.time_us):
+                    ended = self.phantom.input(r.time_us)
+                    ended = self.blind.input(r.time_us) or ended
+                    if ended:
                         print("fidus-daemon: input reaches the recorder again", file=sys.stderr)
                         self._publish_status()
                         self._push_panel(force=True)
@@ -556,10 +572,11 @@ class Daemon:
             self.overlay.set_status("off", 0, force=True)
 
 
-def start_activity_listener(callback, on_lock=None, on_seat=None) -> bool:
+def start_activity_listener(callback, on_lock=None, on_seat=None, on_idle=None) -> bool:
     """Subscribe to the extension's ActivityTick, to GNOME's screen lock for
     `on_lock`, and to logind for `on_seat` (is my graphical session the active
-    one on its seat), on a GLib loop in its own thread. Without PyGObject or
+    one on its seat), and poll Mutter's idle time every IDLE_POLL_S for
+    `on_idle`, on a GLib loop in its own thread. Without PyGObject or
     the extension, context simply stays empty; without logind, my session is
     taken as active."""
     try:
@@ -582,22 +599,65 @@ def start_activity_listener(callback, on_lock=None, on_seat=None) -> bool:
                              "/org/fidusachates/Overlay", None,
                              Gio.DBusSignalFlags.NONE, on_signal)
         if on_lock is not None:
+            lock = OnChange(on_lock)
             bus.signal_subscribe(None, "org.gnome.ScreenSaver", "ActiveChanged",
                                  "/org/gnome/ScreenSaver", None,
                                  Gio.DBusSignalFlags.NONE,
-                                 lambda *a: on_lock(bool(a[-1].unpack()[0])))
-            try:
-                active = bus.call_sync("org.gnome.ScreenSaver", "/org/gnome/ScreenSaver",
-                                       "org.gnome.ScreenSaver", "GetActive", None, None,
-                                       Gio.DBusCallFlags.NONE, 1000, None).unpack()[0]
-                on_lock(bool(active))
-            except Exception:  # noqa: BLE001  no screensaver service: nothing to track
-                pass
+                                 lambda *a: lock(bool(a[-1].unpack()[0])))
+
+            def read_lock() -> bool:
+                try:
+                    active = bus.call_sync("org.gnome.ScreenSaver", "/org/gnome/ScreenSaver",
+                                           "org.gnome.ScreenSaver", "GetActive", None, None,
+                                           Gio.DBusCallFlags.NONE, 1000, None).unpack()[0]
+                except Exception:  # noqa: BLE001  no screensaver service: nothing to track
+                    return False
+                lock(bool(active))
+                return True
+
+            # The signal alone is not enough: one missed ActiveChanged left
+            # every key withheld as a password for a day. Re-read it.
+            if read_lock():
+                GLib.timeout_add_seconds(STATE_POLL_S, read_lock)
         if on_seat is not None:
             _watch_seat(Gio, GLib, on_seat)
+        if on_idle is not None:
+            GLib.timeout_add_seconds(IDLE_POLL_S, _poll_idle, Gio, bus, on_idle)
         GLib.MainLoop().run()
 
     threading.Thread(target=loop, daemon=True).start()
+    return True
+
+
+class OnChange:
+    """Forward a boolean state to `fn` only when it differs from the last
+    one forwarded, so that a periodic re-read and the change signal can both
+    feed it."""
+
+    def __init__(self, fn) -> None:
+        self.fn = fn
+        self.last: bool | None = None
+
+    def __call__(self, value: bool) -> None:
+        if value != self.last:
+            self.last = value
+            self.fn(value)
+
+
+def _poll_idle(Gio, bus, on_idle) -> bool:
+    """One idle-time sample from Mutter, in ms. Keeps polling unless the
+    service is missing (another desktop): then E23 is simply unavailable."""
+    try:
+        idle = bus.call_sync("org.gnome.Mutter.IdleMonitor",
+                             "/org/gnome/Mutter/IdleMonitor/Core",
+                             "org.gnome.Mutter.IdleMonitor", "GetIdletime", None, None,
+                             Gio.DBusCallFlags.NONE, 1000, None).unpack()[0]
+    except Exception:  # noqa: BLE001  no Mutter: stop polling
+        return False
+    try:
+        on_idle(int(idle))
+    except Exception:  # noqa: BLE001  a bad sample must not kill the loop
+        pass
     return True
 
 
@@ -626,17 +686,28 @@ def _watch_seat(Gio, GLib, on_seat) -> None:
         def changed(_c, _s, _p, _i, _sig, params):
             iface, props, _inv = params.unpack()
             if iface == "org.freedesktop.login1.Session" and "Active" in props:
-                on_seat(bool(props["Active"]))
+                seat(bool(props["Active"]))
 
+        seat = OnChange(on_seat)
         sysbus.signal_subscribe("org.freedesktop.login1", "org.freedesktop.DBus.Properties",
                                 "PropertiesChanged", session, None,
                                 Gio.DBusSignalFlags.NONE, changed)
-        active = sysbus.call_sync("org.freedesktop.login1", session,
-                                  "org.freedesktop.DBus.Properties", "Get",
-                                  GLib.Variant("(ss)", ("org.freedesktop.login1.Session",
-                                                        "Active")),
-                                  None, Gio.DBusCallFlags.NONE, 1000, None).unpack()[0]
-        on_seat(bool(active))
+
+        def read_seat() -> bool:
+            try:
+                active = sysbus.call_sync(
+                    "org.freedesktop.login1", session, "org.freedesktop.DBus.Properties",
+                    "Get", GLib.Variant("(ss)", ("org.freedesktop.login1.Session", "Active")),
+                    None, Gio.DBusCallFlags.NONE, 1000, None).unpack()[0]
+            except Exception:  # noqa: BLE001  logind gone: keep the last state
+                return True
+            seat(bool(active))
+            return True
+
+        read_seat()
+        # A missed PropertiesChanged left my own input dropped as another
+        # session's for a day. Re-read it.
+        GLib.timeout_add_seconds(STATE_POLL_S, read_seat)
     except Exception:  # noqa: BLE001  no logind: my session is taken as active
         return
 

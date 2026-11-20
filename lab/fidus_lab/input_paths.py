@@ -18,6 +18,16 @@ application, or the recorder, would see:
 
 Every function also returns how many key-downs left exactly when they were
 typed (the leak of the two buffers), so that the protocols can report it.
+
+Three more model what a careful operator or a device does to the delivery:
+
+- `spread`: the receiver of a remote hop spaces the events of each packet
+  evenly over one frame instead of injecting them back to back.
+- `playout`: the sender stamps every event and the receiver replays it a
+  fixed delay later, a jitter buffer: the timing arrives intact unless a
+  packet is later than the buffer.
+- `quantize`: events land on a polling grid, as a USB keyboard or a device
+  between the keyboard and the machine reports them.
 """
 
 from __future__ import annotations
@@ -105,3 +115,71 @@ def lag_ms(before: Events, after: Events) -> list[float]:
     """Per key-down delay added by a path."""
     b, a = _downs_ups(before)[0], _downs_ups(after)[0]
     return [a[i] - b[i] for i in b]
+
+
+def _sorted(out: Events) -> Events:
+    return sorted(out, key=lambda e: (e[0], not e[2], e[1]))
+
+
+def spread(events: Events, frame_ms: float = 16.0, burst_ms: float = 1.0) -> tuple[Events, int]:
+    """Re-space each run of events closer than `burst_ms` evenly over
+    `frame_ms`, never earlier than it arrived nor before the previous event.
+    The second value is the number of runs spread."""
+    ordered = sorted(events, key=lambda e: e[0])
+    runs: list[list[tuple[float, int, bool]]] = []
+    for e in ordered:
+        if runs and e[0] - runs[-1][-1][0] < burst_ms:
+            runs[-1].append(e)
+        else:
+            runs.append([e])
+    out: Events = []
+    spread_runs = 0
+    last = -math.inf
+    for run in runs:
+        step = frame_ms / len(run)
+        spread_runs += len(run) > 1
+        for j, (t, i, d) in enumerate(run):
+            at = max(run[0][0] + j * step, t, last)
+            out.append((at, i, d))
+            last = at
+    return out, spread_runs
+
+
+def playout(
+    events: Events, rng: random.Random, buffer_ms: float = 250.0, frame_ms: float = 16.0,
+    latency_ms: float = 150.0, jitter_ms: float = 40.0, tick_ms: float = 1.0,
+) -> tuple[Events, int]:
+    """Events cross the same packetised path as `remote`, but each carries
+    its send-side time and is replayed `buffer_ms` after it, on the receiver's
+    timer tick; a packet arriving later than that is replayed on arrival. The
+    second value is the number of late events."""
+    arrived, _ = remote(events, rng, frame_ms, latency_ms, jitter_ms, inject_gap_ms=0.0)
+    arrival = {(i, d): t for t, i, d in arrived}
+    out: Events = []
+    late = 0
+    last = -math.inf
+    for t, i, d in sorted(events, key=lambda e: (e[0], not e[2], e[1])):
+        due = t + buffer_ms
+        if arrival[(i, d)] > due:
+            late += 1
+            due = arrival[(i, d)]
+        at = max(math.ceil(due / tick_ms) * tick_ms, last)
+        out.append((at, i, d))
+        last = at
+    return out, late
+
+
+def quantize(events: Events, period_ms: float, phase_ms: float = 0.0,
+             jitter_ms: float = 0.0, rng: random.Random | None = None) -> tuple[Events, int]:
+    """Each event reported at the first poll at or after it, polls every
+    `period_ms` from `phase_ms`, plus an optional Gaussian timestamping
+    jitter. The second value is the number of events that moved."""
+    out: Events = []
+    moved = 0
+    for t, i, d in events:
+        at = math.ceil((t - phase_ms) / period_ms) * period_ms + phase_ms
+        if jitter_ms > 0 and rng is not None:
+            at += rng.gauss(0.0, jitter_ms)
+        moved += at != t
+        out.append((at, i, d))
+    return _sorted(out), moved

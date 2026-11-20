@@ -56,3 +56,42 @@ def test_explanation_has_several_bars():
     assert any(n.startswith("A0") for n in names) and any(n.startswith("B") for n in names)
     # Exactness: the bars sum to the fused evidence (bias is zero by default).
     assert abs(sum(b.decibans for b in bars) - d.evidence_db) < 1e-9
+
+
+def test_without_a_population_the_pointer_vouches_only_up_to_the_cap():
+    """The wide fallback cannot tell me from another hand on the same mouse,
+    so it may accuse in full but vouch only up to the cap, per signal."""
+    from fidus_lab.experts import PointerExpert
+    ptr = PointerTemplate.fit(mouse_segs(GEN_M, 8, seed0=100))
+    seg = mouse_segs(GEN_M, 1, seed0=900)[0]
+    capped, _ = PointerExpert().evidence(seg, ptr, PointerTemplate())
+    free, _ = PointerExpert(fallback_vouch_cap_db=None).evidence(seg, ptr, PointerTemplate())
+    assert min(free.values()) < -1.0, "the genuine segment should vouch strongly uncapped"
+    assert all(v >= -1.0 for v in capped.values())
+    imp = mouse_segs(IMP_M, 1, seed0=901)[0]
+    acc_c, _ = PointerExpert().evidence(imp, ptr, PointerTemplate())
+    acc_f, _ = PointerExpert(fallback_vouch_cap_db=None).evidence(imp, ptr, PointerTemplate())
+    assert {k: v for k, v in acc_c.items() if v > 0} == {k: v for k, v in acc_f.items() if v > 0}
+
+
+def test_with_a_population_the_cap_does_not_apply():
+    from fidus_lab.experts import PointerExpert
+    ptr = PointerTemplate.fit(mouse_segs(GEN_M, 8, seed0=100))
+    pop = PointerTemplate.fit(mouse_segs(IMP_M, 8, seed0=300))
+    seg = mouse_segs(GEN_M, 1, seed0=900)[0]
+    capped, _ = PointerExpert().evidence(seg, ptr, pop)
+    free, _ = PointerExpert(fallback_vouch_cap_db=None).evidence(seg, ptr, pop)
+    assert capped == free
+
+
+def test_vouch_bench_reports_each_cap():
+    from fidus_lab.learning import Enrolled, split_sessions
+    from fidus_lab.vouch_eval import cap_row
+    own = mouse_segs(GEN_M, 30, seed0=1000)
+    enrolled = Enrolled.fit(own[:20])
+    held = split_sessions(own[20:], max_segments=5)
+    guest = split_sessions(mouse_segs(IMP_M, 10, seed0=2000), max_segments=5)
+    rows = [cap_row(enrolled, held, [guest], [], c) for c in (None, 0.0)]
+    assert [r["cap_db"] for r in rows] == [None, 0.0]
+    # Capping vouching can only add alarms on the guest, never remove them.
+    assert rows[1]["guests"][0]["alarms"] >= rows[0]["guests"][0]["alarms"]

@@ -1,0 +1,156 @@
+{
+  "corpus": "CMU DSL-StrongPasswordData",
+  "seed": 20261105,
+  "victims": 51,
+  "dimensions": 21,
+  "training_speed_autocorr_median": 0.524,
+  "eer": {
+    "laplace_independent": {
+      "k1": {
+        "texture": 0.1982
+      },
+      "k5": {
+        "texture": 0.0941,
+        "speed_autocorr": 0.4686
+      },
+      "k10": {
+        "texture": 0.051,
+        "speed_autocorr": 0.4294
+      },
+      "k20": {
+        "texture": 0.0157,
+        "speed_autocorr": 0.3725
+      },
+      "k50": {
+        "texture": 0.0098,
+        "speed_autocorr": 0.2843
+      }
+    },
+    "gauss_diagonal": {
+      "k1": {
+        "texture": 0.222
+      },
+      "k5": {
+        "texture": 0.1422,
+        "speed_autocorr": 0.4775
+      },
+      "k10": {
+        "texture": 0.102,
+        "speed_autocorr": 0.451
+      },
+      "k20": {
+        "texture": 0.0667,
+        "speed_autocorr": 0.3961
+      },
+      "k50": {
+        "texture": 0.0392,
+        "speed_autocorr": 0.2941
+      }
+    },
+    "gauss_full": {
+      "k1": {
+        "texture": 0.4808
+      },
+      "k5": {
+        "texture": 0.5696,
+        "speed_autocorr": 0.4794
+      },
+      "k10": {
+        "texture": 0.6118,
+        "speed_autocorr": 0.4392
+      },
+      "k20": {
+        "texture": 0.6314,
+        "speed_autocorr": 0.4078
+      },
+      "k50": {
+        "texture": 0.6569,
+        "speed_autocorr": 0.2941
+      }
+    },
+    "gauss_full_drift": {
+      "k1": {
+        "texture": 0.4735
+      },
+      "k5": {
+        "texture": 0.5412,
+        "speed_autocorr": 0.5912
+      },
+      "k10": {
+        "texture": 0.5745,
+        "speed_autocorr": 0.6843
+      },
+      "k20": {
+        "texture": 0.6157,
+        "speed_autocorr": 0.7294
+      },
+      "k50": {
+        "texture": 0.6373,
+        "speed_autocorr": 0.7549
+      }
+    },
+    "observed_5": {
+      "k1": {
+        "texture": 0.3329
+      },
+      "k5": {
+        "texture": 0.2814,
+        "speed_autocorr": 0.4686
+      },
+      "k10": {
+        "texture": 0.2706,
+        "speed_autocorr": 0.4333
+      },
+      "k20": {
+        "texture": 0.2471,
+        "speed_autocorr": 0.3765
+      },
+      "k50": {
+        "texture": 0.2157,
+        "speed_autocorr": 0.3137
+      }
+    },
+    "observed_20": {
+      "k1": {
+        "texture": 0.3229
+      },
+      "k5": {
+        "texture": 0.2686,
+        "speed_autocorr": 0.4725
+      },
+      "k10": {
+        "texture": 0.2569,
+        "speed_autocorr": 0.4392
+      },
+      "k20": {
+        "texture": 0.2157,
+        "speed_autocorr": 0.3843
+      },
+      "k50": {
+        "texture": 0.1863,
+        "speed_autocorr": 0.2941
+      }
+    },
+    "observed_50": {
+      "k1": {
+        "texture": 0.3751
+      },
+      "k5": {
+        "texture": 0.3706,
+        "speed_autocorr": 0.4745
+      },
+      "k10": {
+        "texture": 0.3529,
+        "speed_autocorr": 0.4314
+      },
+      "k20": {
+        "texture": 0.3451,
+        "speed_autocorr": 0.3725
+      },
+      "k50": {
+        "texture": 0.3529,
+        "speed_autocorr": 0.2843
+      }
+    }
+  }
+}

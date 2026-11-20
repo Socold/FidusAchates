@@ -1,0 +1,171 @@
+{
+  "corpus": "CMU DSL-StrongPasswordData",
+  "seed": 20261106,
+  "careful_remote": {
+    "path": {
+      "frame_ms": 16.0,
+      "latency_ms": 150.0,
+      "jitter_ms": 40.0
+    },
+    "local_impostor_acceptance": 0.0959,
+    "raw": {
+      "blind_detection": {
+        "k1": {
+          "bursts": 0.0366,
+          "repeated_gaps": 0.4012
+        },
+        "k5": {
+          "bursts": 0.0005,
+          "repeated_gaps": 0.2294
+        }
+      },
+      "my_template_notices": 0.0574,
+      "impostor_acceptance": 0.002
+    },
+    "spread": {
+      "blind_detection": {
+        "k1": {
+          "bursts": 0.471,
+          "repeated_gaps": 0.3848
+        },
+        "k5": {
+          "bursts": 0.3775,
+          "repeated_gaps": 0.2037
+        }
+      },
+      "my_template_notices": 0.0571,
+      "impostor_acceptance": 0.0018
+    },
+    "playout_250ms": {
+      "blind_detection": {
+        "k1": {
+          "bursts": 0.4667,
+          "repeated_gaps": 0.4676
+        },
+        "k5": {
+          "bursts": 0.3571,
+          "repeated_gaps": 0.3574
+        }
+      },
+      "my_template_notices": 0.4682,
+      "impostor_acceptance": 0.0902,
+      "late_event_share": 0.0277
+    }
+  },
+  "rig": {
+    "keyboard_1ms": {
+      "perfect": {
+        "forgery_acceptance": 0.9629,
+        "grid_detection": {
+          "k1": {
+            "grid_1ms": 0.0,
+            "grid_8ms": 0.4949
+          },
+          "k5": {
+            "grid_1ms": 0.0,
+            "grid_8ms": 0.4995
+          }
+        },
+        "grid_alignment_median": {
+          "grid_1ms": 0.185,
+          "grid_8ms": 0.193
+        }
+      },
+      "rig_1ms": {
+        "forgery_acceptance": 0.9611,
+        "grid_detection": {
+          "k1": {
+            "grid_1ms": 0.496,
+            "grid_8ms": 0.4992
+          },
+          "k5": {
+            "grid_1ms": 0.498,
+            "grid_8ms": 0.4926
+          }
+        },
+        "grid_alignment_median": {
+          "grid_1ms": 0.906,
+          "grid_8ms": 0.18
+        }
+      },
+      "rig_8ms": {
+        "forgery_acceptance": 0.958,
+        "grid_detection": {
+          "k1": {
+            "grid_1ms": 0.496,
+            "grid_8ms": 0.0
+          },
+          "k5": {
+            "grid_1ms": 0.4975,
+            "grid_8ms": 0.0
+          }
+        },
+        "grid_alignment_median": {
+          "grid_1ms": 0.91,
+          "grid_8ms": 0.999
+        }
+      },
+      "my_keyboard_alignment_median": {
+        "grid_1ms": 0.91,
+        "grid_8ms": 0.179
+      }
+    },
+    "keyboard_8ms": {
+      "perfect": {
+        "forgery_acceptance": 0.9555,
+        "grid_detection": {
+          "k1": {
+            "grid_1ms": 0.0,
+            "grid_8ms": 0.0
+          },
+          "k5": {
+            "grid_1ms": 0.0,
+            "grid_8ms": 0.0
+          }
+        },
+        "grid_alignment_median": {
+          "grid_1ms": 0.189,
+          "grid_8ms": 0.178
+        }
+      },
+      "rig_1ms": {
+        "forgery_acceptance": 0.9564,
+        "grid_detection": {
+          "k1": {
+            "grid_1ms": 0.4962,
+            "grid_8ms": 0.0
+          },
+          "k5": {
+            "grid_1ms": 0.499,
+            "grid_8ms": 0.0
+          }
+        },
+        "grid_alignment_median": {
+          "grid_1ms": 0.912,
+          "grid_8ms": 0.183
+        }
+      },
+      "rig_8ms": {
+        "forgery_acceptance": 0.9529,
+        "grid_detection": {
+          "k1": {
+            "grid_1ms": 0.4994,
+            "grid_8ms": 0.4994
+          },
+          "k5": {
+            "grid_1ms": 0.499,
+            "grid_8ms": 0.4966
+          }
+        },
+        "grid_alignment_median": {
+          "grid_1ms": 0.909,
+          "grid_8ms": 0.999
+        }
+      },
+      "my_keyboard_alignment_median": {
+        "grid_1ms": 0.911,
+        "grid_8ms": 0.999
+      }
+    }
+  }
+}

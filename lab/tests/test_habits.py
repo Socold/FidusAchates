@@ -156,3 +156,14 @@ def test_stream_reader_reassembles_short_reads():
     r = Record(9, 0, False, Event(EventKind.WHEEL, dx=0, dy=-1))
     back = list(read_stream(_Trickle(MAGIC + encode(r) * 3)))
     assert len(back) == 3 and back[0].event.dy == -1
+
+
+def test_pointing_habits_vouch_only_up_to_the_cap_without_population():
+    tpl = HabitTemplate.fit(person_segments(OWNER, 20, seed=1))
+    seg = person_segments(OWNER, 1, seed=6)[0]
+    capped, _ = HabitExpert().evidence(seg, tpl)
+    free, _ = HabitExpert(fallback_vouch_cap_db=None).evidence(seg, tpl)
+    assert all(v >= -1.0 for k, v in capped.items() if k.startswith("B"))
+    # Shortcuts and applications are not pointer habits: untouched.
+    assert {k: v for k, v in capped.items() if not k.startswith("B")} == \
+        {k: v for k, v in free.items() if not k.startswith("B")}

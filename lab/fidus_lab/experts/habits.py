@@ -300,6 +300,10 @@ class HabitExpert:
     wide_factor: float = 3.0
     # At most this many observations' worth per signal and segment.
     n_eff_max: int = 20
+    # The pointing habits (B signals) share the pointer's straw-man fallback,
+    # so they share its cap on vouching without a population (see
+    # PointerExpert.fallback_vouch_cap_db). None turns it off.
+    fallback_vouch_cap_db: float | None = 1.0
 
     def evidence(
         self,
@@ -330,7 +334,20 @@ class HabitExpert:
                 per.setdefault("B06_pointing_time", []).append(
                     self._clamp(deciban_from_logpdf(lr, lg)))
                 n += 1
-        return {k: pooled(v, self.n_eff_max) for k, v in per.items()}, n
+        out = {k: pooled(v, self.n_eff_max) for k, v in per.items()}
+        cap = self.fallback_vouch_cap_db
+        if cap is not None:
+            out = {k: max(v, -cap) if k.startswith("B") and not self._has_reference(k, reference)
+                   else v for k, v in out.items()}
+        return out, n
+
+    @staticmethod
+    def _has_reference(name: str, reference: HabitTemplate | None) -> bool:
+        if reference is None:
+            return False
+        if name == "B06_pointing_time":
+            return reference.law is not None
+        return name in reference.categorical
 
     def _clamp(self, e: float) -> float:
         return max(-self.clamp_db, min(self.clamp_db, e))

@@ -96,6 +96,13 @@ class PointerExpert:
     # At most this many observations' worth per signal and segment (see
     # evidence.pooled): pointer motion gives hundreds of correlated ones.
     n_eff_max: int = 20
+    # Without a population, how much one pointer signal may say "this is me"
+    # in one segment. The wide reference is a straw man: any hand on the same
+    # mouse sits near the centre of my own distribution, so a stranger scored
+    # as more like me than I do (the mouse-only guest of 2026-11-11, research
+    # article 2026-11-14-mouse-vouching). The signal may still accuse in full;
+    # it may only vouch up to this. None turns the cap off.
+    fallback_vouch_cap_db: float | None = 1.0
 
     def evidence(
         self,
@@ -117,7 +124,11 @@ class PointerExpert:
                 e = max(-self.clamp_db, min(self.clamp_db, e))
                 per.setdefault(name, []).append(e)
                 n += 1
-        return {k: pooled(v, self.n_eff_max) for k, v in per.items()}, n
+        out = {k: pooled(v, self.n_eff_max) for k, v in per.items()}
+        cap = self.fallback_vouch_cap_db
+        if cap is not None:
+            out = {k: v if k in reference.models else max(v, -cap) for k, v in out.items()}
+        return out, n
 
     @staticmethod
     def _wide(x: float, g: Distribution) -> float:
